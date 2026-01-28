@@ -1353,8 +1353,8 @@ void setup() {
 
   // Textes à afficher
   const char* text1 = "Evil-Cardputer";
-  const char* text2 = "By 7h30th3r0n3";
-  const char* text3 = "v1.5.0 2025";
+  const char* text2 = "By Echo Eins";
+  const char* text3 = "v1.5.1 2026";
 
   // Mesure de la largeur du texte et calcul de la position du curseur
   int text1Width = M5.Lcd.textWidth(text1);
@@ -1383,8 +1383,8 @@ void setup() {
   // Affichage en série
   Serial.println(F("-------------------"));
   Serial.println(F("Evil-Cardputer"));
-  Serial.println(F("By 7h30th3r0n3"));
-  Serial.println(F("v1.5.0 2025"));
+  Serial.println(F("By Echo Eins"));
+  Serial.println(F("v1.5.1 2026"));
   Serial.println(F("-------------------"));
   // Diviser randomMessage en deux lignes pour s'adapter à l'écran
   int maxCharsPerLine = screenWidth / 10;  // Estimation de 10 pixels par caractère
@@ -13776,8 +13776,8 @@ unsigned long lastLog = 0;
 int currentScreen   = 1;  // 1=GeneralInfo, 2=ReceivedData
 
 const String wigleHeaderFileFormat =
-  "WigleWifi-1.4,appRelease=v1.5.0,model=Cardputer,release=v1.5.0,"
-  "device=Evil-Cardputer,display=7h30th3r0n3,board=M5Cardputer,brand=M5Stack";
+  "WigleWifi-1.4,appRelease=v1.5.1,model=Cardputer,release=v1.5.1,"
+  "device=Evil-Cardputer,display=EchoEins,board=M5Cardputer,brand=M5Stack";
 
 char* log_col_names[LOG_COLUMN_COUNT] = {
     "MAC", "SSID", "AuthMode", "FirstSeen", "Channel",
