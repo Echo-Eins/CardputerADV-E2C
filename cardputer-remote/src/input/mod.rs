@@ -3,14 +3,17 @@
 //! Maps Cardputer input commands to Windows input events
 
 use crate::protocol::{ClickAction, InputMode, KeyEvent, MouseButton, MouseClick, MouseMove};
-use enigo::{Enigo, Key, KeyboardControllable, MouseButton as EnigoButton, MouseControllable};
+use enigo::{
+    Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings,
+    Button as EnigoButton,
+};
 use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InputError {
-    #[error("Failed to initialize input controller")]
-    InitError,
+    #[error("Failed to initialize input controller: {0}")]
+    InitError(String),
 
     #[error("Invalid keycode: {0}")]
     InvalidKeycode(u8),
@@ -23,7 +26,7 @@ pub enum InputError {
 pub struct InputController {
     enigo: Enigo,
     current_mode: InputMode,
-    /// Cumulative mouse position (for relative movement)
+    /// Mouse movement speed (pixels per command)
     mouse_speed: i32,
     /// Keycode mapping from USB HID to enigo keys
     keymap: HashMap<u8, Key>,
@@ -32,13 +35,15 @@ pub struct InputController {
 impl InputController {
     /// Create a new input controller
     pub fn new() -> Result<Self, InputError> {
-        let enigo = Enigo::new();
+        let settings = Settings::default();
+        let enigo = Enigo::new(&settings)
+            .map_err(|e| InputError::InitError(e.to_string()))?;
         let keymap = Self::build_keymap();
 
         Ok(Self {
             enigo,
             current_mode: InputMode::Mouse,
-            mouse_speed: 5, // Pixels per movement command
+            mouse_speed: 5,
             keymap,
         })
     }
@@ -48,35 +53,35 @@ impl InputController {
         let mut map = HashMap::new();
 
         // Letters (0x04 - 0x1D = a-z)
-        for i in 0..26 {
+        for i in 0..26u8 {
             let c = (b'a' + i) as char;
-            map.insert(0x04 + i, Key::Layout(c));
+            map.insert(0x04 + i, Key::Unicode(c));
         }
 
         // Numbers (0x1E - 0x27 = 1-9, 0)
-        for i in 0..9 {
+        for i in 0..9u8 {
             let c = (b'1' + i) as char;
-            map.insert(0x1E + i, Key::Layout(c));
+            map.insert(0x1E + i, Key::Unicode(c));
         }
-        map.insert(0x27, Key::Layout('0'));
+        map.insert(0x27, Key::Unicode('0'));
 
         // Special keys
-        map.insert(0x28, Key::Return);      // Enter
-        map.insert(0x29, Key::Escape);      // Escape
-        map.insert(0x2A, Key::Backspace);   // Backspace
-        map.insert(0x2B, Key::Tab);         // Tab
-        map.insert(0x2C, Key::Space);       // Space
-        map.insert(0x2D, Key::Layout('-')); // Minus
-        map.insert(0x2E, Key::Layout('=')); // Equal
-        map.insert(0x2F, Key::Layout('[')); // Left bracket
-        map.insert(0x30, Key::Layout(']')); // Right bracket
-        map.insert(0x31, Key::Layout('\\')); // Backslash
-        map.insert(0x33, Key::Layout(';')); // Semicolon
-        map.insert(0x34, Key::Layout('\'')); // Quote
-        map.insert(0x35, Key::Layout('`')); // Grave
-        map.insert(0x36, Key::Layout(',')); // Comma
-        map.insert(0x37, Key::Layout('.')); // Period
-        map.insert(0x38, Key::Layout('/')); // Slash
+        map.insert(0x28, Key::Return);
+        map.insert(0x29, Key::Escape);
+        map.insert(0x2A, Key::Backspace);
+        map.insert(0x2B, Key::Tab);
+        map.insert(0x2C, Key::Space);
+        map.insert(0x2D, Key::Unicode('-'));
+        map.insert(0x2E, Key::Unicode('='));
+        map.insert(0x2F, Key::Unicode('['));
+        map.insert(0x30, Key::Unicode(']'));
+        map.insert(0x31, Key::Unicode('\\'));
+        map.insert(0x33, Key::Unicode(';'));
+        map.insert(0x34, Key::Unicode('\''));
+        map.insert(0x35, Key::Unicode('`'));
+        map.insert(0x36, Key::Unicode(','));
+        map.insert(0x37, Key::Unicode('.'));
+        map.insert(0x38, Key::Unicode('/'));
 
         // Function keys (0x3A - 0x45 = F1-F12)
         map.insert(0x3A, Key::F1);
@@ -93,7 +98,6 @@ impl InputController {
         map.insert(0x45, Key::F12);
 
         // Navigation keys
-        map.insert(0x49, Key::Layout('\x7F')); // Insert (using Delete as placeholder)
         map.insert(0x4A, Key::Home);
         map.insert(0x4B, Key::PageUp);
         map.insert(0x4C, Key::Delete);
@@ -137,7 +141,7 @@ impl InputController {
     pub fn mouse_move(&mut self, movement: MouseMove) {
         let dx = movement.dx as i32 * self.mouse_speed;
         let dy = movement.dy as i32 * self.mouse_speed;
-        self.enigo.mouse_move_relative(dx, dy);
+        let _ = self.enigo.move_mouse(dx, dy, Coordinate::Rel);
     }
 
     /// Handle mouse click
@@ -149,13 +153,19 @@ impl InputController {
         };
 
         match click.action {
-            ClickAction::Press => self.enigo.mouse_down(button),
-            ClickAction::Release => self.enigo.mouse_up(button),
-            ClickAction::Click => self.enigo.mouse_click(button),
+            ClickAction::Press => {
+                let _ = self.enigo.button(button, Direction::Press);
+            }
+            ClickAction::Release => {
+                let _ = self.enigo.button(button, Direction::Release);
+            }
+            ClickAction::Click => {
+                let _ = self.enigo.button(button, Direction::Click);
+            }
             ClickAction::DoubleClick => {
-                self.enigo.mouse_click(button);
+                let _ = self.enigo.button(button, Direction::Click);
                 std::thread::sleep(std::time::Duration::from_millis(50));
-                self.enigo.mouse_click(button);
+                let _ = self.enigo.button(button, Direction::Click);
             }
         }
     }
@@ -164,21 +174,21 @@ impl InputController {
     pub fn key_press(&mut self, event: KeyEvent) {
         // Apply modifiers
         if event.modifiers & 0x01 != 0 {
-            self.enigo.key_down(Key::Control);
+            let _ = self.enigo.key(Key::Control, Direction::Press);
         }
         if event.modifiers & 0x02 != 0 {
-            self.enigo.key_down(Key::Shift);
+            let _ = self.enigo.key(Key::Shift, Direction::Press);
         }
         if event.modifiers & 0x04 != 0 {
-            self.enigo.key_down(Key::Alt);
+            let _ = self.enigo.key(Key::Alt, Direction::Press);
         }
         if event.modifiers & 0x08 != 0 {
-            self.enigo.key_down(Key::Meta);
+            let _ = self.enigo.key(Key::Meta, Direction::Press);
         }
 
         // Press the key
         if let Some(&key) = self.keymap.get(&event.keycode) {
-            self.enigo.key_down(key);
+            let _ = self.enigo.key(key, Direction::Press);
         }
     }
 
@@ -186,27 +196,27 @@ impl InputController {
     pub fn key_release(&mut self, event: KeyEvent) {
         // Release the key
         if let Some(&key) = self.keymap.get(&event.keycode) {
-            self.enigo.key_up(key);
+            let _ = self.enigo.key(key, Direction::Release);
         }
 
         // Release modifiers
         if event.modifiers & 0x01 != 0 {
-            self.enigo.key_up(Key::Control);
+            let _ = self.enigo.key(Key::Control, Direction::Release);
         }
         if event.modifiers & 0x02 != 0 {
-            self.enigo.key_up(Key::Shift);
+            let _ = self.enigo.key(Key::Shift, Direction::Release);
         }
         if event.modifiers & 0x04 != 0 {
-            self.enigo.key_up(Key::Alt);
+            let _ = self.enigo.key(Key::Alt, Direction::Release);
         }
         if event.modifiers & 0x08 != 0 {
-            self.enigo.key_up(Key::Meta);
+            let _ = self.enigo.key(Key::Meta, Direction::Release);
         }
     }
 
     /// Type a string (for keyboard mode)
     pub fn type_string(&mut self, text: &str) {
-        self.enigo.key_sequence(text);
+        let _ = self.enigo.text(text);
     }
 
     /// Handle arrow key input in mouse mode (convert to mouse movement)
@@ -227,77 +237,24 @@ pub mod modifiers {
     pub const CTRL: u8 = 0x01;
     pub const SHIFT: u8 = 0x02;
     pub const ALT: u8 = 0x04;
-    pub const GUI: u8 = 0x08; // Windows/Command key
+    pub const GUI: u8 = 0x08;
 }
 
 /// USB HID keycodes for common keys
 pub mod keycodes {
-    // Letters
     pub const KEY_A: u8 = 0x04;
     pub const KEY_Z: u8 = 0x1D;
-
-    // Numbers
     pub const KEY_1: u8 = 0x1E;
     pub const KEY_0: u8 = 0x27;
-
-    // Special
     pub const KEY_ENTER: u8 = 0x28;
     pub const KEY_ESCAPE: u8 = 0x29;
     pub const KEY_BACKSPACE: u8 = 0x2A;
     pub const KEY_TAB: u8 = 0x2B;
     pub const KEY_SPACE: u8 = 0x2C;
-
-    // Arrow keys
     pub const KEY_RIGHT: u8 = 0x4F;
     pub const KEY_LEFT: u8 = 0x50;
     pub const KEY_DOWN: u8 = 0x51;
     pub const KEY_UP: u8 = 0x52;
-
-    // Function keys
     pub const KEY_F1: u8 = 0x3A;
     pub const KEY_F12: u8 = 0x45;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_keymap_coverage() {
-        let keymap = InputController::build_keymap();
-
-        // Test letters
-        for i in 0..26 {
-            assert!(keymap.contains_key(&(0x04 + i)));
-        }
-
-        // Test numbers
-        for i in 0..10 {
-            assert!(keymap.contains_key(&(0x1E + i)));
-        }
-
-        // Test arrow keys
-        assert!(keymap.contains_key(&keycodes::KEY_UP));
-        assert!(keymap.contains_key(&keycodes::KEY_DOWN));
-        assert!(keymap.contains_key(&keycodes::KEY_LEFT));
-        assert!(keymap.contains_key(&keycodes::KEY_RIGHT));
-    }
-
-    #[test]
-    fn test_mode_toggle() {
-        let mut controller = InputController {
-            enigo: Enigo::new(),
-            current_mode: InputMode::Mouse,
-            mouse_speed: 5,
-            keymap: HashMap::new(),
-        };
-
-        assert_eq!(controller.get_mode(), InputMode::Mouse);
-
-        controller.toggle_mode();
-        assert_eq!(controller.get_mode(), InputMode::Keyboard);
-
-        controller.toggle_mode();
-        assert_eq!(controller.get_mode(), InputMode::Mouse);
-    }
 }

@@ -11,7 +11,7 @@ license = "MIT"
 tokio = { version = "1.35", features = ["full"] }
 
 # Cryptography (ECDH secp256r1, AES-128-GCM)
-p256 = { version = "0.13", features = ["ecdh"] }
+p256 = { version = "0.13", features = ["ecdh", "ecdsa"] }
 aes-gcm = "0.10"
 rand = "0.8"
 sha2 = "0.10"
@@ -32,6 +32,7 @@ enigo = "0.2"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_with = { version = "3.0", features = ["hex"] }
 toml = "0.8"
 
 # Logging

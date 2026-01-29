@@ -311,8 +311,11 @@ impl CryptoContext {
     /// Encrypt a message
     /// Returns (ciphertext, nonce, tag)
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<(Vec<u8>, [u8; NONCE_SIZE], [u8; TAG_SIZE]), CryptoError> {
-        let cipher = self.outgoing_cipher.as_ref().ok_or(CryptoError::EncryptionFailed)?;
+        // Get nonce first (requires mutable borrow)
         let nonce_bytes = self.next_outgoing_nonce()?;
+
+        // Then get cipher reference
+        let cipher = self.outgoing_cipher.as_ref().ok_or(CryptoError::EncryptionFailed)?;
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         let ciphertext = cipher
