@@ -110,7 +110,6 @@ fn init_logging(config: &Config, verbose: bool) {
 /// Application state
 struct App {
     config: Arc<Config>,
-    server: Server,
     discovery: DiscoveryService,
     active_sessions: Vec<tokio::task::JoinHandle<()>>,
 }
@@ -118,13 +117,10 @@ struct App {
 impl App {
     async fn new(config: Config) -> Result<Self, Box<dyn std::error::Error>> {
         let config = Arc::new(config);
-
-        let server = Server::new(config.clone()).await?;
         let discovery = DiscoveryService::new(&config)?;
 
         Ok(Self {
             config,
-            server,
             discovery,
             active_sessions: Vec::new(),
         })

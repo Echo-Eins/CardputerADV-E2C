@@ -16,7 +16,7 @@ use p256::{
     ecdh::EphemeralSecret,
     ecdsa::{signature::Signer, signature::Verifier, Signature, SigningKey, VerifyingKey},
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
-    EncodedPoint, PublicKey, SecretKey,
+    EncodedPoint, PublicKey,
 };
 use rand::{rngs::OsRng, RngCore};
 use sha2::{Digest, Sha256};

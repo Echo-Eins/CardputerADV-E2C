@@ -37,35 +37,35 @@ pub enum PacketType {
     KeyType = 0x34,
     ModeSwitch = 0x40,
     ModeAck = 0x41,
-    Error = 0xF0,
+    ErrorPacket = 0xF0,
 }
 
 impl TryFrom<u8> for PacketType {
     type Error = ProtocolError;
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, ProtocolError> {
         match value {
-            0x00 => Ok(Self::DiscoveryRequest),
-            0x01 => Ok(Self::DiscoveryResponse),
-            0x02 => Ok(Self::HandshakeInit),
-            0x03 => Ok(Self::HandshakeResponse),
-            0x04 => Ok(Self::HandshakeComplete),
-            0x10 => Ok(Self::SessionStart),
-            0x11 => Ok(Self::SessionEnd),
-            0x12 => Ok(Self::SessionTimeout),
-            0x13 => Ok(Self::Heartbeat),
-            0x14 => Ok(Self::HeartbeatAck),
-            0x20 => Ok(Self::ScreenFrame),
-            0x21 => Ok(Self::ScreenDelta),
-            0x22 => Ok(Self::ScreenRequest),
-            0x30 => Ok(Self::MouseMove),
-            0x31 => Ok(Self::MouseClick),
-            0x32 => Ok(Self::KeyPress),
-            0x33 => Ok(Self::KeyRelease),
-            0x34 => Ok(Self::KeyType),
-            0x40 => Ok(Self::ModeSwitch),
-            0x41 => Ok(Self::ModeAck),
-            0xF0 => Ok(Self::Error),
+            0x00 => Ok(PacketType::DiscoveryRequest),
+            0x01 => Ok(PacketType::DiscoveryResponse),
+            0x02 => Ok(PacketType::HandshakeInit),
+            0x03 => Ok(PacketType::HandshakeResponse),
+            0x04 => Ok(PacketType::HandshakeComplete),
+            0x10 => Ok(PacketType::SessionStart),
+            0x11 => Ok(PacketType::SessionEnd),
+            0x12 => Ok(PacketType::SessionTimeout),
+            0x13 => Ok(PacketType::Heartbeat),
+            0x14 => Ok(PacketType::HeartbeatAck),
+            0x20 => Ok(PacketType::ScreenFrame),
+            0x21 => Ok(PacketType::ScreenDelta),
+            0x22 => Ok(PacketType::ScreenRequest),
+            0x30 => Ok(PacketType::MouseMove),
+            0x31 => Ok(PacketType::MouseClick),
+            0x32 => Ok(PacketType::KeyPress),
+            0x33 => Ok(PacketType::KeyRelease),
+            0x34 => Ok(PacketType::KeyType),
+            0x40 => Ok(PacketType::ModeSwitch),
+            0x41 => Ok(PacketType::ModeAck),
+            0xF0 => Ok(PacketType::ErrorPacket),
             _ => Err(ProtocolError::InvalidPacketType(value)),
         }
     }

@@ -25,7 +25,6 @@ pub struct Session {
     start_time: Instant,
     last_activity: Arc<AtomicU64>,
     running: Arc<AtomicBool>,
-    frame_sequence: u32,
 }
 
 impl Session {
@@ -42,7 +41,6 @@ impl Session {
             start_time: Instant::now(),
             last_activity: Arc::new(AtomicU64::new(0)),
             running: Arc::new(AtomicBool::new(true)),
-            frame_sequence: 0,
         }
     }
 
@@ -95,23 +93,6 @@ impl Session {
             .send(PacketType::SessionStart, &[])
             .await?;
 
-        // Initialize screen capturer
-        let mut capturer = match ScreenCapturer::new(
-            self.config.display.target_width,
-            self.config.display.target_height,
-            self.config.server.jpeg_quality,
-            self.config.display.capture_region,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to initialize screen capturer: {}", e);
-                return Err(NetworkError::IoError(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                )));
-            }
-        };
-
         // Initialize input controller
         let mut input = match InputController::new() {
             Ok(i) => i,
@@ -130,9 +111,29 @@ impl Session {
         // Frame capture interval
         let frame_interval = Duration::from_millis(self.config.get_frame_interval_ms());
 
-        // Spawn frame capture task
+        // Capture config parameters to pass into blocking task
+        let target_width = self.config.display.target_width;
+        let target_height = self.config.display.target_height;
+        let jpeg_quality = self.config.server.jpeg_quality;
+        let capture_region = self.config.display.capture_region;
+
+        // Spawn frame capture task - create ScreenCapturer inside to avoid Send issues
         let running = self.running.clone();
         let capture_handle = tokio::task::spawn_blocking(move || {
+            // Create ScreenCapturer inside the blocking task (scrap::Capturer is not Send)
+            let mut capturer = match ScreenCapturer::new(
+                target_width,
+                target_height,
+                jpeg_quality,
+                capture_region,
+            ) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to initialize screen capturer: {}", e);
+                    return;
+                }
+            };
+
             while running.load(Ordering::Relaxed) {
                 match capturer.capture_frame() {
                     Ok(Some(frame)) => {
