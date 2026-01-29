@@ -255,40 +255,6 @@ impl CapturedFrame {
     }
 }
 
-/// High-performance JPEG compressor using turbojpeg
-#[cfg(feature = "turbojpeg")]
-pub struct TurboJpegCompressor {
-    quality: i32,
-}
-
-#[cfg(feature = "turbojpeg")]
-impl TurboJpegCompressor {
-    pub fn new(quality: u8) -> Self {
-        Self {
-            quality: quality as i32,
-        }
-    }
-
-    pub fn compress(&self, rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, CaptureError> {
-        use turbojpeg::{Compressor, Image, PixelFormat};
-
-        let image = Image {
-            pixels: rgb_data,
-            width: width as usize,
-            pitch: width as usize * 3,
-            height: height as usize,
-            format: PixelFormat::RGB,
-        };
-
-        let mut compressor = Compressor::new().map_err(|e| CaptureError::CompressionError(e.to_string()))?;
-        compressor.set_quality(self.quality);
-
-        compressor
-            .compress_to_vec(image)
-            .map_err(|e| CaptureError::CompressionError(e.to_string()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -24,8 +24,7 @@ mdns-sd = "0.10"
 scrap = "0.5"
 
 # Image processing
-image = "0.24"
-turbojpeg = "1.0"
+image = { version = "0.24", features = ["jpeg"] }
 
 # Input simulation (Windows)
 enigo = "0.2"
