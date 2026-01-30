@@ -13,13 +13,29 @@
 #include <driver/ledc.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <esp_lcd_panel_vendor.h>
 
-// Software JPEG decoder (fallback)
+// Software JPEG decoder (TJpgDec - part of ESP-IDF)
+#if __has_include(<tjpgd.h>)
 #include <tjpgd.h>
+#define HAS_TJPGD 1
+#else
+#define HAS_TJPGD 0
+#endif
 
-// Hardware JPEG decoder (ESP32-S3 only)
+// Hardware JPEG decoder (ESP32-S3 only, requires esp_jpeg component)
 #if CONFIG_IDF_TARGET_ESP32S3
+#if __has_include(<jpeg_decoder.h>)
+#include <jpeg_decoder.h>
+#define HAS_HW_JPEG 1
+#elif __has_include(<esp_jpeg_dec.h>)
 #include <esp_jpeg_dec.h>
+#define HAS_HW_JPEG 1
+#else
+#define HAS_HW_JPEG 0
+#endif
+#else
+#define HAS_HW_JPEG 0
 #endif
 
 static const char *TAG = "remote_display";
@@ -50,6 +66,8 @@ static bool IRAM_ATTR lcd_trans_done_cb(esp_lcd_panel_io_handle_t io,
 // =============================================================================
 // Software JPEG Decoder (TJPGD)
 // =============================================================================
+
+#if HAS_TJPGD
 
 typedef struct {
     const uint8_t *data;
@@ -133,11 +151,27 @@ static remote_error_t sw_jpeg_decode(const uint8_t *jpeg_data, size_t jpeg_len,
     return REMOTE_OK;
 }
 
+#else // !HAS_TJPGD
+
+static remote_error_t sw_jpeg_decode(const uint8_t *jpeg_data, size_t jpeg_len,
+                                      uint16_t *rgb565_out,
+                                      uint16_t *out_width, uint16_t *out_height) {
+    (void)jpeg_data;
+    (void)jpeg_len;
+    (void)rgb565_out;
+    (void)out_width;
+    (void)out_height;
+    ESP_LOGE(TAG, "Software JPEG decoder not available");
+    return REMOTE_ERR_JPEG;
+}
+
+#endif // HAS_TJPGD
+
 // =============================================================================
 // Hardware JPEG Decoder (ESP32-S3)
 // =============================================================================
 
-#if CONFIG_IDF_TARGET_ESP32S3
+#if HAS_HW_JPEG
 
 static jpeg_dec_handle_t hw_jpeg_handle = NULL;
 static bool hw_jpeg_initialized = false;
@@ -201,13 +235,44 @@ remote_error_t display_hw_jpeg_decode(const uint8_t *jpeg_data,
     return REMOTE_OK;
 }
 
-#else
+static void hw_jpeg_deinit(void) {
+    if (hw_jpeg_initialized && hw_jpeg_handle) {
+        jpeg_dec_close(hw_jpeg_handle);
+        hw_jpeg_handle = NULL;
+        hw_jpeg_initialized = false;
+    }
+}
+
+#else // !HAS_HW_JPEG
 
 bool display_hw_jpeg_available(void) {
     return false;
 }
 
-#endif // CONFIG_IDF_TARGET_ESP32S3
+static remote_error_t hw_jpeg_init(void) {
+    return REMOTE_ERR_JPEG;
+}
+
+static void hw_jpeg_deinit(void) {
+    // No-op
+}
+
+#if CONFIG_IDF_TARGET_ESP32S3
+remote_error_t display_hw_jpeg_decode(const uint8_t *jpeg_data,
+                                      size_t jpeg_len,
+                                      uint16_t *rgb565_out,
+                                      uint16_t *out_width,
+                                      uint16_t *out_height) {
+    (void)jpeg_data;
+    (void)jpeg_len;
+    (void)rgb565_out;
+    (void)out_width;
+    (void)out_height;
+    return REMOTE_ERR_JPEG;
+}
+#endif
+
+#endif // HAS_HW_JPEG
 
 // =============================================================================
 // Display Initialization
@@ -318,11 +383,7 @@ remote_error_t display_init(display_context_t *ctx) {
     esp_lcd_panel_disp_on_off(ctx->panel, true);
 
     // Try to initialize hardware JPEG decoder
-#if CONFIG_IDF_TARGET_ESP32S3
     ctx->hw_jpeg_available = (hw_jpeg_init() == REMOTE_OK);
-#else
-    ctx->hw_jpeg_available = false;
-#endif
 
     // Turn on backlight
     ctx->brightness = 128;
@@ -357,12 +418,7 @@ void display_deinit(display_context_t *ctx) {
 
     spi_bus_free(LCD_HOST);
 
-#if CONFIG_IDF_TARGET_ESP32S3
-    if (hw_jpeg_initialized && hw_jpeg_handle) {
-        jpeg_dec_close(hw_jpeg_handle);
-        hw_jpeg_initialized = false;
-    }
-#endif
+    hw_jpeg_deinit();
 
     memset(ctx, 0, sizeof(*ctx));
 }
@@ -388,8 +444,8 @@ remote_error_t display_render_jpeg(display_context_t *ctx,
     uint8_t buf_idx = (ctx->current_buffer + 1) % 2;
     uint16_t *target_buffer = ctx->frame_buffer[buf_idx];
 
-    // Decode JPEG
-#if CONFIG_IDF_TARGET_ESP32S3
+    // Decode JPEG (try hardware first, fall back to software)
+#if HAS_HW_JPEG
     if (ctx->hw_jpeg_available) {
         err = display_hw_jpeg_decode(jpeg_data, jpeg_len, target_buffer,
                                      &width, &height);
