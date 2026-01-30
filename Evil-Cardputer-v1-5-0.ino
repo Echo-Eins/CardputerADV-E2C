@@ -92,6 +92,9 @@ enum SearchKind {
 // Bluetooth HID Keyboard Module
 #include "bluetooth_keyboard.h"
 
+// Remote Desktop Module
+#include "remote_desktop.h"
+
 #include <esp_task_wdt.h>
 
 #include <HTTPClient.h>
@@ -252,6 +255,7 @@ static const char * const PROGMEM menuItems[] = {
   "LDAPDump",
   "IMSI Catcher",
   "Open Wifi Checker",
+  "Remote Desktop",
   "Settings",
 };
 
@@ -1989,7 +1993,8 @@ void executeMenuItem(int index) {
     case 79: runLDAPDomainDump(); break;
     case 80: imsiCatcher(); break;
     case 81: openWifiDashboardLoop(); break;
-    case 82: showSettingsMenu(); break;
+    case 82: remoteDesktop(); break;
+    case 83: showSettingsMenu(); break;
   }
   isOperationInProgress = false;
 }
