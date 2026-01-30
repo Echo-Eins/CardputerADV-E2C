@@ -17,16 +17,24 @@ extern "C" {
 #endif
 
 // =============================================================================
-// Cardputer Keyboard Matrix Pins
+// Cardputer Keyboard Matrix Pins (using 74HC138 decoder)
 // =============================================================================
 
-// Row pins (directly matched from Cardputer schematic)
-#define KB_ROW_COUNT    7
-#define KB_COL_COUNT    8
+// The Cardputer uses a 74HC138 3-to-8 line decoder for row selection
+// This allows scanning 8 rows using only 3 GPIO pins
 
-// GPIO pins for keyboard matrix (M5Stack Cardputer)
-static const int KB_ROW_PINS[KB_ROW_COUNT] = {8, 9, 11, 13, 15, 3, 4};
-static const int KB_COL_PINS[KB_COL_COUNT] = {18, 17, 16, 14, 12, 10, 7, 5};
+// 74HC138 Address pins (outputs) - select which row is active
+#define KB_ADDR_A0      8       // GPIO 8 - Decoder A0
+#define KB_ADDR_A1      9       // GPIO 9 - Decoder A1
+#define KB_ADDR_A2      11      // GPIO 11 - Decoder A2
+
+// Matrix dimensions
+#define KB_ROW_COUNT    8       // 8 rows via 74HC138 decoder outputs Y0-Y7
+#define KB_COL_COUNT    7       // 7 column input pins
+
+// Column input pins (directly connected to GPIO with pull-down resistors)
+// When a row is active (decoder output LOW), pressed key pulls column LOW
+static const int KB_COL_PINS[KB_COL_COUNT] = {13, 15, 3, 4, 5, 6, 7};
 
 // =============================================================================
 // USB HID Keycodes

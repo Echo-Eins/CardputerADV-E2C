@@ -16,74 +16,86 @@ static const char *TAG = "remote_input";
 // Cardputer Keyboard Layout
 // =============================================================================
 
-// Normal keymap [row][col]
+// Normal keymap [row][col] - 8 rows x 7 columns via 74HC138 decoder
+// Layout based on M5Stack Cardputer physical keyboard
 static const uint8_t KEYMAP_NORMAL[KB_ROW_COUNT][KB_COL_COUNT] = {
-    // Row 0
-    {HID_KEY_GRAVE, HID_KEY_1, HID_KEY_2, HID_KEY_3, HID_KEY_4, HID_KEY_5, HID_KEY_6, HID_KEY_7},
-    // Row 1
-    {HID_KEY_8, HID_KEY_9, HID_KEY_0, HID_KEY_MINUS, HID_KEY_EQUAL, HID_KEY_BACKSPACE, HID_KEY_TAB, HID_KEY_Q},
-    // Row 2
-    {HID_KEY_W, HID_KEY_E, HID_KEY_R, HID_KEY_T, HID_KEY_Y, HID_KEY_U, HID_KEY_I, HID_KEY_O},
-    // Row 3
-    {HID_KEY_P, HID_KEY_LBRACKET, HID_KEY_RBRACKET, HID_KEY_BACKSLASH, KEY_FN, HID_KEY_A, HID_KEY_S, HID_KEY_D},
-    // Row 4
-    {HID_KEY_F, HID_KEY_G, HID_KEY_H, HID_KEY_J, HID_KEY_K, HID_KEY_L, HID_KEY_SEMICOLON, HID_KEY_APOSTROPHE},
-    // Row 5
-    {HID_KEY_ENTER, HID_KEY_NONE, HID_KEY_Z, HID_KEY_X, HID_KEY_C, HID_KEY_V, HID_KEY_B, HID_KEY_N},
-    // Row 6
-    {HID_KEY_M, HID_KEY_COMMA, HID_KEY_PERIOD, HID_KEY_SLASH, HID_KEY_SPACE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    // Row 0 (decoder Y0)
+    {HID_KEY_GRAVE, HID_KEY_1, HID_KEY_2, HID_KEY_3, HID_KEY_4, HID_KEY_5, HID_KEY_6},
+    // Row 1 (decoder Y1)
+    {HID_KEY_7, HID_KEY_8, HID_KEY_9, HID_KEY_0, HID_KEY_MINUS, HID_KEY_EQUAL, HID_KEY_BACKSPACE},
+    // Row 2 (decoder Y2)
+    {HID_KEY_TAB, HID_KEY_Q, HID_KEY_W, HID_KEY_E, HID_KEY_R, HID_KEY_T, HID_KEY_Y},
+    // Row 3 (decoder Y3)
+    {HID_KEY_U, HID_KEY_I, HID_KEY_O, HID_KEY_P, HID_KEY_LBRACKET, HID_KEY_RBRACKET, HID_KEY_BACKSLASH},
+    // Row 4 (decoder Y4)
+    {KEY_FN, HID_KEY_A, HID_KEY_S, HID_KEY_D, HID_KEY_F, HID_KEY_G, HID_KEY_H},
+    // Row 5 (decoder Y5)
+    {HID_KEY_J, HID_KEY_K, HID_KEY_L, HID_KEY_SEMICOLON, HID_KEY_APOSTROPHE, HID_KEY_ENTER, HID_KEY_NONE},
+    // Row 6 (decoder Y6)
+    {HID_KEY_NONE, HID_KEY_Z, HID_KEY_X, HID_KEY_C, HID_KEY_V, HID_KEY_B, HID_KEY_N},
+    // Row 7 (decoder Y7)
+    {HID_KEY_M, HID_KEY_COMMA, HID_KEY_PERIOD, HID_KEY_SLASH, HID_KEY_NONE, HID_KEY_SPACE, HID_KEY_NONE},
 };
 
-// FN keymap [row][col] - keys that change with FN
+// FN keymap [row][col] - keys that change with FN held (8x7 matrix)
 static const uint8_t KEYMAP_FN[KB_ROW_COUNT][KB_COL_COUNT] = {
-    // Row 0 - F keys
-    {HID_KEY_ESCAPE, HID_KEY_F1, HID_KEY_F2, HID_KEY_F3, HID_KEY_F4, HID_KEY_F5, HID_KEY_F6, HID_KEY_F7},
-    // Row 1
-    {HID_KEY_F8, HID_KEY_F9, HID_KEY_F10, HID_KEY_F11, HID_KEY_F12, HID_KEY_DELETE, HID_KEY_NONE, HID_KEY_NONE},
-    // Row 2 - Arrow keys on WASD area
-    {HID_KEY_UP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_HOME, HID_KEY_UP, HID_KEY_END},
+    // Row 0 - ESC and F1-F6
+    {HID_KEY_ESCAPE, HID_KEY_F1, HID_KEY_F2, HID_KEY_F3, HID_KEY_F4, HID_KEY_F5, HID_KEY_F6},
+    // Row 1 - F7-F12 and Delete
+    {HID_KEY_F7, HID_KEY_F8, HID_KEY_F9, HID_KEY_F10, HID_KEY_F11, HID_KEY_F12, HID_KEY_DELETE},
+    // Row 2 - Navigation
+    {HID_KEY_NONE, HID_KEY_NONE, HID_KEY_UP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_HOME},
     // Row 3
-    {HID_KEY_PAGEUP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, KEY_FN, HID_KEY_LEFT, HID_KEY_DOWN, HID_KEY_RIGHT},
-    // Row 4
-    {HID_KEY_PAGEDOWN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    {HID_KEY_END, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_PAGEUP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    // Row 4 - Arrow keys (FN + A/S/D for left/down/right)
+    {KEY_FN, HID_KEY_LEFT, HID_KEY_DOWN, HID_KEY_RIGHT, HID_KEY_PAGEDOWN, HID_KEY_NONE, HID_KEY_NONE},
     // Row 5
-    {HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    {HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
     // Row 6 - Special functions
-    {KEY_MODE_SWITCH, KEY_BRIGHTNESS_DN, KEY_BRIGHTNESS_UP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    {HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
+    // Row 7 - Mode switch and brightness
+    {KEY_MODE_SWITCH, KEY_BRIGHTNESS_DN, KEY_BRIGHTNESS_UP, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE},
 };
 
-// Modifier keys locations
-#define MOD_SHIFT_ROW   5
-#define MOD_SHIFT_COL   1
-#define MOD_CTRL_ROW    6
-#define MOD_CTRL_COL    5
-#define MOD_ALT_ROW     6
+// Modifier keys locations in 8x7 matrix
+// Note: The Cardputer has Shift, Ctrl, Alt in specific positions
+// These need to be verified against actual hardware layout
+#define MOD_SHIFT_ROW   6
+#define MOD_SHIFT_COL   0
+#define MOD_CTRL_ROW    7
+#define MOD_CTRL_COL    4
+#define MOD_ALT_ROW     7
 #define MOD_ALT_COL     6
 
 // =============================================================================
-// GPIO Initialization
+// GPIO Initialization for 74HC138 Decoder-based Keyboard
 // =============================================================================
 
 static void init_gpio_pins(void) {
-    // Configure row pins as outputs (active low)
-    for (int i = 0; i < KB_ROW_COUNT; i++) {
-        gpio_config_t io_conf = {
-            .pin_bit_mask = (1ULL << KB_ROW_PINS[i]),
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_DISABLE,
-        };
-        gpio_config(&io_conf);
-        gpio_set_level(KB_ROW_PINS[i], 1);  // Initially high
-    }
+    // Configure 74HC138 address pins as outputs
+    // These 3 pins select which of the 8 rows is active
+    gpio_config_t addr_conf = {
+        .pin_bit_mask = (1ULL << KB_ADDR_A0) | (1ULL << KB_ADDR_A1) | (1ULL << KB_ADDR_A2),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&addr_conf);
 
-    // Configure column pins as inputs with pull-up
+    // Initialize address pins to 0 (select row 0)
+    gpio_set_level(KB_ADDR_A0, 0);
+    gpio_set_level(KB_ADDR_A1, 0);
+    gpio_set_level(KB_ADDR_A2, 0);
+
+    // Configure column pins as inputs with pull-down
+    // The 74HC138 outputs are active-low, so when a key is pressed
+    // and the corresponding row is selected, the column is pulled LOW
     for (int i = 0; i < KB_COL_COUNT; i++) {
         gpio_config_t io_conf = {
             .pin_bit_mask = (1ULL << KB_COL_PINS[i]),
             .mode = GPIO_MODE_INPUT,
-            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_up_en = GPIO_PULLUP_ENABLE,  // Pull-up, key press pulls LOW
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
             .intr_type = GPIO_INTR_DISABLE,
         };
@@ -91,29 +103,41 @@ static void init_gpio_pins(void) {
     }
 }
 
+/**
+ * @brief Select a row using the 74HC138 decoder
+ * @param row Row number (0-7)
+ *
+ * The 74HC138 uses 3 address inputs (A0, A1, A2) to select one of 8 outputs.
+ * Address encoding: row 0 = 000, row 1 = 001, row 2 = 010, etc.
+ */
+static void select_row(int row) {
+    gpio_set_level(KB_ADDR_A0, (row >> 0) & 1);
+    gpio_set_level(KB_ADDR_A1, (row >> 1) & 1);
+    gpio_set_level(KB_ADDR_A2, (row >> 2) & 1);
+}
+
 // =============================================================================
-// Matrix Scanning
+// Matrix Scanning (using 74HC138 decoder for row selection)
 // =============================================================================
 
 static void scan_matrix(input_context_t *ctx) {
     // Save previous state
     memcpy(ctx->prev_state, ctx->key_state, sizeof(ctx->key_state));
 
-    // Scan each row
+    // Scan each row using the 74HC138 decoder
     for (int row = 0; row < KB_ROW_COUNT; row++) {
-        // Drive current row low
-        gpio_set_level(KB_ROW_PINS[row], 0);
+        // Select current row via decoder address pins
+        select_row(row);
 
-        // Small delay for signal to settle
+        // Small delay for decoder and signal to settle
         esp_rom_delay_us(10);
 
-        // Read columns
+        // Read all column pins
+        // When row is selected (decoder output LOW) and key is pressed,
+        // the column pin is pulled LOW through the switch
         for (int col = 0; col < KB_COL_COUNT; col++) {
             ctx->key_state[row][col] = (gpio_get_level(KB_COL_PINS[col]) == 0) ? 1 : 0;
         }
-
-        // Drive row high again
-        gpio_set_level(KB_ROW_PINS[row], 1);
     }
 }
 
