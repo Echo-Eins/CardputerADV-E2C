@@ -26,6 +26,7 @@ pub struct ScreenCapturer {
     height: usize,
     target_width: u32,
     target_height: u32,
+    jpeg_quality: u8,
     capture_region: Option<CaptureRegion>,
     last_frame_hash: AtomicU32,
     frame_counter: AtomicU32,
@@ -44,7 +45,7 @@ impl ScreenCapturer {
     pub fn new(
         target_width: u32,
         target_height: u32,
-        _jpeg_quality: u8,
+        jpeg_quality: u8,
         capture_region: Option<[u32; 4]>,
     ) -> Result<Self, CaptureError> {
         let display = Display::primary().map_err(|e| CaptureError::InitError(e.to_string()))?;
@@ -62,8 +63,11 @@ impl ScreenCapturer {
             }
         }
 
+        // Clamp JPEG quality to valid range 1-100
+        let jpeg_quality = jpeg_quality.clamp(1, 100);
+
         Ok(Self {
-            capturer, width, height, target_width, target_height,
+            capturer, width, height, target_width, target_height, jpeg_quality,
             capture_region: region,
             last_frame_hash: AtomicU32::new(0),
             frame_counter: AtomicU32::new(0),
@@ -111,7 +115,7 @@ impl ScreenCapturer {
         let dynamic = DynamicImage::ImageRgb8(image);
         let resized = dynamic.resize_exact(self.target_width, self.target_height, FilterType::Triangle);
 
-        let jpeg_data = compress_jpeg(&resized)?;
+        let jpeg_data = compress_jpeg(&resized, self.jpeg_quality)?;
         let sequence = self.frame_counter.fetch_add(1, Ordering::Relaxed);
 
         Ok(Some(CapturedFrame {
@@ -163,11 +167,18 @@ fn compute_hash(rgb: &[u8]) -> u32 {
     hash
 }
 
-fn compress_jpeg(image: &DynamicImage) -> Result<Vec<u8>, CaptureError> {
+fn compress_jpeg(image: &DynamicImage, quality: u8) -> Result<Vec<u8>, CaptureError> {
+    use image::codecs::jpeg::JpegEncoder;
+
     let mut jpeg_data = Vec::new();
-    let mut cursor = std::io::Cursor::new(&mut jpeg_data);
-    image.write_to(&mut cursor, image::ImageFormat::Jpeg)
-        .map_err(|e| CaptureError::CompressionError(e.to_string()))?;
+    let rgb_image = image.to_rgb8();
+    let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_data, quality);
+    encoder.encode(
+        rgb_image.as_raw(),
+        rgb_image.width(),
+        rgb_image.height(),
+        image::ColorType::Rgb8,
+    ).map_err(|e| CaptureError::CompressionError(e.to_string()))?;
     Ok(jpeg_data)
 }
 

@@ -10,12 +10,13 @@ license = "MIT"
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
 
-# Cryptography (ECDH secp256r1, AES-128-GCM)
+# Cryptography (ECDH secp256r1, AES-128-GCM, HMAC)
 p256 = { version = "0.13", features = ["ecdh", "ecdsa"] }
 aes-gcm = "0.10"
 rand = "0.8"
 sha2 = "0.10"
 hkdf = "0.12"
+hmac = "0.12"
 
 # Networking
 mdns-sd = "0.10"

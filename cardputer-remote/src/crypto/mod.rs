@@ -293,7 +293,12 @@ impl CryptoContext {
         let counter = u32::from_be_bytes([nonce[0], nonce[1], nonce[2], nonce[3]]);
 
         // Check for replay (must be strictly greater than last seen)
-        if counter <= self.last_incoming_nonce && self.last_incoming_nonce != 0 {
+        // Use separate flag to track if we've received any packet
+        if counter < self.last_incoming_nonce {
+            return Err(CryptoError::DecryptionFailed);
+        }
+        // For counter=0, only allow once (first packet)
+        if counter == self.last_incoming_nonce && self.last_incoming_nonce > 0 {
             return Err(CryptoError::DecryptionFailed);
         }
 
@@ -304,7 +309,8 @@ impl CryptoContext {
             }
         }
 
-        self.last_incoming_nonce = counter;
+        // Store counter + 1 to ensure counter=0 can only be used once
+        self.last_incoming_nonce = counter.saturating_add(1);
         Ok(())
     }
 
@@ -361,22 +367,19 @@ impl CryptoContext {
         Ok(plaintext)
     }
 
-    /// Compute HMAC for transcript verification
+    /// Compute HMAC-SHA256 for transcript verification
     pub fn compute_transcript_mac(&self, transcript: &[u8]) -> [u8; 32] {
+        use hmac::{Hmac, Mac, digest::KeyInit};
         use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
 
         let session_keys = self.session_keys.as_ref().expect("Session keys not derived");
 
-        // HMAC-SHA256
-        let mut hasher = Sha256::new();
-        hasher.update(&session_keys.hmac_key);
-        hasher.update(transcript);
-        let inner = hasher.finalize();
-
-        let mut hasher = Sha256::new();
-        hasher.update(&session_keys.hmac_key);
-        hasher.update(&inner);
-        hasher.finalize().into()
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(&session_keys.hmac_key)
+            .expect("HMAC key length is valid");
+        mac.update(transcript);
+        mac.finalize().into_bytes().into()
     }
 
     /// Get our public key as compressed bytes

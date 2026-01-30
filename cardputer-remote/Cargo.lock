@@ -178,6 +178,7 @@ dependencies = [
  "generic-array",
  "hex",
  "hkdf",
+ "hmac",
  "image",
  "mdns-sd",
  "p256",

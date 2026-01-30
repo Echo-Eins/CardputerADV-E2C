@@ -167,13 +167,21 @@ impl Server {
         let init_sig = init.get_signature().map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
         let init_pubkey = init.get_ephemeral_public_key().map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
 
-        crypto.verify_peer_signature(&init_nonce, &init_sig)?;
+        // SECURITY: Signature must cover both ephemeral public key AND nonce
+        // to prevent MITM attacks where attacker substitutes their own ephemeral key
+        let mut init_sign_data = Vec::with_capacity(33 + 32);
+        init_sign_data.extend_from_slice(&init_pubkey);
+        init_sign_data.extend_from_slice(&init_nonce);
+        crypto.verify_peer_signature(&init_sign_data, &init_sig)?;
         info!("Handshake init verified from {}", addr);
 
         let (our_ephemeral_secret, our_ephemeral_public) = crypto.generate_ephemeral_keypair();
         let our_nonce = CryptoContext::generate_nonce();
 
-        let mut sign_data = Vec::with_capacity(64);
+        // SECURITY: Signature covers our ephemeral public key + both nonces
+        // This binds our key to the response and prevents substitution attacks
+        let mut sign_data = Vec::with_capacity(33 + 32 + 32);
+        sign_data.extend_from_slice(&our_ephemeral_public);
         sign_data.extend_from_slice(&init_nonce);
         sign_data.extend_from_slice(&our_nonce);
         let signature = crypto.sign(&sign_data);
