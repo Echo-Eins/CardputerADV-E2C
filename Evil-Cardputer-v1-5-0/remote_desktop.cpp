@@ -117,8 +117,9 @@ static void rdDrawFrame(const uint8_t* jpegData, size_t jpegLen);
 static void rdProcessInput();
 static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t len);
 static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len);
+static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t* len,
+                                  uint8_t* tag, bool encrypted, uint32_t timeout);
 static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout);
-static RDError rdDecryptPayload(const uint8_t* cipher, size_t cipherLen, uint8_t* plain, size_t* plainLen);
 static void rdClearKeyboard();
 
 // ============================================================================
@@ -420,91 +421,7 @@ static void rdComputeTranscriptMAC(const uint8_t* clientPubKey, const uint8_t* s
     mbedtls_md_free(&ctx);
 }
 
-// ============================================================================
-// Encryption (client→server using c2s key)
-// ============================================================================
 
-static RDError rdEncrypt(const uint8_t* plain, size_t plainLen,
-                         uint8_t* cipher, size_t* cipherLen) {
-    // Check for nonce overflow
-    if (rdSession.txCounter == 0xFFFFFFFF) {
-        return RD_ERR_NONCE_OVERFLOW;
-    }
-
-    // Build nonce: counter(4 BE) + random(8)
-    uint8_t nonce[RD_AES_GCM_NONCE_SIZE];
-    nonce[0] = (rdSession.txCounter >> 24) & 0xFF;
-    nonce[1] = (rdSession.txCounter >> 16) & 0xFF;
-    nonce[2] = (rdSession.txCounter >> 8) & 0xFF;
-    nonce[3] = rdSession.txCounter & 0xFF;
-    memcpy(nonce + 4, rdSession.txNonceRandom, 8);
-    rdSession.txCounter++;
-
-    // Output format: nonce(12) + ciphertext + tag(16)
-    memcpy(cipher, nonce, RD_AES_GCM_NONCE_SIZE);
-
-    uint8_t tag[RD_AES_GCM_TAG_SIZE];
-    int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcmEncrypt, MBEDTLS_GCM_ENCRYPT,
-                                         plainLen, nonce, RD_AES_GCM_NONCE_SIZE,
-                                         NULL, 0,  // No AAD
-                                         plain, cipher + RD_AES_GCM_NONCE_SIZE,
-                                         RD_AES_GCM_TAG_SIZE, tag);
-    if (ret != 0) {
-        Serial.printf("[RD] Encrypt failed: -0x%04X\n", -ret);
-        return RD_ERR_CRYPTO;
-    }
-
-    memcpy(cipher + RD_AES_GCM_NONCE_SIZE + plainLen, tag, RD_AES_GCM_TAG_SIZE);
-    *cipherLen = RD_AES_GCM_NONCE_SIZE + plainLen + RD_AES_GCM_TAG_SIZE;
-
-    return RD_OK;
-}
-
-// ============================================================================
-// Decryption (server→client using s2c key)
-// ============================================================================
-
-static RDError rdDecryptPayload(const uint8_t* cipher, size_t cipherLen,
-                                 uint8_t* plain, size_t* plainLen) {
-    if (cipherLen < RD_AES_GCM_NONCE_SIZE + RD_AES_GCM_TAG_SIZE) {
-        return RD_ERR_PROTOCOL;
-    }
-
-    const uint8_t* nonce = cipher;
-    size_t dataLen = cipherLen - RD_AES_GCM_NONCE_SIZE - RD_AES_GCM_TAG_SIZE;
-    const uint8_t* ciphertext = cipher + RD_AES_GCM_NONCE_SIZE;
-    const uint8_t* tag = cipher + cipherLen - RD_AES_GCM_TAG_SIZE;
-
-    // Extract and verify nonce counter (replay protection)
-    uint32_t counter = ((uint32_t)nonce[0] << 24) | ((uint32_t)nonce[1] << 16) |
-                       ((uint32_t)nonce[2] << 8) | nonce[3];
-
-    if (counter < rdSession.rxCounter) {
-        Serial.printf("[RD] Replay detected! Got %u, expected >= %u\n", counter, rdSession.rxCounter);
-        return RD_ERR_REPLAY;
-    }
-
-    // Store server's random nonce part for reference (on first message)
-    if (rdSession.rxCounter == 0) {
-        memcpy(rdSession.rxNonceRandom, nonce + 4, 8);
-    }
-
-    // Update expected counter
-    rdSession.rxCounter = counter + 1;
-
-    int ret = mbedtls_gcm_auth_decrypt(&rdSession.gcmDecrypt, dataLen,
-                                        nonce, RD_AES_GCM_NONCE_SIZE,
-                                        NULL, 0,  // No AAD
-                                        tag, RD_AES_GCM_TAG_SIZE,
-                                        ciphertext, plain);
-    if (ret != 0) {
-        Serial.printf("[RD] Decrypt failed: -0x%04X\n", -ret);
-        return RD_ERR_CRYPTO;
-    }
-
-    *plainLen = dataLen;
-    return RD_OK;
-}
 
 // ============================================================================
 // Packet send/receive
@@ -533,18 +450,70 @@ static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t 
 }
 
 // Send encrypted packet (after handshake)
+// Format matches Rust server: header + (nonce + ciphertext) + tag_separately
 static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len) {
-    // Buffer for encrypted data: nonce + ciphertext + tag
-    uint8_t encrypted[len + RD_AES_GCM_NONCE_SIZE + RD_AES_GCM_TAG_SIZE];
-    size_t encLen;
+    if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
 
-    RDError err = rdEncrypt(payload, len, encrypted, &encLen);
-    if (err != RD_OK) return err;
+    // Check for nonce overflow
+    if (rdSession.txCounter == 0xFFFFFFFF) {
+        return RD_ERR_NONCE_OVERFLOW;
+    }
 
-    return rdSendPacket(type, encrypted, encLen);
+    // Build nonce: counter(4 BE) + random(8)
+    uint8_t nonce[RD_AES_GCM_NONCE_SIZE];
+    nonce[0] = (rdSession.txCounter >> 24) & 0xFF;
+    nonce[1] = (rdSession.txCounter >> 16) & 0xFF;
+    nonce[2] = (rdSession.txCounter >> 8) & 0xFF;
+    nonce[3] = rdSession.txCounter & 0xFF;
+    memcpy(nonce + 4, rdSession.txNonceRandom, 8);
+    rdSession.txCounter++;
+
+    // Encrypt payload
+    uint8_t ciphertext[len];
+    uint8_t tag[RD_AES_GCM_TAG_SIZE];
+    int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcmEncrypt, MBEDTLS_GCM_ENCRYPT,
+                                         len, nonce, RD_AES_GCM_NONCE_SIZE,
+                                         NULL, 0,  // No AAD
+                                         payload, ciphertext,
+                                         RD_AES_GCM_TAG_SIZE, tag);
+    if (ret != 0) {
+        Serial.printf("[RD] Encrypt failed: -0x%04X\n", -ret);
+        return RD_ERR_CRYPTO;
+    }
+
+    // Send header with length = nonce + ciphertext (tag is separate!)
+    uint16_t payloadLen = RD_AES_GCM_NONCE_SIZE + len;
+    uint8_t header[RD_PACKET_HEADER_SIZE];
+    header[0] = RD_PROTOCOL_VERSION;
+    header[1] = type;
+    header[2] = (payloadLen >> 8) & 0xFF;
+    header[3] = payloadLen & 0xFF;
+
+    if (rdSession.client.write(header, RD_PACKET_HEADER_SIZE) != RD_PACKET_HEADER_SIZE) {
+        return RD_ERR_CONNECT_FAILED;
+    }
+
+    // Send nonce + ciphertext
+    if (rdSession.client.write(nonce, RD_AES_GCM_NONCE_SIZE) != RD_AES_GCM_NONCE_SIZE) {
+        return RD_ERR_CONNECT_FAILED;
+    }
+    if (len > 0 && rdSession.client.write(ciphertext, len) != len) {
+        return RD_ERR_CONNECT_FAILED;
+    }
+
+    // Send tag separately (Rust server format)
+    if (rdSession.client.write(tag, RD_AES_GCM_TAG_SIZE) != RD_AES_GCM_TAG_SIZE) {
+        return RD_ERR_CONNECT_FAILED;
+    }
+
+    return RD_OK;
 }
 
-static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout) {
+// Receive packet - handles both encrypted (with separate TAG) and unencrypted formats
+// encrypted=true: expects header + payload + tag_separately (Rust server format)
+// encrypted=false: expects header + payload only
+static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t* len,
+                                   uint8_t* tag, bool encrypted, uint32_t timeout) {
     unsigned long start = millis();
 
     // Wait for header
@@ -565,8 +534,11 @@ static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* l
     *type = (RDPacketType)header[1];
     uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
-    // Wait for payload
-    while ((int)rdSession.client.available() < payloadLen) {
+    // Calculate total bytes to receive
+    size_t totalBytes = payloadLen + (encrypted ? RD_AES_GCM_TAG_SIZE : 0);
+
+    // Wait for payload (+ tag if encrypted)
+    while ((size_t)rdSession.client.available() < totalBytes) {
         if (millis() - start > timeout) return RD_ERR_TIMEOUT;
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
         delay(1);
@@ -577,7 +549,17 @@ static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* l
     }
     *len = payloadLen;
 
+    // Read separate TAG if encrypted
+    if (encrypted && tag != NULL) {
+        rdSession.client.readBytes(tag, RD_AES_GCM_TAG_SIZE);
+    }
+
     return RD_OK;
+}
+
+// Simple wrapper for unencrypted packets
+static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout) {
+    return rdReceivePacketEx(type, payload, len, NULL, false, timeout);
 }
 
 // ============================================================================
@@ -965,7 +947,9 @@ static void rdProcessInput() {
 // ============================================================================
 
 static void rdLoop() {
-    static uint8_t rxBuffer[32768];  // 32KB for receiving frames
+    static uint8_t rxBuffer[32768];   // 32KB for receiving encrypted frames
+    static uint8_t decBuffer[32768];  // 32KB for decrypted data
+    static uint8_t tag[RD_AES_GCM_TAG_SIZE];
     static uint32_t lastHeartbeat = 0;
 
     while (rdSession.state == RD_STATE_CONNECTED) {
@@ -982,12 +966,21 @@ static void rdLoop() {
         // Process keyboard input
         rdProcessInput();
 
-        // Check for incoming data
+        // Check for incoming data (need at least header)
         if (rdSession.client.available() >= RD_PACKET_HEADER_SIZE) {
             RDPacketType type;
             uint16_t len;
 
-            RDError err = rdReceivePacket(&type, rxBuffer, &len, 100);
+            // Peek at header to determine if encrypted
+            uint8_t headerPeek[RD_PACKET_HEADER_SIZE];
+            rdSession.client.peekBytes(headerPeek, RD_PACKET_HEADER_SIZE);
+            RDPacketType peekType = (RDPacketType)headerPeek[1];
+
+            // Encrypted packet types: ScreenFrame, ScreenDelta
+            // These have TAG sent separately after the payload
+            bool isEncrypted = (peekType == RD_PKT_SCREEN_FRAME || peekType == RD_PKT_SCREEN_DELTA);
+
+            RDError err = rdReceivePacketEx(&type, rxBuffer, &len, tag, isEncrypted, 100);
             if (err != RD_OK) {
                 if (err != RD_ERR_TIMEOUT) {
                     Serial.printf("[RD] Receive error: %s\n", rdErrorToString(err));
@@ -999,15 +992,42 @@ static void rdLoop() {
 
             switch (type) {
                 case RD_PKT_SCREEN_FRAME: {
-                    // Decrypt and display frame
-                    uint8_t decrypted[32768];
-                    size_t decLen;
-                    err = rdDecryptPayload(rxBuffer, len, decrypted, &decLen);
-                    if (err == RD_OK && decLen > 8) {
-                        // Skip sequence(4) + timestamp(4) header
-                        rdDrawFrame(decrypted + 8, decLen - 8);
-                    } else if (err != RD_OK) {
-                        Serial.printf("[RD] Frame decrypt error: %s\n", rdErrorToString(err));
+                    // Decrypt frame (payload = nonce + ciphertext, tag was read separately)
+                    if (len < RD_AES_GCM_NONCE_SIZE) {
+                        Serial.println("[RD] Frame too short");
+                        break;
+                    }
+
+                    const uint8_t* nonce = rxBuffer;
+                    const uint8_t* ciphertext = rxBuffer + RD_AES_GCM_NONCE_SIZE;
+                    size_t ciphertextLen = len - RD_AES_GCM_NONCE_SIZE;
+
+                    // Verify nonce counter (replay protection)
+                    uint32_t counter = ((uint32_t)nonce[0] << 24) | ((uint32_t)nonce[1] << 16) |
+                                       ((uint32_t)nonce[2] << 8) | nonce[3];
+                    if (counter < rdSession.rxCounter) {
+                        Serial.printf("[RD] Replay! Got %u, expected >= %u\n", counter, rdSession.rxCounter);
+                        break;
+                    }
+                    if (rdSession.rxCounter == 0) {
+                        memcpy(rdSession.rxNonceRandom, nonce + 4, 8);
+                    }
+                    rdSession.rxCounter = counter + 1;
+
+                    // Decrypt using s2c key
+                    int ret = mbedtls_gcm_auth_decrypt(&rdSession.gcmDecrypt, ciphertextLen,
+                                                        nonce, RD_AES_GCM_NONCE_SIZE,
+                                                        NULL, 0,
+                                                        tag, RD_AES_GCM_TAG_SIZE,
+                                                        ciphertext, decBuffer);
+                    if (ret != 0) {
+                        Serial.printf("[RD] Frame decrypt failed: -0x%04X\n", -ret);
+                        break;
+                    }
+
+                    // Frame format: sequence(4) + timestamp(4) + jpeg_data
+                    if (ciphertextLen > 8) {
+                        rdDrawFrame(decBuffer + 8, ciphertextLen - 8);
                     }
                     break;
                 }
