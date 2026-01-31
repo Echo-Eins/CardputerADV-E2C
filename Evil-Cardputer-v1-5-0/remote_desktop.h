@@ -2,10 +2,15 @@
  * remote_desktop.h - Remote Desktop Module for Evil-Cardputer
  *
  * Secure remote desktop client with:
- * - ECDH key exchange (secp256r1)
- * - AES-128-GCM encryption
+ * - ECDH key exchange (secp256r1) with compressed public keys
+ * - HKDF-SHA256 key derivation (RFC 5869)
+ * - AES-128-GCM authenticated encryption
+ * - Dual session keys (client→server, server→client)
+ * - Replay protection with nonce validation
  * - mDNS service discovery
  * - JPEG compressed screen streaming
+ *
+ * Protocol compatible with cardputer-remote Rust server
  */
 
 #ifndef REMOTE_DESKTOP_H
@@ -25,7 +30,7 @@ extern bool ledOn;
 extern bool soundOn;
 
 // ============================================================================
-// Protocol Constants
+// Protocol Constants (must match Rust server)
 // ============================================================================
 
 #define RD_PROTOCOL_VERSION     0x01
@@ -34,12 +39,18 @@ extern bool soundOn;
 
 // Crypto constants
 #define RD_AES_KEY_SIZE         16      // AES-128
-#define RD_AES_GCM_TAG_SIZE     16      // GCM tag
-#define RD_AES_GCM_NONCE_SIZE   12      // 96-bit nonce
-#define RD_ECDH_PUBKEY_SIZE     65      // Uncompressed point
-#define RD_HKDF_SALT_SIZE       32
-#define RD_HMAC_KEY_SIZE        32
-#define RD_COOKIE_SIZE          16      // mDNS cookie
+#define RD_AES_GCM_TAG_SIZE     16      // GCM authentication tag
+#define RD_AES_GCM_NONCE_SIZE   12      // 96-bit nonce (4 counter + 8 random)
+#define RD_ECDH_PUBKEY_SIZE     33      // Compressed secp256r1 point
+#define RD_ECDH_PUBKEY_UNCOMP   65      // Uncompressed (for internal use)
+#define RD_HANDSHAKE_NONCE_SIZE 32      // Random nonce for key derivation
+#define RD_HKDF_SALT_SIZE       32      // SHA256 output size
+#define RD_HMAC_KEY_SIZE        32      // HMAC-SHA256 key
+#define RD_COOKIE_SIZE          16      // mDNS discovery cookie
+#define RD_TRANSCRIPT_MAC_SIZE  32      // Handshake verification MAC
+
+// Derived key material sizes
+#define RD_SESSION_KEY_MATERIAL 64      // c2s(16) + s2c(16) + hmac(32)
 
 // Packet structure
 #define RD_PACKET_HEADER_SIZE   4       // version(1) + type(1) + length(2)
@@ -48,8 +59,13 @@ extern bool soundOn;
 #define RD_DISPLAY_WIDTH        240
 #define RD_DISPLAY_HEIGHT       135
 
+// Timeouts
+#define RD_MDNS_TIMEOUT_MS      7000    // mDNS discovery timeout
+#define RD_HANDSHAKE_TIMEOUT_MS 10000   // Handshake timeout
+#define RD_RECEIVE_TIMEOUT_MS   5000    // General receive timeout
+
 // ============================================================================
-// Packet Types
+// Packet Types (must match Rust server protocol/mod.rs)
 // ============================================================================
 
 enum RDPacketType : uint8_t {
@@ -65,11 +81,13 @@ enum RDPacketType : uint8_t {
     // Session
     RD_PKT_SESSION_START        = 0x10,
     RD_PKT_SESSION_END          = 0x11,
+    RD_PKT_SESSION_TIMEOUT      = 0x12,
     RD_PKT_HEARTBEAT            = 0x13,
     RD_PKT_HEARTBEAT_ACK        = 0x14,
 
     // Screen
     RD_PKT_SCREEN_FRAME         = 0x20,
+    RD_PKT_SCREEN_DELTA         = 0x21,
     RD_PKT_SCREEN_REQUEST       = 0x22,
 
     // Input
@@ -77,6 +95,11 @@ enum RDPacketType : uint8_t {
     RD_PKT_MOUSE_CLICK          = 0x31,
     RD_PKT_KEY_PRESS            = 0x32,
     RD_PKT_KEY_RELEASE          = 0x33,
+    RD_PKT_KEY_TYPE             = 0x34,
+
+    // Mode
+    RD_PKT_MODE_SWITCH          = 0x40,
+    RD_PKT_MODE_ACK             = 0x41,
 
     // Error
     RD_PKT_ERROR                = 0xF0,
@@ -97,6 +120,8 @@ enum RDError : int8_t {
     RD_ERR_PROTOCOL         = -7,
     RD_ERR_JPEG             = -8,
     RD_ERR_USER_CANCEL      = -9,
+    RD_ERR_REPLAY           = -10,
+    RD_ERR_NONCE_OVERFLOW   = -11,
 };
 
 // ============================================================================

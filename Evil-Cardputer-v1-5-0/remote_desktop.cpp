@@ -1,7 +1,17 @@
 /*
  * remote_desktop.cpp - Remote Desktop Module for Evil-Cardputer
  *
- * Secure remote desktop client implementation
+ * Secure remote desktop client implementation with full Rust server compatibility.
+ *
+ * Security features:
+ * - ECDH key exchange (secp256r1) with compressed public keys (33 bytes)
+ * - HKDF-SHA256 key derivation (RFC 5869)
+ * - AES-128-GCM authenticated encryption
+ * - Dual session keys (client→server, server→client)
+ * - 32-byte nonce exchange for salt derivation
+ * - Salt = SHA256(client_nonce || server_nonce)
+ * - Replay protection with monotonic nonce counters
+ * - Transcript MAC for handshake verification
  */
 
 #include "remote_desktop.h"
@@ -16,10 +26,17 @@
 #include "mbedtls/ecdh.h"
 #include "mbedtls/ecp.h"
 #include "mbedtls/gcm.h"
-// Note: mbedtls/hkdf.h not available in ESP32 Arduino - using manual implementation
 #include "mbedtls/md.h"
+#include "mbedtls/sha256.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+
+// ============================================================================
+// Constants matching Rust server protocol
+// ============================================================================
+
+static const char* RD_HKDF_INFO = "cardputer-remote-v1-session-keys";
+static const size_t RD_HKDF_INFO_LEN = 33;
 
 // ============================================================================
 // Configuration
@@ -36,27 +53,37 @@ static RDConfig rdConfig = {
 static const char* RD_CONFIG_PATH = "/remote_desktop.json";
 
 // ============================================================================
-// Session State
+// Session State (matches Rust server crypto state)
 // ============================================================================
 
 static struct {
     RDSessionState state;
     WiFiClient client;
 
-    // Crypto context
+    // Crypto contexts
     mbedtls_ecdh_context ecdh;
-    mbedtls_gcm_context gcm;
+    mbedtls_gcm_context gcmEncrypt;     // For client→server (c2s)
+    mbedtls_gcm_context gcmDecrypt;     // For server→client (s2c)
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
 
-    // Session keys
-    uint8_t aesKey[RD_AES_KEY_SIZE];
-    uint8_t hmacKey[RD_HMAC_KEY_SIZE];
+    // Session keys (dual keys for bidirectional encryption)
+    uint8_t c2sKey[RD_AES_KEY_SIZE];    // Client to server key
+    uint8_t s2cKey[RD_AES_KEY_SIZE];    // Server to client key
+    uint8_t hmacKey[RD_HMAC_KEY_SIZE];  // For transcript MAC
 
-    // Nonce counters
-    uint32_t txNonce;
-    uint32_t rxNonce;
-    uint8_t nonceRandom[8];
+    // Nonces for key derivation
+    uint8_t clientNonce[RD_HANDSHAKE_NONCE_SIZE];
+    uint8_t serverNonce[RD_HANDSHAKE_NONCE_SIZE];
+
+    // Nonce counters for replay protection (per direction)
+    uint32_t txCounter;     // Our send counter
+    uint32_t rxCounter;     // Expected receive counter
+    uint8_t txNonceRandom[8];  // Random part of TX nonce
+    uint8_t rxNonceRandom[8];  // Random part of RX nonce (from server)
+
+    // Our public key (compressed, 33 bytes)
+    uint8_t ourPubKey[RD_ECDH_PUBKEY_SIZE];
 
     // Frame buffer
     uint8_t* frameBuffer;
@@ -70,6 +97,9 @@ static struct {
     // Connection info
     char serverName[64];
     IPAddress serverIP;
+
+    // Handshake transcript for MAC
+    uint8_t transcriptHash[32];
 
 } rdSession;
 
@@ -86,9 +116,10 @@ static void rdDrawStatus(const char* line1, const char* line2 = nullptr);
 static void rdDrawFrame(const uint8_t* jpegData, size_t jpegLen);
 static void rdProcessInput();
 static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t len);
+static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len);
 static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout);
-static RDError rdEncrypt(const uint8_t* plain, size_t plainLen, uint8_t* cipher, size_t* cipherLen);
-static RDError rdDecrypt(const uint8_t* cipher, size_t cipherLen, uint8_t* plain, size_t* plainLen);
+static RDError rdDecryptPayload(const uint8_t* cipher, size_t cipherLen, uint8_t* plain, size_t* plainLen);
+static void rdClearKeyboard();
 
 // ============================================================================
 // Configuration Load/Save
@@ -142,6 +173,8 @@ const char* rdErrorToString(RDError err) {
         case RD_ERR_PROTOCOL:       return "Protocol error";
         case RD_ERR_JPEG:           return "JPEG decode error";
         case RD_ERR_USER_CANCEL:    return "Cancelled";
+        case RD_ERR_REPLAY:         return "Replay attack";
+        case RD_ERR_NONCE_OVERFLOW: return "Nonce overflow";
         default:                    return "Unknown error";
     }
 }
@@ -164,23 +197,24 @@ const char* rdStateToString(RDSessionState state) {
 
 static RDError rdInitCrypto() {
     mbedtls_ecdh_init(&rdSession.ecdh);
-    mbedtls_gcm_init(&rdSession.gcm);
+    mbedtls_gcm_init(&rdSession.gcmEncrypt);
+    mbedtls_gcm_init(&rdSession.gcmDecrypt);
     mbedtls_entropy_init(&rdSession.entropy);
     mbedtls_ctr_drbg_init(&rdSession.ctr_drbg);
 
-    // Seed RNG
-    const char* pers = "cardputer_rd";
+    // Seed RNG with additional entropy
+    const char* pers = "cardputer_rd_v2";
     int ret = mbedtls_ctr_drbg_seed(&rdSession.ctr_drbg, mbedtls_entropy_func,
                                      &rdSession.entropy, (const uint8_t*)pers, strlen(pers));
     if (ret != 0) {
-        Serial.printf("[RD] RNG seed failed: %d\n", ret);
+        Serial.printf("[RD] RNG seed failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
     // Setup ECDH with secp256r1
     ret = mbedtls_ecp_group_load(&rdSession.ecdh.grp, MBEDTLS_ECP_DP_SECP256R1);
     if (ret != 0) {
-        Serial.printf("[RD] ECP group load failed: %d\n", ret);
+        Serial.printf("[RD] ECP group load failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
@@ -191,22 +225,60 @@ static RDError rdInitCrypto() {
                                    mbedtls_ctr_drbg_random,
                                    &rdSession.ctr_drbg);
     if (ret != 0) {
-        Serial.printf("[RD] ECDH keygen failed: %d\n", ret);
+        Serial.printf("[RD] ECDH keygen failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
+
+    // Export compressed public key (33 bytes)
+    size_t pubKeyLen = 0;
+    ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
+                                          &rdSession.ecdh.Q,
+                                          MBEDTLS_ECP_PF_COMPRESSED,
+                                          &pubKeyLen, rdSession.ourPubKey,
+                                          sizeof(rdSession.ourPubKey));
+    if (ret != 0 || pubKeyLen != RD_ECDH_PUBKEY_SIZE) {
+        Serial.printf("[RD] Export pubkey failed: -0x%04X, len=%zu\n", -ret, pubKeyLen);
+        return RD_ERR_CRYPTO;
+    }
+
+    // Generate client nonce (32 bytes)
+    ret = mbedtls_ctr_drbg_random(&rdSession.ctr_drbg,
+                                   rdSession.clientNonce,
+                                   RD_HANDSHAKE_NONCE_SIZE);
+    if (ret != 0) {
+        Serial.printf("[RD] Nonce generation failed: -0x%04X\n", -ret);
+        return RD_ERR_CRYPTO;
+    }
+
+    // Generate random part of TX nonce
+    ret = mbedtls_ctr_drbg_random(&rdSession.ctr_drbg, rdSession.txNonceRandom, 8);
+    if (ret != 0) {
+        return RD_ERR_CRYPTO;
+    }
+
+    rdSession.txCounter = 0;
+    rdSession.rxCounter = 0;
 
     return RD_OK;
 }
 
 static void rdFreeCrypto() {
+    // Securely clear sensitive data
+    memset(rdSession.c2sKey, 0, sizeof(rdSession.c2sKey));
+    memset(rdSession.s2cKey, 0, sizeof(rdSession.s2cKey));
+    memset(rdSession.hmacKey, 0, sizeof(rdSession.hmacKey));
+    memset(rdSession.clientNonce, 0, sizeof(rdSession.clientNonce));
+    memset(rdSession.serverNonce, 0, sizeof(rdSession.serverNonce));
+
     mbedtls_ecdh_free(&rdSession.ecdh);
-    mbedtls_gcm_free(&rdSession.gcm);
+    mbedtls_gcm_free(&rdSession.gcmEncrypt);
+    mbedtls_gcm_free(&rdSession.gcmDecrypt);
     mbedtls_entropy_free(&rdSession.entropy);
     mbedtls_ctr_drbg_free(&rdSession.ctr_drbg);
 }
 
 // ============================================================================
-// HKDF key derivation (manual implementation - mbedtls_hkdf not available in ESP32 Arduino)
+// HKDF key derivation (manual implementation - mbedtls_hkdf not in ESP32 Arduino)
 // ============================================================================
 
 // HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
@@ -256,74 +328,129 @@ static int hkdf_expand(const uint8_t* prk, size_t prk_len,
     }
 
     mbedtls_md_free(&ctx);
+    memset(t, 0, sizeof(t));  // Clear intermediate value
     return 0;
 }
 
-static RDError rdDeriveKeys(const uint8_t* sharedSecret, size_t secretLen,
-                            const uint8_t* salt, size_t saltLen) {
-    uint8_t keyMaterial[RD_AES_KEY_SIZE + RD_HMAC_KEY_SIZE];
-    uint8_t prk[32];  // SHA256 output size
+// Compute salt as SHA256(client_nonce || server_nonce)
+static void rdComputeSalt(uint8_t* salt) {
+    mbedtls_sha256_context sha;
+    mbedtls_sha256_init(&sha);
+    mbedtls_sha256_starts(&sha, 0);  // 0 = SHA256 (not SHA224)
+    mbedtls_sha256_update(&sha, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
+    mbedtls_sha256_update(&sha, rdSession.serverNonce, RD_HANDSHAKE_NONCE_SIZE);
+    mbedtls_sha256_finish(&sha, salt);
+    mbedtls_sha256_free(&sha);
+}
+
+static RDError rdDeriveKeys(const uint8_t* sharedSecret, size_t secretLen) {
+    // Compute salt = SHA256(client_nonce || server_nonce)
+    uint8_t salt[RD_HKDF_SALT_SIZE];
+    rdComputeSalt(salt);
+
+    // Derive key material: c2s(16) + s2c(16) + hmac(32) = 64 bytes
+    uint8_t keyMaterial[RD_SESSION_KEY_MATERIAL];
+    uint8_t prk[32];
 
     // HKDF-Extract
-    int ret = hkdf_extract(salt, saltLen, sharedSecret, secretLen, prk);
+    int ret = hkdf_extract(salt, sizeof(salt), sharedSecret, secretLen, prk);
     if (ret != 0) {
-        Serial.printf("[RD] HKDF extract failed: %d\n", ret);
+        Serial.printf("[RD] HKDF extract failed: -0x%04X\n", -ret);
+        memset(salt, 0, sizeof(salt));
         return RD_ERR_CRYPTO;
     }
 
-    // HKDF-Expand
+    // HKDF-Expand with correct info string
     ret = hkdf_expand(prk, sizeof(prk),
-                      (const uint8_t*)"cardputer-remote-v1", 19,
+                      (const uint8_t*)RD_HKDF_INFO, RD_HKDF_INFO_LEN,
                       keyMaterial, sizeof(keyMaterial));
+
+    memset(prk, 0, sizeof(prk));  // Clear PRK immediately
+    memset(salt, 0, sizeof(salt));
+
     if (ret != 0) {
-        Serial.printf("[RD] HKDF expand failed: %d\n", ret);
+        Serial.printf("[RD] HKDF expand failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    memcpy(rdSession.aesKey, keyMaterial, RD_AES_KEY_SIZE);
-    memcpy(rdSession.hmacKey, keyMaterial + RD_AES_KEY_SIZE, RD_HMAC_KEY_SIZE);
+    // Split key material: c2s_key(16) + s2c_key(16) + hmac_key(32)
+    memcpy(rdSession.c2sKey, keyMaterial, RD_AES_KEY_SIZE);
+    memcpy(rdSession.s2cKey, keyMaterial + RD_AES_KEY_SIZE, RD_AES_KEY_SIZE);
+    memcpy(rdSession.hmacKey, keyMaterial + 2 * RD_AES_KEY_SIZE, RD_HMAC_KEY_SIZE);
 
-    // Initialize GCM with derived key
-    ret = mbedtls_gcm_setkey(&rdSession.gcm, MBEDTLS_CIPHER_ID_AES,
-                              rdSession.aesKey, RD_AES_KEY_SIZE * 8);
+    memset(keyMaterial, 0, sizeof(keyMaterial));  // Clear
+
+    // Initialize GCM contexts with separate keys
+    ret = mbedtls_gcm_setkey(&rdSession.gcmEncrypt, MBEDTLS_CIPHER_ID_AES,
+                              rdSession.c2sKey, RD_AES_KEY_SIZE * 8);
     if (ret != 0) {
-        Serial.printf("[RD] GCM setkey failed: %d\n", ret);
+        Serial.printf("[RD] GCM encrypt setkey failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Generate random part of nonce
-    mbedtls_ctr_drbg_random(&rdSession.ctr_drbg, rdSession.nonceRandom, 8);
-    rdSession.txNonce = 0;
-    rdSession.rxNonce = 0;
+    ret = mbedtls_gcm_setkey(&rdSession.gcmDecrypt, MBEDTLS_CIPHER_ID_AES,
+                              rdSession.s2cKey, RD_AES_KEY_SIZE * 8);
+    if (ret != 0) {
+        Serial.printf("[RD] GCM decrypt setkey failed: -0x%04X\n", -ret);
+        return RD_ERR_CRYPTO;
+    }
 
+    Serial.println("[RD] Session keys derived successfully");
     return RD_OK;
 }
 
 // ============================================================================
-// Encryption/Decryption
+// Transcript MAC computation
+// ============================================================================
+
+static void rdComputeTranscriptMAC(const uint8_t* clientPubKey, const uint8_t* serverPubKey,
+                                    uint8_t* mac) {
+    // MAC = HMAC-SHA256(hmac_key, client_pubkey || server_pubkey || client_nonce || server_nonce)
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
+
+    mbedtls_md_hmac_starts(&ctx, rdSession.hmacKey, RD_HMAC_KEY_SIZE);
+    mbedtls_md_hmac_update(&ctx, clientPubKey, RD_ECDH_PUBKEY_SIZE);
+    mbedtls_md_hmac_update(&ctx, serverPubKey, RD_ECDH_PUBKEY_SIZE);
+    mbedtls_md_hmac_update(&ctx, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
+    mbedtls_md_hmac_update(&ctx, rdSession.serverNonce, RD_HANDSHAKE_NONCE_SIZE);
+    mbedtls_md_hmac_finish(&ctx, mac);
+
+    mbedtls_md_free(&ctx);
+}
+
+// ============================================================================
+// Encryption (client→server using c2s key)
 // ============================================================================
 
 static RDError rdEncrypt(const uint8_t* plain, size_t plainLen,
                          uint8_t* cipher, size_t* cipherLen) {
-    // Build nonce: counter(4) + random(8)
-    uint8_t nonce[RD_AES_GCM_NONCE_SIZE];
-    nonce[0] = (rdSession.txNonce >> 24) & 0xFF;
-    nonce[1] = (rdSession.txNonce >> 16) & 0xFF;
-    nonce[2] = (rdSession.txNonce >> 8) & 0xFF;
-    nonce[3] = rdSession.txNonce & 0xFF;
-    memcpy(nonce + 4, rdSession.nonceRandom, 8);
-    rdSession.txNonce++;
+    // Check for nonce overflow
+    if (rdSession.txCounter == 0xFFFFFFFF) {
+        return RD_ERR_NONCE_OVERFLOW;
+    }
 
-    // Output: nonce + ciphertext + tag
+    // Build nonce: counter(4 BE) + random(8)
+    uint8_t nonce[RD_AES_GCM_NONCE_SIZE];
+    nonce[0] = (rdSession.txCounter >> 24) & 0xFF;
+    nonce[1] = (rdSession.txCounter >> 16) & 0xFF;
+    nonce[2] = (rdSession.txCounter >> 8) & 0xFF;
+    nonce[3] = rdSession.txCounter & 0xFF;
+    memcpy(nonce + 4, rdSession.txNonceRandom, 8);
+    rdSession.txCounter++;
+
+    // Output format: nonce(12) + ciphertext + tag(16)
     memcpy(cipher, nonce, RD_AES_GCM_NONCE_SIZE);
 
     uint8_t tag[RD_AES_GCM_TAG_SIZE];
-    int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcm, MBEDTLS_GCM_ENCRYPT,
+    int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcmEncrypt, MBEDTLS_GCM_ENCRYPT,
                                          plainLen, nonce, RD_AES_GCM_NONCE_SIZE,
-                                         NULL, 0,
+                                         NULL, 0,  // No AAD
                                          plain, cipher + RD_AES_GCM_NONCE_SIZE,
                                          RD_AES_GCM_TAG_SIZE, tag);
     if (ret != 0) {
+        Serial.printf("[RD] Encrypt failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
@@ -333,8 +460,12 @@ static RDError rdEncrypt(const uint8_t* plain, size_t plainLen,
     return RD_OK;
 }
 
-static RDError rdDecrypt(const uint8_t* cipher, size_t cipherLen,
-                         uint8_t* plain, size_t* plainLen) {
+// ============================================================================
+// Decryption (server→client using s2c key)
+// ============================================================================
+
+static RDError rdDecryptPayload(const uint8_t* cipher, size_t cipherLen,
+                                 uint8_t* plain, size_t* plainLen) {
     if (cipherLen < RD_AES_GCM_NONCE_SIZE + RD_AES_GCM_TAG_SIZE) {
         return RD_ERR_PROTOCOL;
     }
@@ -344,21 +475,30 @@ static RDError rdDecrypt(const uint8_t* cipher, size_t cipherLen,
     const uint8_t* ciphertext = cipher + RD_AES_GCM_NONCE_SIZE;
     const uint8_t* tag = cipher + cipherLen - RD_AES_GCM_TAG_SIZE;
 
-    // Verify nonce counter (replay protection)
-    uint32_t counter = (nonce[0] << 24) | (nonce[1] << 16) | (nonce[2] << 8) | nonce[3];
-    if (counter < rdSession.rxNonce) {
-        Serial.println("[RD] Replay detected!");
-        return RD_ERR_CRYPTO;
-    }
-    rdSession.rxNonce = counter + 1;
+    // Extract and verify nonce counter (replay protection)
+    uint32_t counter = ((uint32_t)nonce[0] << 24) | ((uint32_t)nonce[1] << 16) |
+                       ((uint32_t)nonce[2] << 8) | nonce[3];
 
-    int ret = mbedtls_gcm_auth_decrypt(&rdSession.gcm, dataLen,
+    if (counter < rdSession.rxCounter) {
+        Serial.printf("[RD] Replay detected! Got %u, expected >= %u\n", counter, rdSession.rxCounter);
+        return RD_ERR_REPLAY;
+    }
+
+    // Store server's random nonce part for reference (on first message)
+    if (rdSession.rxCounter == 0) {
+        memcpy(rdSession.rxNonceRandom, nonce + 4, 8);
+    }
+
+    // Update expected counter
+    rdSession.rxCounter = counter + 1;
+
+    int ret = mbedtls_gcm_auth_decrypt(&rdSession.gcmDecrypt, dataLen,
                                         nonce, RD_AES_GCM_NONCE_SIZE,
-                                        NULL, 0,
+                                        NULL, 0,  // No AAD
                                         tag, RD_AES_GCM_TAG_SIZE,
                                         ciphertext, plain);
     if (ret != 0) {
-        Serial.printf("[RD] GCM decrypt failed: %d\n", ret);
+        Serial.printf("[RD] Decrypt failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
@@ -392,6 +532,18 @@ static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t 
     return RD_OK;
 }
 
+// Send encrypted packet (after handshake)
+static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len) {
+    // Buffer for encrypted data: nonce + ciphertext + tag
+    uint8_t encrypted[len + RD_AES_GCM_NONCE_SIZE + RD_AES_GCM_TAG_SIZE];
+    size_t encLen;
+
+    RDError err = rdEncrypt(payload, len, encrypted, &encLen);
+    if (err != RD_OK) return err;
+
+    return rdSendPacket(type, encrypted, encLen);
+}
+
 static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout) {
     unsigned long start = millis();
 
@@ -406,15 +558,15 @@ static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* l
     rdSession.client.readBytes(header, RD_PACKET_HEADER_SIZE);
 
     if (header[0] != RD_PROTOCOL_VERSION) {
-        Serial.printf("[RD] Bad version: %02X\n", header[0]);
+        Serial.printf("[RD] Bad version: 0x%02X\n", header[0]);
         return RD_ERR_PROTOCOL;
     }
 
     *type = (RDPacketType)header[1];
-    uint16_t payloadLen = (header[2] << 8) | header[3];
+    uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
     // Wait for payload
-    while (rdSession.client.available() < payloadLen) {
+    while ((int)rdSession.client.available() < payloadLen) {
         if (millis() - start > timeout) return RD_ERR_TIMEOUT;
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
         delay(1);
@@ -429,7 +581,7 @@ static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* l
 }
 
 // ============================================================================
-// mDNS Discovery
+// mDNS Discovery with timeout
 // ============================================================================
 
 static RDError rdDiscover() {
@@ -440,11 +592,28 @@ static RDError rdDiscover() {
         Serial.println("[RD] mDNS init failed");
     }
 
-    // Query for service
-    int n = MDNS.queryService("cardputer-remote", "tcp");
+    unsigned long start = millis();
+    int n = 0;
+
+    // Query with timeout
+    while (millis() - start < RD_MDNS_TIMEOUT_MS) {
+        n = MDNS.queryService("cardputer-remote", "tcp");
+        if (n > 0) break;
+
+        // Check for user cancel
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            MDNS.end();
+            return RD_ERR_USER_CANCEL;
+        }
+
+        delay(500);
+    }
 
     if (n == 0) {
         Serial.println("[RD] No servers found via mDNS");
+        MDNS.end();
+
         // Try manual entry or saved config
         if (strlen(rdConfig.serverHost) > 0) {
             rdSession.serverIP.fromString(rdConfig.serverHost);
@@ -472,7 +641,7 @@ static RDError rdDiscover() {
 }
 
 // ============================================================================
-// Connection
+// TCP Connection
 // ============================================================================
 
 static RDError rdConnect() {
@@ -495,60 +664,81 @@ static RDError rdConnect() {
 }
 
 // ============================================================================
-// Handshake
+// Cryptographic Handshake
 // ============================================================================
 
 static RDError rdHandshake() {
     rdSession.state = RD_STATE_HANDSHAKE;
-    rdDrawStatus("Handshake...", "Key exchange");
+    rdDrawStatus("Handshake...", "ECDH key exchange");
 
     RDError err = rdInitCrypto();
     if (err != RD_OK) return err;
 
-    // Get our public key
-    uint8_t ourPubKey[RD_ECDH_PUBKEY_SIZE];
-    size_t pubKeyLen = 0;
-    int ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
-                                              &rdSession.ecdh.Q,
-                                              MBEDTLS_ECP_PF_UNCOMPRESSED,
-                                              &pubKeyLen, ourPubKey, sizeof(ourPubKey));
-    if (ret != 0) {
-        Serial.printf("[RD] Export pubkey failed: %d\n", ret);
-        return RD_ERR_CRYPTO;
+    // ===== HANDSHAKE INIT =====
+    // Format: pubkey(33) + nonce(32) = 65 bytes
+    // Note: Signature is optional for ESP32 client (simplified handshake)
+    uint8_t initPayload[RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE];
+    memcpy(initPayload, rdSession.ourPubKey, RD_ECDH_PUBKEY_SIZE);
+    memcpy(initPayload + RD_ECDH_PUBKEY_SIZE, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
+
+    err = rdSendPacket(RD_PKT_HANDSHAKE_INIT, initPayload, sizeof(initPayload));
+    if (err != RD_OK) {
+        Serial.println("[RD] Failed to send HANDSHAKE_INIT");
+        return err;
     }
 
-    // Send HANDSHAKE_INIT with our public key
-    err = rdSendPacket(RD_PKT_HANDSHAKE_INIT, ourPubKey, pubKeyLen);
-    if (err != RD_OK) return err;
-
-    // Receive HANDSHAKE_RESPONSE with server's public key
+    // ===== RECEIVE HANDSHAKE RESPONSE =====
+    // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
     uint8_t response[256];
     uint16_t respLen;
     RDPacketType respType;
 
-    err = rdReceivePacket(&respType, response, &respLen, 5000);
-    if (err != RD_OK) return err;
+    err = rdReceivePacket(&respType, response, &respLen, RD_HANDSHAKE_TIMEOUT_MS);
+    if (err != RD_OK) {
+        Serial.printf("[RD] Failed to receive response: %s\n", rdErrorToString(err));
+        return err;
+    }
+
+    if (respType == RD_PKT_ERROR) {
+        Serial.println("[RD] Server returned error");
+        return RD_ERR_HANDSHAKE;
+    }
 
     if (respType != RD_PKT_HANDSHAKE_RESPONSE) {
-        Serial.printf("[RD] Expected HANDSHAKE_RESPONSE, got %02X\n", respType);
+        Serial.printf("[RD] Expected HANDSHAKE_RESPONSE, got 0x%02X\n", respType);
         return RD_ERR_HANDSHAKE;
     }
 
-    if (respLen < RD_ECDH_PUBKEY_SIZE) {
-        Serial.println("[RD] Response too short");
+    // Minimum: pubkey(33) + nonce(32) = 65
+    if (respLen < RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE) {
+        Serial.printf("[RD] Response too short: %u\n", respLen);
         return RD_ERR_HANDSHAKE;
     }
 
-    // Import server's public key
-    ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.grp,
-                                         &rdSession.ecdh.Qp,
-                                         response, RD_ECDH_PUBKEY_SIZE);
+    // Extract server's public key and nonce
+    const uint8_t* serverPubKey = response;
+    const uint8_t* serverNonce = response + RD_ECDH_PUBKEY_SIZE;
+
+    // Save server nonce
+    memcpy(rdSession.serverNonce, serverNonce, RD_HANDSHAKE_NONCE_SIZE);
+
+    // Import server's public key (compressed format)
+    int ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.grp,
+                                             &rdSession.ecdh.Qp,
+                                             serverPubKey, RD_ECDH_PUBKEY_SIZE);
     if (ret != 0) {
-        Serial.printf("[RD] Import server pubkey failed: %d\n", ret);
+        Serial.printf("[RD] Import server pubkey failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Compute shared secret
+    // Validate the point is on the curve (security check)
+    ret = mbedtls_ecp_check_pubkey(&rdSession.ecdh.grp, &rdSession.ecdh.Qp);
+    if (ret != 0) {
+        Serial.printf("[RD] Server pubkey validation failed: -0x%04X\n", -ret);
+        return RD_ERR_CRYPTO;
+    }
+
+    // ===== COMPUTE SHARED SECRET =====
     mbedtls_mpi sharedSecret;
     mbedtls_mpi_init(&sharedSecret);
 
@@ -560,41 +750,66 @@ static RDError rdHandshake() {
                                        &rdSession.ctr_drbg);
     if (ret != 0) {
         mbedtls_mpi_free(&sharedSecret);
-        Serial.printf("[RD] ECDH compute failed: %d\n", ret);
+        Serial.printf("[RD] ECDH compute failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Export shared secret
+    // Export shared secret as bytes
     uint8_t secretBytes[32];
     size_t secretLen = mbedtls_mpi_size(&sharedSecret);
-    mbedtls_mpi_write_binary(&sharedSecret, secretBytes, secretLen);
+    if (secretLen > sizeof(secretBytes)) secretLen = sizeof(secretBytes);
+
+    // Write with leading zeros if needed (fixed 32 bytes)
+    memset(secretBytes, 0, sizeof(secretBytes));
+    ret = mbedtls_mpi_write_binary(&sharedSecret, secretBytes + (32 - secretLen), secretLen);
     mbedtls_mpi_free(&sharedSecret);
 
-    // Get salt from response (after pubkey)
-    const uint8_t* salt = response + RD_ECDH_PUBKEY_SIZE;
-    size_t saltLen = respLen - RD_ECDH_PUBKEY_SIZE;
+    if (ret != 0) {
+        Serial.printf("[RD] Export shared secret failed: -0x%04X\n", -ret);
+        return RD_ERR_CRYPTO;
+    }
 
-    // Derive session keys
-    err = rdDeriveKeys(secretBytes, secretLen, salt, saltLen);
-    memset(secretBytes, 0, sizeof(secretBytes));  // Clear secret
+    // ===== DERIVE SESSION KEYS =====
+    err = rdDeriveKeys(secretBytes, 32);
+    memset(secretBytes, 0, sizeof(secretBytes));  // Securely clear
     if (err != RD_OK) return err;
 
-    // Send HANDSHAKE_COMPLETE
-    err = rdSendPacket(RD_PKT_HANDSHAKE_COMPLETE, NULL, 0);
-    if (err != RD_OK) return err;
+    // ===== COMPUTE AND SEND TRANSCRIPT MAC =====
+    uint8_t transcriptMAC[RD_TRANSCRIPT_MAC_SIZE];
+    rdComputeTranscriptMAC(rdSession.ourPubKey, serverPubKey, transcriptMAC);
 
-    Serial.println("[RD] Handshake complete");
+    err = rdSendPacket(RD_PKT_HANDSHAKE_COMPLETE, transcriptMAC, sizeof(transcriptMAC));
+    if (err != RD_OK) {
+        Serial.println("[RD] Failed to send HANDSHAKE_COMPLETE");
+        return err;
+    }
+
+    // Wait for session start confirmation
+    err = rdReceivePacket(&respType, response, &respLen, RD_HANDSHAKE_TIMEOUT_MS);
+    if (err != RD_OK) {
+        Serial.printf("[RD] No session start: %s\n", rdErrorToString(err));
+        // Continue anyway - some server versions may not send this
+    } else if (respType == RD_PKT_SESSION_START) {
+        Serial.println("[RD] Session started");
+    } else if (respType == RD_PKT_ERROR) {
+        Serial.println("[RD] Server rejected handshake");
+        return RD_ERR_HANDSHAKE;
+    }
+
+    Serial.println("[RD] Handshake complete - secure channel established");
     rdSession.state = RD_STATE_CONNECTED;
     return RD_OK;
 }
 
 // ============================================================================
-// Disconnect
+// Disconnect and cleanup
 // ============================================================================
 
 static void rdDisconnect() {
     if (rdSession.client.connected()) {
+        // Try to send session end (ignore errors)
         rdSendPacket(RD_PKT_SESSION_END, NULL, 0);
+        delay(50);
         rdSession.client.stop();
     }
 
@@ -658,6 +873,18 @@ static void rdDrawFrame(const uint8_t* jpegData, size_t jpegLen) {
 }
 
 // ============================================================================
+// Clear keyboard state (for debounce fix)
+// ============================================================================
+
+static void rdClearKeyboard() {
+    // Update multiple times to clear any pending key states
+    for (int i = 0; i < 5; i++) {
+        M5Cardputer.update();
+        delay(20);
+    }
+}
+
+// ============================================================================
 // Input processing
 // ============================================================================
 
@@ -667,42 +894,33 @@ static void rdProcessInput() {
 
     Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
 
-    // Handle special keys
+    // Handle FN combinations for mouse control
     if (status.fn) {
-        // FN combinations for mouse control
-        // FN + arrows = mouse move
-        // FN + Enter = left click
-        // FN + Space = right click
+        int8_t dx = 0, dy = 0;
 
-        if (M5Cardputer.Keyboard.isKeyPressed(';')) {  // Up
-            uint8_t data[4] = {0, 0, 0, (uint8_t)-10};  // dy = -10
-            rdSendPacket(RD_PKT_MOUSE_MOVE, data, 4);
+        if (M5Cardputer.Keyboard.isKeyPressed(';')) dy = -10;  // Up
+        if (M5Cardputer.Keyboard.isKeyPressed('.')) dy = 10;   // Down
+        if (M5Cardputer.Keyboard.isKeyPressed(',')) dx = -10;  // Left
+        if (M5Cardputer.Keyboard.isKeyPressed('/')) dx = 10;   // Right
+
+        if (dx != 0 || dy != 0) {
+            uint8_t data[2] = {(uint8_t)dx, (uint8_t)dy};
+            rdSendEncrypted(RD_PKT_MOUSE_MOVE, data, 2);
         }
-        if (M5Cardputer.Keyboard.isKeyPressed('.')) {  // Down
-            uint8_t data[4] = {0, 0, 0, 10};  // dy = 10
-            rdSendPacket(RD_PKT_MOUSE_MOVE, data, 4);
-        }
-        if (M5Cardputer.Keyboard.isKeyPressed(',')) {  // Left (assuming)
-            uint8_t data[4] = {0, (uint8_t)-10, 0, 0};  // dx = -10
-            rdSendPacket(RD_PKT_MOUSE_MOVE, data, 4);
-        }
-        if (M5Cardputer.Keyboard.isKeyPressed('/')) {  // Right (assuming)
-            uint8_t data[4] = {0, 10, 0, 0};  // dx = 10
-            rdSendPacket(RD_PKT_MOUSE_MOVE, data, 4);
-        }
+
         if (status.enter) {
-            uint8_t data[1] = {0};  // Left click
-            rdSendPacket(RD_PKT_MOUSE_CLICK, data, 1);
+            uint8_t data[2] = {0, 2};  // Left button, click action
+            rdSendEncrypted(RD_PKT_MOUSE_CLICK, data, 2);
         }
         return;
     }
 
-    // Regular key press - send as HID keycode
+    // Regular key presses - send as HID keycodes
     for (auto ch : status.word) {
         uint8_t keycode = 0;
         uint8_t modifier = 0;
 
-        // Simple ASCII to HID conversion
+        // ASCII to HID conversion
         if (ch >= 'a' && ch <= 'z') {
             keycode = 0x04 + (ch - 'a');
         } else if (ch >= 'A' && ch <= 'Z') {
@@ -720,25 +938,25 @@ static void rdProcessInput() {
 
         if (keycode != 0) {
             uint8_t data[2] = {keycode, modifier};
-            rdSendPacket(RD_PKT_KEY_PRESS, data, 2);
+            rdSendEncrypted(RD_PKT_KEY_PRESS, data, 2);
             delay(10);
-            rdSendPacket(RD_PKT_KEY_RELEASE, data, 2);
+            rdSendEncrypted(RD_PKT_KEY_RELEASE, data, 2);
         }
     }
 
     // Special keys
     if (status.del) {
         uint8_t data[2] = {0x2A, 0};  // Backspace
-        rdSendPacket(RD_PKT_KEY_PRESS, data, 2);
+        rdSendEncrypted(RD_PKT_KEY_PRESS, data, 2);
         delay(10);
-        rdSendPacket(RD_PKT_KEY_RELEASE, data, 2);
+        rdSendEncrypted(RD_PKT_KEY_RELEASE, data, 2);
     }
 
-    if (status.enter) {
+    if (status.enter && !status.fn) {
         uint8_t data[2] = {0x28, 0};  // Enter
-        rdSendPacket(RD_PKT_KEY_PRESS, data, 2);
+        rdSendEncrypted(RD_PKT_KEY_PRESS, data, 2);
         delay(10);
-        rdSendPacket(RD_PKT_KEY_RELEASE, data, 2);
+        rdSendEncrypted(RD_PKT_KEY_RELEASE, data, 2);
     }
 }
 
@@ -754,7 +972,7 @@ static void rdLoop() {
         M5Cardputer.update();
         M5.update();
 
-        // Check for exit
+        // Check for exit (FN + Backspace)
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
             M5Cardputer.Keyboard.isKeyPressed(KEY_FN)) {
             Serial.println("[RD] User requested disconnect");
@@ -780,17 +998,19 @@ static void rdLoop() {
             }
 
             switch (type) {
-                case RD_PKT_SCREEN_FRAME:
+                case RD_PKT_SCREEN_FRAME: {
                     // Decrypt and display frame
-                    if (rdSession.state == RD_STATE_CONNECTED) {
-                        uint8_t decrypted[32768];
-                        size_t decLen;
-                        err = rdDecrypt(rxBuffer, len, decrypted, &decLen);
-                        if (err == RD_OK) {
-                            rdDrawFrame(decrypted, decLen);
-                        }
+                    uint8_t decrypted[32768];
+                    size_t decLen;
+                    err = rdDecryptPayload(rxBuffer, len, decrypted, &decLen);
+                    if (err == RD_OK && decLen > 8) {
+                        // Skip sequence(4) + timestamp(4) header
+                        rdDrawFrame(decrypted + 8, decLen - 8);
+                    } else if (err != RD_OK) {
+                        Serial.printf("[RD] Frame decrypt error: %s\n", rdErrorToString(err));
                     }
                     break;
+                }
 
                 case RD_PKT_HEARTBEAT:
                     rdSendPacket(RD_PKT_HEARTBEAT_ACK, NULL, 0);
@@ -801,13 +1021,23 @@ static void rdLoop() {
                     rdSession.state = RD_STATE_DISCONNECTED;
                     break;
 
+                case RD_PKT_SESSION_TIMEOUT:
+                    Serial.println("[RD] Session timeout from server");
+                    rdSession.state = RD_STATE_DISCONNECTED;
+                    break;
+
+                case RD_PKT_ERROR:
+                    Serial.println("[RD] Server error packet received");
+                    rdSession.state = RD_STATE_ERROR;
+                    break;
+
                 default:
-                    Serial.printf("[RD] Unknown packet type: %02X\n", type);
+                    Serial.printf("[RD] Unknown packet type: 0x%02X\n", type);
                     break;
             }
         }
 
-        // Send heartbeat
+        // Send heartbeat every 5 seconds
         if (millis() - lastHeartbeat > 5000) {
             rdSendPacket(RD_PKT_HEARTBEAT, NULL, 0);
             lastHeartbeat = millis();
@@ -882,6 +1112,11 @@ void remoteDesktop() {
     memset(&rdSession, 0, sizeof(rdSession));
     rdSession.state = RD_STATE_DISCONNECTED;
 
+    // === UI DEBOUNCE FIX ===
+    // Clear keyboard state and wait to prevent immediate action
+    rdClearKeyboard();
+    delay(300);  // Extra delay to ensure menu is shown first
+
     // Show settings / connect menu
     rdShowSettings();
 
@@ -897,6 +1132,7 @@ void remoteDesktop() {
 
         // Set server manually
         if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('S')) {
+            delay(200);
             M5.Display.fillScreen(TFT_BLACK);
             M5.Display.setCursor(10, 10);
             M5.Display.println("Enter server IP:");
@@ -905,12 +1141,14 @@ void remoteDesktop() {
                 strlcpy(rdConfig.serverHost, host.c_str(), sizeof(rdConfig.serverHost));
                 rdSaveConfig();
             }
+            rdClearKeyboard();
             rdShowSettings();
             continue;
         }
 
         // Set quality
         if (M5Cardputer.Keyboard.isKeyPressed('q') || M5Cardputer.Keyboard.isKeyPressed('Q')) {
+            delay(200);
             M5.Display.fillScreen(TFT_BLACK);
             M5.Display.setCursor(10, 10);
             M5.Display.println("Enter quality (1-100):");
@@ -920,6 +1158,7 @@ void remoteDesktop() {
                 rdConfig.jpegQuality = qval;
                 rdSaveConfig();
             }
+            rdClearKeyboard();
             rdShowSettings();
             continue;
         }
@@ -962,7 +1201,8 @@ void remoteDesktop() {
             // Cleanup
             rdDisconnect();
 
-            // Return to settings
+            // Clear keyboard and return to settings
+            rdClearKeyboard();
             rdShowSettings();
         }
 
