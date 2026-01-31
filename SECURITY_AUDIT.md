@@ -336,8 +336,292 @@ cardputer_public_key = "..."     # Client ECDSA public key (66 hex)
 
 ---
 
-*This audit covers the cryptographic aspects of the protocol. It does not cover:*
-- *Network security (TCP is unencrypted until handshake)*
-- *Input validation beyond protocol messages*
-- *Side-channel attacks on ESP32 hardware*
-- *Key storage security on ESP32*
+## 11. Command Transmission System Audit
+
+### 11.1 ESP32 → PC Command Flow
+
+```
+ESP32 Keyboard → rdProcessInput() → rdSendEncrypted() → TCP → Server receive()
+                                                              ↓
+                    Display ← enigo.key() ← InputController ← decrypt()
+```
+
+**Security Analysis:**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| HID Keycode Mapping | ✅ Secure | Standard USB HID codes (0x04-0x52) |
+| Command Encryption | ✅ Secure | AES-128-GCM with c2s key |
+| Replay Protection | ✅ Secure | Monotonic TX counter |
+| Input Validation (Server) | ✅ Secure | keymap.get() returns None for unknown codes |
+| Modifier Handling | ✅ Secure | Proper Ctrl/Shift/Alt/Meta flags |
+
+**Command Packet Structure:**
+```
+KeyPress/KeyRelease: [keycode: u8][modifiers: u8] = 2 bytes
+MouseMove: [dx: i8][dy: i8] = 2 bytes
+MouseClick: [button: u8][action: u8] = 2 bytes
+```
+
+### 11.2 Potential Vulnerabilities (Command System)
+
+| Issue | Severity | Status |
+|-------|----------|--------|
+| No rate limiting on input | 🟡 Low | Server processes all inputs |
+| No sequence ordering | 🟡 Low | UDP would need this, TCP is ordered |
+| Modifier key stuck | 🟢 Info | Release always sent after press |
+
+---
+
+## 12. Image Transmission System Audit
+
+### 12.1 PC → ESP32 Image Flow
+
+```
+Screen → ScreenCapturer → compress_jpeg() → crypto.encrypt() → TCP
+                                                                  ↓
+                                Display ← drawJpg() ← gcm_decrypt() ← ESP32
+```
+
+**Security Analysis:**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Frame Encryption | ✅ Secure | AES-128-GCM with s2c key |
+| Replay Protection | ✅ Secure | Monotonic RX counter check |
+| Tag Verification | ✅ Secure | mbedtls_gcm_auth_decrypt() |
+| Nonce Random Validation | ✅ Secure | First packet sets expected random |
+
+**Frame Packet Structure:**
+```
+Encrypted: [nonce:12][ciphertext:[sequence:4][timestamp:4][jpeg_data:N]]
+Tag: [16 bytes] sent separately
+```
+
+### 12.2 Potential Vulnerabilities (Image System)
+
+| Issue | Severity | Status |
+|-------|----------|--------|
+| Large frame buffer (32KB) | 🟡 Medium | Static allocation, heap could fragment |
+| JPEG parsing | 🟡 Medium | Relies on M5GFX decoder, trusted library |
+| No frame rate limiting | 🟢 Low | Server controls frame rate |
+| Frame skip on decrypt fail | 🟢 Info | Expected behavior, logged |
+
+---
+
+## 13. PC (Rust Server) Security Audit
+
+### 13.1 Cryptographic Implementation (crypto/mod.rs)
+
+**Strengths:**
+- ✅ Uses `p256` crate for ECDSA/ECDH (well-audited, pure Rust)
+- ✅ Uses `aes-gcm` crate with constant-time implementation
+- ✅ Uses `OsRng` for cryptographically secure randomness
+- ✅ Proper nonce counter overflow check (returns error at u32::MAX)
+- ✅ Validates incoming nonce random part matches session
+
+**Code Review Findings:**
+
+| Location | Finding | Severity |
+|----------|---------|----------|
+| crypto/mod.rs:400-410 | `constant_time_eq` implementation | ✅ Correct |
+| crypto/mod.rs:292-315 | Replay protection logic | ✅ Correct |
+| crypto/mod.rs:278-289 | Nonce structure (counter + random) | ✅ Correct |
+| crypto/mod.rs:159 | Sign uses p256 Signer trait | ✅ Secure |
+
+### 13.2 Network Implementation (network/mod.rs)
+
+**Strengths:**
+- ✅ Signature verification before any key operations
+- ✅ Fixed handshake message size (129 bytes)
+- ✅ Transcript MAC verification
+- ✅ Proper error handling with typed errors
+
+**Code Review Findings:**
+
+| Location | Finding | Severity |
+|----------|---------|----------|
+| network/mod.rs:176-180 | Exact size check for HandshakeInit | ✅ Secure |
+| network/mod.rs:196 | Signature verified before ECDH | ✅ Critical security check |
+| network/mod.rs:253 | constant_time_eq for MAC comparison | ✅ Timing-safe |
+| network/mod.rs:262 | SessionStart unencrypted | 🟡 Acceptable (empty payload) |
+
+### 13.3 Input Simulation (input/mod.rs)
+
+**Strengths:**
+- ✅ Uses `enigo` crate (cross-platform, well-maintained)
+- ✅ Keymap bounds checking (unknown keycodes ignored)
+- ✅ Modifier handling is explicit (press before key, release after)
+
+**Potential Concerns:**
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| No privilege separation | 🟡 Medium | Server runs with user's desktop permissions |
+| No command allow-list | 🟡 Medium | All HID keys can be sent |
+| Special key combos | 🟡 Medium | Ctrl+Alt+Del, Win+L possible |
+
+### 13.4 Screen Capture (capture/mod.rs)
+
+**Strengths:**
+- ✅ Uses `scrap` crate (safe wrapper around OS APIs)
+- ✅ Frame hashing to avoid duplicate transmission
+- ✅ Configurable capture region validation
+
+**Potential Concerns:**
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| Full screen capture | 🟡 Medium | Captures all visible windows |
+| No redaction capability | 🟡 Medium | Sensitive data may be visible |
+| JPEG quality configurable | 🟢 Info | User-controlled trade-off |
+
+---
+
+## 14. ESP32 (Client) Security Audit
+
+### 14.1 Cryptographic Implementation (remote_desktop.cpp)
+
+**Strengths:**
+- ✅ Uses mbedtls (widely audited, ESP-IDF bundled)
+- ✅ `mbedtls_platform_zeroize` for sensitive data clearing
+- ✅ CTR_DRBG seeded with hardware entropy
+- ✅ ECDSA signature verification before accepting server response
+- ✅ ECP point validation (`mbedtls_ecp_check_pubkey`)
+
+**Code Review Findings:**
+
+| Location | Finding | Severity |
+|----------|---------|----------|
+| remote_desktop.cpp:277 | mbedtls_platform_zeroize for privKey | ✅ Secure |
+| remote_desktop.cpp:352-356 | Keypair consistency check | ✅ Secure |
+| remote_desktop.cpp:580-593 | rdFreeCrypto clears all secrets | ✅ Secure |
+| remote_desktop.cpp:1063-1067 | Server signature verification | ✅ Critical check |
+| remote_desktop.cpp:1084-1088 | Point-on-curve validation | ✅ Prevents invalid curve attacks |
+
+### 14.2 Key Management (SD Card)
+
+**Strengths:**
+- ✅ Keys stored as raw binary (no parsing vulnerabilities)
+- ✅ Fixed size files (32/33 bytes) validated on load
+- ✅ Keypair consistency verified after loading
+
+**Potential Concerns:**
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| SD card not encrypted | 🔴 High | Physical access = key theft |
+| No key generation UI | 🟡 Medium | Must use keygen tool + xxd |
+| No key backup mechanism | 🟡 Medium | SD card failure = key loss |
+
+### 14.3 Memory Management
+
+**Findings:**
+
+| Location | Finding | Severity |
+|----------|---------|----------|
+| remote_desktop.cpp:1319-1321 | Static 32KB buffers | 🟡 Medium (stack pressure) |
+| remote_desktop.cpp:793 | VLA `uint8_t ciphertext[len]` | 🔴 High (stack overflow risk) |
+| remote_desktop.cpp:108-111 | Frame buffer dynamically allocated | ✅ Good |
+
+**Recommendation:** Replace VLA with static or heap-allocated buffer.
+
+### 14.4 Input Handling
+
+**Strengths:**
+- ✅ FN modifier combo check before normal keys
+- ✅ Keyboard state cleared on menu entry (debounce fix)
+- ✅ Exit combo (FN+Backspace) always checked first
+
+**Potential Concerns:**
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| No input rate limiting | 🟢 Low | Physical keyboard limits rate |
+| ASCII-only conversion | 🟢 Info | International chars via KeyType |
+
+---
+
+## 15. Network Security Considerations
+
+### 15.1 Pre-Handshake
+
+| Risk | Mitigation |
+|------|------------|
+| TCP connection before encryption | Minimal risk - only handshake packets |
+| Server IP/port exposed | mDNS uses local network only |
+| Discovery cookie | 16 bytes random, prevents random connection |
+
+### 15.2 Post-Handshake
+
+| Risk | Mitigation |
+|------|------------|
+| Traffic analysis | AES-GCM hides content, metadata still visible |
+| Session hijacking | Replay protection, mutual authentication |
+| Man-in-the-middle | ECDSA signatures prevent key substitution |
+
+---
+
+## 16. Recommendations Summary
+
+### Critical (Must Fix)
+
+1. **ESP32 VLA Stack Overflow Risk**
+   - `remote_desktop.cpp:793` uses VLA that could overflow stack
+   - Fix: Use static buffer or heap allocation
+
+2. **SD Card Key Security**
+   - Keys are stored unencrypted on removable media
+   - Fix: Consider encrypted NVS or password-protected key files
+
+### High Priority
+
+3. **Input Privilege Separation**
+   - Server can send any keystroke with user's permissions
+   - Consider: Application whitelist or confirmation for sensitive actions
+
+4. **Sensitive Screen Capture**
+   - Full screen capture may include passwords, private data
+   - Consider: Configurable exclusion regions or blur
+
+### Medium Priority
+
+5. **Session Rekeying**
+   - Long sessions use same keys indefinitely
+   - Consider: Periodic rekeying every N hours or frames
+
+6. **Frame Buffer Memory**
+   - Static 32KB buffers consume stack space
+   - Consider: Dynamic allocation with overflow protection
+
+### Low Priority
+
+7. **Protocol Version Negotiation**
+   - Fixed at version 0x01
+   - Consider: Version negotiation for future upgrades
+
+8. **Logging and Audit Trail**
+   - No persistent logging of connections
+   - Consider: Optional connection logging
+
+---
+
+## 17. Conclusion
+
+The Cardputer Remote Desktop system implements a **cryptographically sound** protocol with:
+
+- ✅ Strong mutual authentication (ECDSA secp256r1)
+- ✅ Perfect forward secrecy (Ephemeral ECDH)
+- ✅ Authenticated encryption (AES-128-GCM)
+- ✅ Replay protection (Monotonic nonce counters)
+- ✅ Secure key derivation (HKDF-SHA256)
+
+**Overall Security Rating: B+**
+
+The main weaknesses are implementation-level concerns (VLA usage, SD card key storage) rather than protocol design flaws. With the recommended fixes, this system would achieve an A rating.
+
+---
+
+*Audit completed: 2026-01-31*
+*Auditor: Claude AI*
+*Scope: Full bilateral audit covering ESP32 client and Rust PC server*
