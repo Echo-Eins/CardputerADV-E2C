@@ -122,7 +122,7 @@ void initBluetoothKeyboard() {
     M5Cardputer.Display.setCursor(0, 10);
     M5Cardputer.Display.println("Bluetooth device name :");
 
-    String deviceName = getUserInput();
+    String deviceName = getUserInput(false);
     Serial.println("Bluetooth device name selected: " + deviceName);
 
     // Initialize Bluetooth with user-provided name

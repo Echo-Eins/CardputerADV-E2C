@@ -11,6 +11,11 @@
 #include "ldap_dump.h"
 #include <M5Cardputer.h>
 
+// Forward declarations for functions defined in main .ino
+// Declared here to avoid C/C++ linkage conflicts with Arduino preprocessor
+bool arpRequest(IPAddress host);
+bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
+
 // ============================================================================
 // LDAP UI / LOG CONSOLE
 // ============================================================================

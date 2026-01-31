@@ -21,24 +21,16 @@
 // External dependencies from main file
 // ============================================================================
 
-#ifdef __cplusplus
-extern "C++" {
-#endif
-
-// UI functions
+// UI functions - defined in main .ino, Arduino handles linkage automatically
 extern void waitAndReturnToMenu(String message);
 extern String getUserInput(bool isPassword);
 extern void enterDebounce();
 
-// Network functions (ARP scanning)
+// Network functions - defined in main .ino
+// Note: arpRequest and connectWithTimeout removed to avoid C/C++ linkage conflicts
+// Arduino's preprocessor resolves these automatically from the .ino file
 extern void send_arp(const char* base_ip, std::vector<IPAddress>& hosts);
 extern void read_arp_table(const char* base_ip, int start, int end, std::vector<IPAddress>& hosts);
-extern bool arpRequest(IPAddress host);
-extern bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
-
-#ifdef __cplusplus
-}
-#endif
 
 // ============================================================================
 // LDAP Module Globals (accessible from main)
