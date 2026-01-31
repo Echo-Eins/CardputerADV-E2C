@@ -43,11 +43,17 @@ extern bool soundOn;
 #define RD_AES_GCM_NONCE_SIZE   12      // 96-bit nonce (4 counter + 8 random)
 #define RD_ECDH_PUBKEY_SIZE     33      // Compressed secp256r1 point
 #define RD_ECDH_PUBKEY_UNCOMP   65      // Uncompressed (for internal use)
+#define RD_ECDH_PRIVKEY_SIZE    32      // secp256r1 private key
+#define RD_ECDSA_SIG_SIZE       64      // ECDSA signature (r + s, 32 bytes each)
 #define RD_HANDSHAKE_NONCE_SIZE 32      // Random nonce for key derivation
 #define RD_HKDF_SALT_SIZE       32      // SHA256 output size
 #define RD_HMAC_KEY_SIZE        32      // HMAC-SHA256 key
 #define RD_COOKIE_SIZE          16      // mDNS discovery cookie
 #define RD_TRANSCRIPT_MAC_SIZE  32      // Handshake verification MAC
+
+// Handshake message sizes (with signatures)
+#define RD_HANDSHAKE_INIT_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 33+32+64 = 129
+#define RD_HANDSHAKE_RESP_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 129
 
 // Derived key material sizes
 #define RD_SESSION_KEY_MATERIAL 64      // c2s(16) + s2c(16) + hmac(32)
@@ -125,6 +131,15 @@ enum RDError : int8_t {
 };
 
 // ============================================================================
+// Key file paths on SD card
+// ============================================================================
+
+#define RD_KEYS_DIR             "/rd_keys"
+#define RD_PRIVKEY_PATH         "/rd_keys/client.key"      // 32 bytes binary
+#define RD_PUBKEY_PATH          "/rd_keys/client.pub"      // 33 bytes compressed
+#define RD_SERVER_PUBKEY_PATH   "/rd_keys/server.pub"      // 33 bytes compressed
+
+// ============================================================================
 // Configuration (saved to SD card)
 // ============================================================================
 
@@ -135,6 +150,21 @@ struct RDConfig {
     uint8_t jpegQuality;        // 1-100, server-side
     uint8_t targetFps;          // 1-30
 };
+
+// ============================================================================
+// Key Management Functions
+// ============================================================================
+
+// Generate new ECDSA keypair and save to SD card
+// Returns true on success
+bool rdGenerateKeyPair();
+
+// Load keys from SD card
+// Returns true if all keys loaded successfully
+bool rdLoadKeys();
+
+// Check if keys exist on SD card
+bool rdKeysExist();
 
 // ============================================================================
 // Session State

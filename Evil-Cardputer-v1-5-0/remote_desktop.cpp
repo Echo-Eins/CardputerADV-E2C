@@ -1,17 +1,22 @@
 /*
  * remote_desktop.cpp - Remote Desktop Module for Evil-Cardputer
  *
- * Secure remote desktop client implementation with full Rust server compatibility.
+ * Secure remote desktop client with FULL PKI implementation.
  *
  * Security features:
- * - ECDH key exchange (secp256r1) with compressed public keys (33 bytes)
+ * - ECDSA mutual authentication (secp256r1) with static keypairs
+ * - ECDH ephemeral key exchange for forward secrecy
  * - HKDF-SHA256 key derivation (RFC 5869)
  * - AES-128-GCM authenticated encryption
  * - Dual session keys (client→server, server→client)
- * - 32-byte nonce exchange for salt derivation
  * - Salt = SHA256(client_nonce || server_nonce)
  * - Replay protection with monotonic nonce counters
  * - Transcript MAC for handshake verification
+ *
+ * Key storage (SD card):
+ * - /rd_keys/client.key  - Our ECDSA private key (32 bytes)
+ * - /rd_keys/client.pub  - Our ECDSA public key (33 bytes compressed)
+ * - /rd_keys/server.pub  - Server's ECDSA public key (33 bytes compressed)
  */
 
 #include "remote_desktop.h"
@@ -24,12 +29,15 @@
 
 // MbedTLS for cryptography
 #include "mbedtls/ecdh.h"
+#include "mbedtls/ecdsa.h"
 #include "mbedtls/ecp.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+#include "mbedtls/bignum.h"
+#include "mbedtls/platform_util.h"  // For mbedtls_platform_zeroize
 
 // ============================================================================
 // Constants matching Rust server protocol
@@ -51,6 +59,19 @@ static RDConfig rdConfig = {
 };
 
 static const char* RD_CONFIG_PATH = "/remote_desktop.json";
+
+// ============================================================================
+// Static Keys (loaded from SD card)
+// ============================================================================
+
+static struct {
+    bool loaded;
+    uint8_t privateKey[RD_ECDH_PRIVKEY_SIZE];      // Our ECDSA private key
+    uint8_t publicKey[RD_ECDH_PUBKEY_SIZE];        // Our ECDSA public key (compressed)
+    uint8_t serverPublicKey[RD_ECDH_PUBKEY_SIZE];  // Server's ECDSA public key
+    mbedtls_ecp_keypair ecdsaKey;                   // Our signing keypair
+    mbedtls_ecp_point serverPubPoint;               // Server's public key point
+} rdKeys;
 
 // ============================================================================
 // Session State (matches Rust server crypto state)
@@ -82,8 +103,8 @@ static struct {
     uint8_t txNonceRandom[8];  // Random part of TX nonce
     uint8_t rxNonceRandom[8];  // Random part of RX nonce (from server)
 
-    // Our public key (compressed, 33 bytes)
-    uint8_t ourPubKey[RD_ECDH_PUBKEY_SIZE];
+    // Our ephemeral public key (compressed, 33 bytes)
+    uint8_t ourEphemeralPubKey[RD_ECDH_PUBKEY_SIZE];
 
     // Frame buffer
     uint8_t* frameBuffer;
@@ -97,9 +118,6 @@ static struct {
     // Connection info
     char serverName[64];
     IPAddress serverIP;
-
-    // Handshake transcript for MAC
-    uint8_t transcriptHash[32];
 
 } rdSession;
 
@@ -156,6 +174,300 @@ void rdSaveConfig() {
 
     serializeJson(doc, f);
     f.close();
+}
+
+// ============================================================================
+// Key Management - ECDSA keypair for mutual authentication
+// ============================================================================
+
+bool rdKeysExist() {
+    return SD.exists(RD_PRIVKEY_PATH) &&
+           SD.exists(RD_PUBKEY_PATH) &&
+           SD.exists(RD_SERVER_PUBKEY_PATH);
+}
+
+bool rdGenerateKeyPair() {
+    Serial.println("[RD] Generating new ECDSA keypair...");
+
+    // Initialize RNG
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+
+    const char* pers = "rd_keygen";
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                     (const uint8_t*)pers, strlen(pers));
+    if (ret != 0) {
+        Serial.printf("[RD] RNG seed failed: -0x%04X\n", -ret);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+
+    // Generate keypair
+    mbedtls_ecp_keypair keypair;
+    mbedtls_ecp_keypair_init(&keypair);
+
+    ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP256R1, &keypair,
+                               mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        Serial.printf("[RD] Key generation failed: -0x%04X\n", -ret);
+        mbedtls_ecp_keypair_free(&keypair);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+
+    // Export private key (32 bytes)
+    uint8_t privKey[RD_ECDH_PRIVKEY_SIZE];
+    ret = mbedtls_mpi_write_binary(&keypair.d, privKey, RD_ECDH_PRIVKEY_SIZE);
+    if (ret != 0) {
+        Serial.printf("[RD] Export private key failed: -0x%04X\n", -ret);
+        mbedtls_ecp_keypair_free(&keypair);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+
+    // Export public key (33 bytes compressed)
+    uint8_t pubKey[RD_ECDH_PUBKEY_SIZE];
+    size_t pubLen = 0;
+    ret = mbedtls_ecp_point_write_binary(&keypair.grp, &keypair.Q,
+                                          MBEDTLS_ECP_PF_COMPRESSED,
+                                          &pubLen, pubKey, sizeof(pubKey));
+    if (ret != 0 || pubLen != RD_ECDH_PUBKEY_SIZE) {
+        Serial.printf("[RD] Export public key failed: -0x%04X\n", -ret);
+        mbedtls_ecp_keypair_free(&keypair);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+
+    // Create directory if not exists
+    if (!SD.exists(RD_KEYS_DIR)) {
+        SD.mkdir(RD_KEYS_DIR);
+    }
+
+    // Save private key
+    File f = SD.open(RD_PRIVKEY_PATH, FILE_WRITE);
+    if (!f) {
+        Serial.println("[RD] Failed to open private key file for writing");
+        mbedtls_ecp_keypair_free(&keypair);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+    f.write(privKey, RD_ECDH_PRIVKEY_SIZE);
+    f.close();
+
+    // Save public key
+    f = SD.open(RD_PUBKEY_PATH, FILE_WRITE);
+    if (!f) {
+        Serial.println("[RD] Failed to open public key file for writing");
+        mbedtls_ecp_keypair_free(&keypair);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+    f.write(pubKey, RD_ECDH_PUBKEY_SIZE);
+    f.close();
+
+    // Clear sensitive data
+    mbedtls_platform_zeroize(privKey, sizeof(privKey));
+    mbedtls_ecp_keypair_free(&keypair);
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+
+    // Print public key in hex for registration with server
+    Serial.print("[RD] Generated public key (add to server config): ");
+    for (int i = 0; i < RD_ECDH_PUBKEY_SIZE; i++) {
+        Serial.printf("%02x", pubKey[i]);
+    }
+    Serial.println();
+
+    return true;
+}
+
+bool rdLoadKeys() {
+    if (rdKeys.loaded) return true;
+
+    // Initialize structures
+    mbedtls_ecp_keypair_init(&rdKeys.ecdsaKey);
+    mbedtls_ecp_point_init(&rdKeys.serverPubPoint);
+
+    // Load private key
+    File f = SD.open(RD_PRIVKEY_PATH, FILE_READ);
+    if (!f || f.size() != RD_ECDH_PRIVKEY_SIZE) {
+        Serial.println("[RD] Failed to read private key");
+        if (f) f.close();
+        return false;
+    }
+    f.read(rdKeys.privateKey, RD_ECDH_PRIVKEY_SIZE);
+    f.close();
+
+    // Load our public key
+    f = SD.open(RD_PUBKEY_PATH, FILE_READ);
+    if (!f || f.size() != RD_ECDH_PUBKEY_SIZE) {
+        Serial.println("[RD] Failed to read public key");
+        if (f) f.close();
+        return false;
+    }
+    f.read(rdKeys.publicKey, RD_ECDH_PUBKEY_SIZE);
+    f.close();
+
+    // Load server's public key
+    f = SD.open(RD_SERVER_PUBKEY_PATH, FILE_READ);
+    if (!f || f.size() != RD_ECDH_PUBKEY_SIZE) {
+        Serial.println("[RD] Failed to read server public key");
+        if (f) f.close();
+        return false;
+    }
+    f.read(rdKeys.serverPublicKey, RD_ECDH_PUBKEY_SIZE);
+    f.close();
+
+    // Setup ECDSA keypair
+    int ret = mbedtls_ecp_group_load(&rdKeys.ecdsaKey.grp, MBEDTLS_ECP_DP_SECP256R1);
+    if (ret != 0) {
+        Serial.printf("[RD] ECP group load failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    // Import private key
+    ret = mbedtls_mpi_read_binary(&rdKeys.ecdsaKey.d, rdKeys.privateKey, RD_ECDH_PRIVKEY_SIZE);
+    if (ret != 0) {
+        Serial.printf("[RD] Import private key failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    // Import our public key
+    ret = mbedtls_ecp_point_read_binary(&rdKeys.ecdsaKey.grp, &rdKeys.ecdsaKey.Q,
+                                         rdKeys.publicKey, RD_ECDH_PUBKEY_SIZE);
+    if (ret != 0) {
+        Serial.printf("[RD] Import our public key failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    // Verify keypair consistency
+    ret = mbedtls_ecp_check_pub_priv(&rdKeys.ecdsaKey, &rdKeys.ecdsaKey);
+    if (ret != 0) {
+        Serial.printf("[RD] Keypair validation failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    // Import server's public key
+    mbedtls_ecp_group grp;
+    mbedtls_ecp_group_init(&grp);
+    ret = mbedtls_ecp_group_load(&grp, MBEDTLS_ECP_DP_SECP256R1);
+    if (ret != 0) {
+        mbedtls_ecp_group_free(&grp);
+        return false;
+    }
+
+    ret = mbedtls_ecp_point_read_binary(&grp, &rdKeys.serverPubPoint,
+                                         rdKeys.serverPublicKey, RD_ECDH_PUBKEY_SIZE);
+    mbedtls_ecp_group_free(&grp);
+    if (ret != 0) {
+        Serial.printf("[RD] Import server public key failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    rdKeys.loaded = true;
+    Serial.println("[RD] Keys loaded successfully");
+    return true;
+}
+
+// ECDSA sign data using our private key
+// Returns signature in r||s format (64 bytes)
+static bool rdSign(const uint8_t* data, size_t dataLen, uint8_t* signature) {
+    if (!rdKeys.loaded) return false;
+
+    // Hash the data first (ECDSA signs the hash)
+    uint8_t hash[32];
+    mbedtls_sha256(data, dataLen, hash, 0);
+
+    mbedtls_mpi r, s;
+    mbedtls_mpi_init(&r);
+    mbedtls_mpi_init(&s);
+
+    int ret = mbedtls_ecdsa_sign(&rdKeys.ecdsaKey.grp, &r, &s, &rdKeys.ecdsaKey.d,
+                                  hash, sizeof(hash),
+                                  mbedtls_ctr_drbg_random, &rdSession.ctr_drbg);
+    if (ret != 0) {
+        Serial.printf("[RD] ECDSA sign failed: -0x%04X\n", -ret);
+        mbedtls_mpi_free(&r);
+        mbedtls_mpi_free(&s);
+        return false;
+    }
+
+    // Export r and s (each 32 bytes, big-endian, zero-padded)
+    ret = mbedtls_mpi_write_binary(&r, signature, 32);
+    if (ret != 0) {
+        mbedtls_mpi_free(&r);
+        mbedtls_mpi_free(&s);
+        return false;
+    }
+
+    ret = mbedtls_mpi_write_binary(&s, signature + 32, 32);
+    mbedtls_mpi_free(&r);
+    mbedtls_mpi_free(&s);
+
+    return ret == 0;
+}
+
+// Verify ECDSA signature from server
+// Signature is in r||s format (64 bytes)
+static bool rdVerifyServerSignature(const uint8_t* data, size_t dataLen, const uint8_t* signature) {
+    if (!rdKeys.loaded) return false;
+
+    // Hash the data
+    uint8_t hash[32];
+    mbedtls_sha256(data, dataLen, hash, 0);
+
+    // Import r and s
+    mbedtls_mpi r, s;
+    mbedtls_mpi_init(&r);
+    mbedtls_mpi_init(&s);
+
+    int ret = mbedtls_mpi_read_binary(&r, signature, 32);
+    if (ret != 0) {
+        mbedtls_mpi_free(&r);
+        mbedtls_mpi_free(&s);
+        return false;
+    }
+
+    ret = mbedtls_mpi_read_binary(&s, signature + 32, 32);
+    if (ret != 0) {
+        mbedtls_mpi_free(&r);
+        mbedtls_mpi_free(&s);
+        return false;
+    }
+
+    // Need a group for verification
+    mbedtls_ecp_group grp;
+    mbedtls_ecp_group_init(&grp);
+    ret = mbedtls_ecp_group_load(&grp, MBEDTLS_ECP_DP_SECP256R1);
+    if (ret != 0) {
+        mbedtls_ecp_group_free(&grp);
+        mbedtls_mpi_free(&r);
+        mbedtls_mpi_free(&s);
+        return false;
+    }
+
+    // Verify
+    ret = mbedtls_ecdsa_verify(&grp, hash, sizeof(hash),
+                                &rdKeys.serverPubPoint, &r, &s);
+
+    mbedtls_ecp_group_free(&grp);
+    mbedtls_mpi_free(&r);
+    mbedtls_mpi_free(&s);
+
+    if (ret != 0) {
+        Serial.printf("[RD] Signature verification failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    return true;
 }
 
 // ============================================================================
@@ -235,8 +547,8 @@ static RDError rdInitCrypto() {
     ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
                                           &rdSession.ecdh.Q,
                                           MBEDTLS_ECP_PF_COMPRESSED,
-                                          &pubKeyLen, rdSession.ourPubKey,
-                                          sizeof(rdSession.ourPubKey));
+                                          &pubKeyLen, rdSession.ourEphemeralPubKey,
+                                          sizeof(rdSession.ourEphemeralPubKey));
     if (ret != 0 || pubKeyLen != RD_ECDH_PUBKEY_SIZE) {
         Serial.printf("[RD] Export pubkey failed: -0x%04X, len=%zu\n", -ret, pubKeyLen);
         return RD_ERR_CRYPTO;
@@ -264,12 +576,14 @@ static RDError rdInitCrypto() {
 }
 
 static void rdFreeCrypto() {
-    // Securely clear sensitive data
-    memset(rdSession.c2sKey, 0, sizeof(rdSession.c2sKey));
-    memset(rdSession.s2cKey, 0, sizeof(rdSession.s2cKey));
-    memset(rdSession.hmacKey, 0, sizeof(rdSession.hmacKey));
-    memset(rdSession.clientNonce, 0, sizeof(rdSession.clientNonce));
-    memset(rdSession.serverNonce, 0, sizeof(rdSession.serverNonce));
+    // Securely clear sensitive data (compiler cannot optimize out)
+    mbedtls_platform_zeroize(rdSession.c2sKey, sizeof(rdSession.c2sKey));
+    mbedtls_platform_zeroize(rdSession.s2cKey, sizeof(rdSession.s2cKey));
+    mbedtls_platform_zeroize(rdSession.hmacKey, sizeof(rdSession.hmacKey));
+    mbedtls_platform_zeroize(rdSession.clientNonce, sizeof(rdSession.clientNonce));
+    mbedtls_platform_zeroize(rdSession.serverNonce, sizeof(rdSession.serverNonce));
+    mbedtls_platform_zeroize(rdSession.txNonceRandom, sizeof(rdSession.txNonceRandom));
+    mbedtls_platform_zeroize(rdSession.rxNonceRandom, sizeof(rdSession.rxNonceRandom));
 
     mbedtls_ecdh_free(&rdSession.ecdh);
     mbedtls_gcm_free(&rdSession.gcmEncrypt);
@@ -427,6 +741,7 @@ static void rdComputeTranscriptMAC(const uint8_t* clientPubKey, const uint8_t* s
 // Packet send/receive
 // ============================================================================
 
+// Send unencrypted packet: header(4) + payload + zero_tag(16)
 static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t len) {
     if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
 
@@ -444,6 +759,12 @@ static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t 
         if (rdSession.client.write(payload, len) != len) {
             return RD_ERR_CONNECT_FAILED;
         }
+    }
+
+    // Send zero tag (required by protocol)
+    static const uint8_t zeroTag[RD_AES_GCM_TAG_SIZE] = {0};
+    if (rdSession.client.write(zeroTag, RD_AES_GCM_TAG_SIZE) != RD_AES_GCM_TAG_SIZE) {
+        return RD_ERR_CONNECT_FAILED;
     }
 
     return RD_OK;
@@ -509,9 +830,9 @@ static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16
     return RD_OK;
 }
 
-// Receive packet - handles both encrypted (with separate TAG) and unencrypted formats
-// encrypted=true: expects header + payload + tag_separately (Rust server format)
-// encrypted=false: expects header + payload only
+// Receive packet: header(4) + payload + tag(16)
+// All packets have TAG (may be zero for unencrypted)
+// encrypted parameter indicates if TAG should be returned for decryption
 static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t* len,
                                    uint8_t* tag, bool encrypted, uint32_t timeout) {
     unsigned long start = millis();
@@ -534,10 +855,10 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     *type = (RDPacketType)header[1];
     uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
-    // Calculate total bytes to receive
-    size_t totalBytes = payloadLen + (encrypted ? RD_AES_GCM_TAG_SIZE : 0);
+    // All packets have TAG after payload
+    size_t totalBytes = payloadLen + RD_AES_GCM_TAG_SIZE;
 
-    // Wait for payload (+ tag if encrypted)
+    // Wait for payload + tag
     while ((size_t)rdSession.client.available() < totalBytes) {
         if (millis() - start > timeout) return RD_ERR_TIMEOUT;
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
@@ -549,9 +870,13 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     }
     *len = payloadLen;
 
-    // Read separate TAG if encrypted
+    // Always read TAG (protocol requires it)
+    uint8_t readTag[RD_AES_GCM_TAG_SIZE];
+    rdSession.client.readBytes(readTag, RD_AES_GCM_TAG_SIZE);
+
+    // Return TAG if caller needs it for decryption
     if (encrypted && tag != NULL) {
-        rdSession.client.readBytes(tag, RD_AES_GCM_TAG_SIZE);
+        memcpy(tag, readTag, RD_AES_GCM_TAG_SIZE);
     }
 
     return RD_OK;
@@ -646,36 +971,62 @@ static RDError rdConnect() {
 }
 
 // ============================================================================
-// Cryptographic Handshake
+// Cryptographic Handshake (Full PKI with ECDSA signatures)
 // ============================================================================
 
 static RDError rdHandshake() {
     rdSession.state = RD_STATE_HANDSHAKE;
-    rdDrawStatus("Handshake...", "ECDH key exchange");
+    rdDrawStatus("Handshake...", "Loading keys");
+
+    // ===== LOAD KEYS =====
+    if (!rdLoadKeys()) {
+        Serial.println("[RD] Failed to load keys");
+        return RD_ERR_CRYPTO;
+    }
+
+    rdDrawStatus("Handshake...", "ECDH + ECDSA");
 
     RDError err = rdInitCrypto();
     if (err != RD_OK) return err;
 
-    // ===== HANDSHAKE INIT =====
-    // Format: pubkey(33) + nonce(32) = 65 bytes
-    // Note: Signature is optional for ESP32 client (simplified handshake)
-    uint8_t initPayload[RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE];
-    memcpy(initPayload, rdSession.ourPubKey, RD_ECDH_PUBKEY_SIZE);
+    // ===== BUILD HANDSHAKE INIT =====
+    // Format: ephemeral_pubkey(33) + nonce(32) + signature(64) = 129 bytes
+    // Signature covers: ephemeral_pubkey || nonce
+    uint8_t initPayload[RD_HANDSHAKE_INIT_SIZE];
+
+    // Copy ephemeral public key
+    memcpy(initPayload, rdSession.ourEphemeralPubKey, RD_ECDH_PUBKEY_SIZE);
+    // Copy client nonce
     memcpy(initPayload + RD_ECDH_PUBKEY_SIZE, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
 
+    // Sign: ephemeral_pubkey || nonce
+    uint8_t signData[RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE];
+    memcpy(signData, rdSession.ourEphemeralPubKey, RD_ECDH_PUBKEY_SIZE);
+    memcpy(signData + RD_ECDH_PUBKEY_SIZE, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
+
+    if (!rdSign(signData, sizeof(signData), initPayload + RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE)) {
+        Serial.println("[RD] Failed to sign handshake init");
+        return RD_ERR_CRYPTO;
+    }
+
+    // Send with separate TAG (standard format)
     err = rdSendPacket(RD_PKT_HANDSHAKE_INIT, initPayload, sizeof(initPayload));
     if (err != RD_OK) {
         Serial.println("[RD] Failed to send HANDSHAKE_INIT");
         return err;
     }
 
+    Serial.println("[RD] Sent signed HANDSHAKE_INIT");
+
     // ===== RECEIVE HANDSHAKE RESPONSE =====
-    // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
+    // Format: ephemeral_pubkey(33) + nonce(32) + signature(64) = 129 bytes
     uint8_t response[256];
     uint16_t respLen;
     RDPacketType respType;
+    uint8_t tag[RD_AES_GCM_TAG_SIZE];
 
-    err = rdReceivePacket(&respType, response, &respLen, RD_HANDSHAKE_TIMEOUT_MS);
+    // Receive with TAG (server sends standard format)
+    err = rdReceivePacketEx(&respType, response, &respLen, tag, true, RD_HANDSHAKE_TIMEOUT_MS);
     if (err != RD_OK) {
         Serial.printf("[RD] Failed to receive response: %s\n", rdErrorToString(err));
         return err;
@@ -691,29 +1042,45 @@ static RDError rdHandshake() {
         return RD_ERR_HANDSHAKE;
     }
 
-    // Minimum: pubkey(33) + nonce(32) = 65
-    if (respLen < RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE) {
-        Serial.printf("[RD] Response too short: %u\n", respLen);
+    // Must have: pubkey(33) + nonce(32) + signature(64) = 129 bytes
+    if (respLen < RD_HANDSHAKE_RESP_SIZE) {
+        Serial.printf("[RD] Response too short: %u (need %u)\n", respLen, RD_HANDSHAKE_RESP_SIZE);
         return RD_ERR_HANDSHAKE;
     }
 
-    // Extract server's public key and nonce
-    const uint8_t* serverPubKey = response;
+    // Extract components
+    const uint8_t* serverEphemeralPubKey = response;
     const uint8_t* serverNonce = response + RD_ECDH_PUBKEY_SIZE;
+    const uint8_t* serverSignature = response + RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE;
+
+    // ===== VERIFY SERVER SIGNATURE =====
+    // Server signs: server_ephemeral_pubkey || client_nonce || server_nonce
+    uint8_t verifyData[RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_HANDSHAKE_NONCE_SIZE];
+    memcpy(verifyData, serverEphemeralPubKey, RD_ECDH_PUBKEY_SIZE);
+    memcpy(verifyData + RD_ECDH_PUBKEY_SIZE, rdSession.clientNonce, RD_HANDSHAKE_NONCE_SIZE);
+    memcpy(verifyData + RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE, serverNonce, RD_HANDSHAKE_NONCE_SIZE);
+
+    if (!rdVerifyServerSignature(verifyData, sizeof(verifyData), serverSignature)) {
+        Serial.println("[RD] SERVER SIGNATURE VERIFICATION FAILED!");
+        Serial.println("[RD] Possible MITM attack - aborting connection");
+        return RD_ERR_HANDSHAKE;
+    }
+
+    Serial.println("[RD] Server signature verified");
 
     // Save server nonce
     memcpy(rdSession.serverNonce, serverNonce, RD_HANDSHAKE_NONCE_SIZE);
 
-    // Import server's public key (compressed format)
+    // Import server's ephemeral public key (compressed format)
     int ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.grp,
                                              &rdSession.ecdh.Qp,
-                                             serverPubKey, RD_ECDH_PUBKEY_SIZE);
+                                             serverEphemeralPubKey, RD_ECDH_PUBKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Import server pubkey failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Validate the point is on the curve (security check)
+    // Validate the point is on the curve
     ret = mbedtls_ecp_check_pubkey(&rdSession.ecdh.grp, &rdSession.ecdh.Qp);
     if (ret != 0) {
         Serial.printf("[RD] Server pubkey validation failed: -0x%04X\n", -ret);
@@ -736,13 +1103,11 @@ static RDError rdHandshake() {
         return RD_ERR_CRYPTO;
     }
 
-    // Export shared secret as bytes
+    // Export shared secret (fixed 32 bytes with leading zeros)
     uint8_t secretBytes[32];
-    size_t secretLen = mbedtls_mpi_size(&sharedSecret);
-    if (secretLen > sizeof(secretBytes)) secretLen = sizeof(secretBytes);
-
-    // Write with leading zeros if needed (fixed 32 bytes)
     memset(secretBytes, 0, sizeof(secretBytes));
+    size_t secretLen = mbedtls_mpi_size(&sharedSecret);
+    if (secretLen > 32) secretLen = 32;
     ret = mbedtls_mpi_write_binary(&sharedSecret, secretBytes + (32 - secretLen), secretLen);
     mbedtls_mpi_free(&sharedSecret);
 
@@ -753,26 +1118,30 @@ static RDError rdHandshake() {
 
     // ===== DERIVE SESSION KEYS =====
     err = rdDeriveKeys(secretBytes, 32);
-    memset(secretBytes, 0, sizeof(secretBytes));  // Securely clear
+    mbedtls_platform_zeroize(secretBytes, sizeof(secretBytes));
     if (err != RD_OK) return err;
 
-    // ===== COMPUTE AND SEND TRANSCRIPT MAC =====
+    // ===== SEND ENCRYPTED HANDSHAKE COMPLETE =====
+    // Compute transcript MAC
     uint8_t transcriptMAC[RD_TRANSCRIPT_MAC_SIZE];
-    rdComputeTranscriptMAC(rdSession.ourPubKey, serverPubKey, transcriptMAC);
+    rdComputeTranscriptMAC(rdSession.ourEphemeralPubKey, serverEphemeralPubKey, transcriptMAC);
 
-    err = rdSendPacket(RD_PKT_HANDSHAKE_COMPLETE, transcriptMAC, sizeof(transcriptMAC));
+    // Send encrypted (using session keys)
+    err = rdSendEncrypted(RD_PKT_HANDSHAKE_COMPLETE, transcriptMAC, sizeof(transcriptMAC));
     if (err != RD_OK) {
         Serial.println("[RD] Failed to send HANDSHAKE_COMPLETE");
         return err;
     }
 
-    // Wait for session start confirmation
-    err = rdReceivePacket(&respType, response, &respLen, RD_HANDSHAKE_TIMEOUT_MS);
+    Serial.println("[RD] Sent encrypted HANDSHAKE_COMPLETE");
+
+    // ===== WAIT FOR SESSION START =====
+    err = rdReceivePacketEx(&respType, response, &respLen, tag, true, RD_HANDSHAKE_TIMEOUT_MS);
     if (err != RD_OK) {
         Serial.printf("[RD] No session start: %s\n", rdErrorToString(err));
-        // Continue anyway - some server versions may not send this
+        // Some server versions may not send this - continue
     } else if (respType == RD_PKT_SESSION_START) {
-        Serial.println("[RD] Session started");
+        Serial.println("[RD] Session started - secure channel established");
     } else if (respType == RD_PKT_ERROR) {
         Serial.println("[RD] Server rejected handshake");
         return RD_ERR_HANDSHAKE;

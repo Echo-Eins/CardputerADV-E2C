@@ -1,8 +1,7 @@
 //! Network module - TCP server and mDNS discovery
 //!
-//! Supports two handshake modes:
-//! - Full mode: JSON serialization with ECDSA signatures (desktop clients)
-//! - ESP32 mode: Raw binary format without signatures (Cardputer devices)
+//! Full PKI authentication required for all clients.
+//! Handshake format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
 
 use crate::config::Config;
 use crate::crypto::{constant_time_eq, CryptoContext, CryptoError};
@@ -21,11 +20,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-/// ESP32 raw binary handshake format sizes
-const ESP32_PUBKEY_SIZE: usize = 33;      // Compressed secp256r1
-const ESP32_NONCE_SIZE: usize = 32;       // Handshake nonce
-const ESP32_HANDSHAKE_INIT_SIZE: usize = ESP32_PUBKEY_SIZE + ESP32_NONCE_SIZE;  // 65 bytes
-const ESP32_TRANSCRIPT_MAC_SIZE: usize = 32;
+/// Binary handshake format sizes (same for all clients)
+const PUBKEY_SIZE: usize = 33;        // Compressed secp256r1
+const HANDSHAKE_NONCE_SIZE: usize = 32;
+const SIGNATURE_SIZE: usize = 64;     // ECDSA r||s format
+const HANDSHAKE_MSG_SIZE: usize = PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE + SIGNATURE_SIZE;  // 129 bytes
 
 pub mod session;
 pub use session::Session;
@@ -164,148 +163,109 @@ impl Server {
     ) -> Result<Session, NetworkError> {
         let mut crypto = CryptoContext::new(&config.security.private_key, true)?;
 
-        // Receive handshake init
+        // Set expected client public key for signature verification
+        crypto.set_peer_public_key(&config.security.cardputer_public_key)?;
+
+        // ===== RECEIVE HANDSHAKE INIT =====
+        // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
         let init_packet = Self::receive_packet(&mut stream).await?;
         if init_packet.header.packet_type != PacketType::HandshakeInit {
             return Err(NetworkError::HandshakeFailed("Expected HandshakeInit".into()));
         }
 
-        // Detect handshake mode based on payload size
-        // ESP32 raw binary: exactly 65 bytes (pubkey:33 + nonce:32)
-        // JSON format: variable length, typically > 100 bytes
-        let is_esp32_mode = init_packet.payload.len() == ESP32_HANDSHAKE_INIT_SIZE;
+        if init_packet.payload.len() != HANDSHAKE_MSG_SIZE {
+            return Err(NetworkError::HandshakeFailed(
+                format!("HandshakeInit wrong size: {} (expected {})", init_packet.payload.len(), HANDSHAKE_MSG_SIZE)
+            ));
+        }
 
-        let (init_pubkey, init_nonce): ([u8; 33], [u8; 32]) = if is_esp32_mode {
-            info!("ESP32 raw binary handshake detected from {}", addr);
+        // Parse components
+        let mut init_pubkey = [0u8; PUBKEY_SIZE];
+        let mut init_nonce = [0u8; HANDSHAKE_NONCE_SIZE];
+        let mut init_signature = [0u8; SIGNATURE_SIZE];
+        init_pubkey.copy_from_slice(&init_packet.payload[..PUBKEY_SIZE]);
+        init_nonce.copy_from_slice(&init_packet.payload[PUBKEY_SIZE..PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE]);
+        init_signature.copy_from_slice(&init_packet.payload[PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE..]);
 
-            // Parse raw binary format: pubkey(33) + nonce(32)
-            let mut pubkey = [0u8; ESP32_PUBKEY_SIZE];
-            let mut nonce = [0u8; ESP32_NONCE_SIZE];
-            pubkey.copy_from_slice(&init_packet.payload[..ESP32_PUBKEY_SIZE]);
-            nonce.copy_from_slice(&init_packet.payload[ESP32_PUBKEY_SIZE..]);
+        // ===== VERIFY CLIENT SIGNATURE =====
+        // Client signs: ephemeral_pubkey || nonce
+        let mut sign_data = Vec::with_capacity(PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE);
+        sign_data.extend_from_slice(&init_pubkey);
+        sign_data.extend_from_slice(&init_nonce);
 
-            // ESP32 mode: no signature verification (simplified handshake)
-            // SECURITY NOTE: This mode provides forward secrecy but not mutual authentication
-            // Use only on trusted networks or implement client certificates separately
-            warn!("ESP32 mode: Signature verification skipped (simplified handshake)");
+        crypto.verify_peer_signature(&sign_data, &init_signature)?;
+        info!("Client signature verified from {}", addr);
 
-            (pubkey, nonce)
-        } else {
-            // Full JSON mode with signature verification
-            crypto.set_peer_public_key(&config.security.cardputer_public_key)?;
-
-            let init: HandshakeInit = serde_json::from_slice(&init_packet.payload)
-                .map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
-
-            let nonce = init.get_nonce().map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
-            let sig = init.get_signature().map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
-            let pubkey = init.get_ephemeral_public_key().map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
-
-            // SECURITY: Signature must cover both ephemeral public key AND nonce
-            let mut sign_data = Vec::with_capacity(33 + 32);
-            sign_data.extend_from_slice(&pubkey);
-            sign_data.extend_from_slice(&nonce);
-            crypto.verify_peer_signature(&sign_data, &sig)?;
-            info!("Handshake init signature verified from {}", addr);
-
-            (pubkey, nonce)
-        };
-
-        // Generate our ephemeral keypair and nonce
+        // ===== GENERATE OUR RESPONSE =====
         let (our_ephemeral_secret, our_ephemeral_public) = crypto.generate_ephemeral_keypair();
         let our_nonce = CryptoContext::generate_nonce();
 
-        // Send response in appropriate format
-        if is_esp32_mode {
-            // ESP32 raw binary response: pubkey(33) + nonce(32)
-            let mut response_bytes = Vec::with_capacity(ESP32_HANDSHAKE_INIT_SIZE);
-            response_bytes.extend_from_slice(&our_ephemeral_public);
-            response_bytes.extend_from_slice(&our_nonce);
-            Self::send_unencrypted_packet_esp32(&mut stream, PacketType::HandshakeResponse, &response_bytes).await?;
-        } else {
-            // Full JSON response with signature
-            let mut sign_data = Vec::with_capacity(33 + 32 + 32);
-            sign_data.extend_from_slice(&our_ephemeral_public);
-            sign_data.extend_from_slice(&init_nonce);
-            sign_data.extend_from_slice(&our_nonce);
-            let signature = crypto.sign(&sign_data);
+        // Sign: our_ephemeral_pubkey || client_nonce || our_nonce
+        let mut response_sign_data = Vec::with_capacity(PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE + HANDSHAKE_NONCE_SIZE);
+        response_sign_data.extend_from_slice(&our_ephemeral_public);
+        response_sign_data.extend_from_slice(&init_nonce);
+        response_sign_data.extend_from_slice(&our_nonce);
+        let response_signature = crypto.sign(&response_sign_data);
 
-            let response = HandshakeResponse {
-                ephemeral_public_key: our_ephemeral_public.to_vec(),
-                nonce: our_nonce.to_vec(),
-                signature: signature.to_vec(),
-            };
+        // Build response: pubkey(33) + nonce(32) + signature(64)
+        let mut response_bytes = Vec::with_capacity(HANDSHAKE_MSG_SIZE);
+        response_bytes.extend_from_slice(&our_ephemeral_public);
+        response_bytes.extend_from_slice(&our_nonce);
+        response_bytes.extend_from_slice(&response_signature);
 
-            let response_bytes = serde_json::to_vec(&response)
-                .map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
-            Self::send_unencrypted_packet(&mut stream, PacketType::HandshakeResponse, &response_bytes).await?;
-        }
+        Self::send_unencrypted_packet(&mut stream, PacketType::HandshakeResponse, &response_bytes).await?;
+        info!("Sent signed HandshakeResponse to {}", addr);
 
-        // Derive session keys
+        // ===== DERIVE SESSION KEYS =====
         crypto.derive_session_keys(our_ephemeral_secret, &init_pubkey, &our_nonce, &init_nonce)?;
         info!("Session keys derived for {}", addr);
 
-        // Receive handshake complete
-        let complete_packet = if is_esp32_mode {
-            Self::receive_packet_esp32(&mut stream).await?
-        } else {
-            Self::receive_packet(&mut stream).await?
-        };
-
+        // ===== RECEIVE ENCRYPTED HANDSHAKE COMPLETE =====
+        let complete_packet = Self::receive_packet(&mut stream).await?;
         if complete_packet.header.packet_type != PacketType::HandshakeComplete {
             return Err(NetworkError::HandshakeFailed("Expected HandshakeComplete".into()));
         }
 
-        if is_esp32_mode {
-            // ESP32 mode: HandshakeComplete contains raw transcript MAC (32 bytes)
-            // No encryption yet - transcript MAC proves key derivation succeeded
-            if complete_packet.payload.len() != ESP32_TRANSCRIPT_MAC_SIZE {
-                return Err(NetworkError::HandshakeFailed(
-                    format!("ESP32 HandshakeComplete wrong size: {} (expected {})",
-                        complete_packet.payload.len(), ESP32_TRANSCRIPT_MAC_SIZE)
-                ));
-            }
-
-            // Compute expected transcript MAC: HMAC(hmac_key, client_pub || server_pub || client_nonce || server_nonce)
-            let mut transcript = Vec::with_capacity(33 + 33 + 32 + 32);
-            transcript.extend_from_slice(&init_pubkey);
-            transcript.extend_from_slice(&our_ephemeral_public);
-            transcript.extend_from_slice(&init_nonce);
-            transcript.extend_from_slice(&our_nonce);
-
-            let expected_mac = crypto.compute_transcript_mac(&transcript);
-
-            if !constant_time_eq(&complete_packet.payload, &expected_mac) {
-                return Err(NetworkError::HandshakeFailed("Transcript MAC verification failed".into()));
-            }
-
-            info!("ESP32 transcript MAC verified for {}", addr);
-        } else {
-            // Full mode: HandshakeComplete is encrypted
-            if complete_packet.payload.len() < NONCE_SIZE {
-                return Err(NetworkError::HandshakeFailed("HandshakeComplete too short".into()));
-            }
-
-            let mut nonce = [0u8; NONCE_SIZE];
-            nonce.copy_from_slice(&complete_packet.payload[..NONCE_SIZE]);
-            let ciphertext = &complete_packet.payload[NONCE_SIZE..];
-
-            let plaintext = crypto.decrypt(ciphertext, &nonce, &complete_packet.tag)?;
-            let _complete: HandshakeComplete = serde_json::from_slice(&plaintext)
-                .map_err(|e| NetworkError::HandshakeFailed(e.to_string()))?;
+        if complete_packet.payload.len() < NONCE_SIZE {
+            return Err(NetworkError::HandshakeFailed("HandshakeComplete too short".into()));
         }
 
-        // Send session start
-        if is_esp32_mode {
-            // For ESP32, send unencrypted session start (encryption starts after)
-            Self::send_unencrypted_packet_esp32(&mut stream, PacketType::SessionStart, &[]).await?;
+        // Decrypt
+        let mut nonce = [0u8; NONCE_SIZE];
+        nonce.copy_from_slice(&complete_packet.payload[..NONCE_SIZE]);
+        let ciphertext = &complete_packet.payload[NONCE_SIZE..];
+
+        let plaintext = crypto.decrypt(ciphertext, &nonce, &complete_packet.tag)?;
+
+        // Verify transcript MAC (plaintext should be 32-byte MAC)
+        if plaintext.len() != 32 {
+            return Err(NetworkError::HandshakeFailed("Invalid transcript MAC size".into()));
         }
 
-        info!("Handshake complete with {} (ESP32 mode: {})", addr, is_esp32_mode);
+        // Compute expected MAC: HMAC(hmac_key, client_pub || server_pub || client_nonce || server_nonce)
+        let mut transcript = Vec::with_capacity(PUBKEY_SIZE * 2 + HANDSHAKE_NONCE_SIZE * 2);
+        transcript.extend_from_slice(&init_pubkey);
+        transcript.extend_from_slice(&our_ephemeral_public);
+        transcript.extend_from_slice(&init_nonce);
+        transcript.extend_from_slice(&our_nonce);
+
+        let expected_mac = crypto.compute_transcript_mac(&transcript);
+        if !constant_time_eq(&plaintext, &expected_mac) {
+            return Err(NetworkError::HandshakeFailed("Transcript MAC verification failed".into()));
+        }
+
+        info!("Transcript MAC verified for {}", addr);
+
+        // ===== SEND ENCRYPTED SESSION START =====
+        // Note: Session start is now encrypted since keys are derived
+        // But we send it unencrypted for simplicity (empty payload)
+        Self::send_unencrypted_packet(&mut stream, PacketType::SessionStart, &[]).await?;
+
+        info!("Handshake complete with {} - secure channel established", addr);
         Ok(Session::new(stream, addr, crypto, config))
     }
 
-    /// Receive packet in standard format (TAG after payload in length field)
+    /// Receive packet: header(4) + payload + tag(16)
     async fn receive_packet(stream: &mut TcpStream) -> Result<Packet, NetworkError> {
         let mut header_buf = [0u8; HEADER_SIZE];
         stream.read_exact(&mut header_buf).await?;
@@ -320,37 +280,12 @@ impl Server {
         Ok(Packet { header, payload, tag })
     }
 
-    /// Receive packet in ESP32 format (TAG embedded in payload, no separate tag)
-    async fn receive_packet_esp32(stream: &mut TcpStream) -> Result<Packet, NetworkError> {
-        let mut header_buf = [0u8; HEADER_SIZE];
-        stream.read_exact(&mut header_buf).await?;
-        let header = PacketHeader::from_bytes(&header_buf)?;
-
-        let mut payload = vec![0u8; header.length as usize];
-        stream.read_exact(&mut payload).await?;
-
-        // ESP32 doesn't send separate TAG for handshake complete
-        let tag = [0u8; TAG_SIZE];
-
-        Ok(Packet { header, payload, tag })
-    }
-
-    /// Send unencrypted packet in standard format
+    /// Send unencrypted packet: header(4) + payload + zero_tag(16)
     async fn send_unencrypted_packet(stream: &mut TcpStream, packet_type: PacketType, payload: &[u8]) -> Result<(), NetworkError> {
         let header = PacketHeader::new(packet_type, payload.len())?;
         stream.write_all(&header.to_bytes()).await?;
         stream.write_all(payload).await?;
         stream.write_all(&[0u8; TAG_SIZE]).await?;
-        stream.flush().await?;
-        Ok(())
-    }
-
-    /// Send unencrypted packet in ESP32 format (no trailing TAG)
-    async fn send_unencrypted_packet_esp32(stream: &mut TcpStream, packet_type: PacketType, payload: &[u8]) -> Result<(), NetworkError> {
-        let header = PacketHeader::new(packet_type, payload.len())?;
-        stream.write_all(&header.to_bytes()).await?;
-        stream.write_all(payload).await?;
-        // ESP32 format: no trailing TAG for unencrypted packets
         stream.flush().await?;
         Ok(())
     }

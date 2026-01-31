@@ -71,19 +71,31 @@ fn main() {
     println!("=== Configuration Instructions ===\n");
 
     if gen_pc && gen_cardputer {
-        println!("1. Copy the PC private_key to config.toml [security] section");
-        println!("2. Copy the Cardputer public_key to config.toml as cardputer_public_key");
-        println!("3. Copy the Cardputer private_key to your Cardputer firmware config");
-        println!("4. Copy the PC public_key to your Cardputer firmware as server_public_key");
+        println!("PC (Server) - config.toml:");
+        println!("  [security]");
+        println!("  private_key = \"<PC Private Key>\"");
+        println!("  cardputer_public_key = \"<Cardputer Public Key>\"\n");
+
+        println!("Cardputer (ESP32) - SD card /rd_keys/ directory:");
+        println!("  client.key  - Cardputer private key (32 bytes binary)");
+        println!("  client.pub  - Cardputer public key (33 bytes binary)");
+        println!("  server.pub  - PC public key (33 bytes binary)\n");
+
+        println!("To create binary key files for ESP32:");
+        println!("  echo '<hex>' | xxd -r -p > /sd/rd_keys/client.key");
+        println!("  echo '<hex>' | xxd -r -p > /sd/rd_keys/client.pub");
+        println!("  echo '<hex>' | xxd -r -p > /sd/rd_keys/server.pub\n");
+
         if gen_cookie {
-            println!("5. Copy the same discovery_cookie to both PC and Cardputer configs");
+            println!("Discovery cookie goes in both configs (same value).");
         }
     }
 
-    println!("\n⚠️  SECURITY WARNING:");
+    println!("⚠️  SECURITY WARNING:");
     println!("   - Keep private keys SECRET - never share them!");
     println!("   - Store them securely on each device");
     println!("   - Generate new keys if compromised");
+    println!("   - NEVER commit keys to version control!");
 }
 
 fn print_help() {
