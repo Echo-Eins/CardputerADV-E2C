@@ -13,8 +13,12 @@
 
 // Forward declarations for functions defined in main .ino
 // Declared here to avoid C/C++ linkage conflicts with Arduino preprocessor
-bool arpRequest(IPAddress host);
-bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
+extern "C" {
+    bool arpRequest(IPAddress host);
+    bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
+}
+void send_arp(char* base_ip, std::vector<IPAddress>& hosts);
+void read_arp_table(char* base_ip, int start, int end, std::vector<IPAddress>& hosts);
 
 // ============================================================================
 // LDAP UI / LOG CONSOLE

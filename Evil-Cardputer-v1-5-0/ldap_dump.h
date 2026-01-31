@@ -29,8 +29,8 @@ extern void enterDebounce();
 // Network functions - defined in main .ino
 // Note: arpRequest and connectWithTimeout removed to avoid C/C++ linkage conflicts
 // Arduino's preprocessor resolves these automatically from the .ino file
-extern void send_arp(const char* base_ip, std::vector<IPAddress>& hosts);
-extern void read_arp_table(const char* base_ip, int start, int end, std::vector<IPAddress>& hosts);
+extern void send_arp(char* base_ip, std::vector<IPAddress>& hosts);
+extern void read_arp_table(char* base_ip, int start, int end, std::vector<IPAddress>& hosts);
 
 // ============================================================================
 // LDAP Module Globals (accessible from main)

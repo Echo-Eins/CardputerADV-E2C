@@ -16,7 +16,7 @@
 #include "mbedtls/ecdh.h"
 #include "mbedtls/ecp.h"
 #include "mbedtls/gcm.h"
-#include "mbedtls/hkdf.h"
+// Note: mbedtls/hkdf.h not available in ESP32 Arduino - using manual implementation
 #include "mbedtls/md.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
@@ -206,20 +206,77 @@ static void rdFreeCrypto() {
 }
 
 // ============================================================================
-// HKDF key derivation
+// HKDF key derivation (manual implementation - mbedtls_hkdf not available in ESP32 Arduino)
 // ============================================================================
+
+// HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
+static int hkdf_extract(const uint8_t* salt, size_t salt_len,
+                        const uint8_t* ikm, size_t ikm_len,
+                        uint8_t* prk) {
+    return mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),
+                           salt, salt_len, ikm, ikm_len, prk);
+}
+
+// HKDF-Expand: OKM = T(1) || T(2) || ...
+static int hkdf_expand(const uint8_t* prk, size_t prk_len,
+                       const uint8_t* info, size_t info_len,
+                       uint8_t* okm, size_t okm_len) {
+    const mbedtls_md_info_t* md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    size_t hash_len = 32;  // SHA256
+    uint8_t t[32];
+    size_t t_len = 0;
+    uint8_t counter = 1;
+    size_t offset = 0;
+
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+
+    int ret = mbedtls_md_setup(&ctx, md, 1);  // 1 = use HMAC
+    if (ret != 0) {
+        mbedtls_md_free(&ctx);
+        return ret;
+    }
+
+    while (offset < okm_len) {
+        mbedtls_md_hmac_starts(&ctx, prk, prk_len);
+        if (t_len > 0) {
+            mbedtls_md_hmac_update(&ctx, t, t_len);
+        }
+        if (info_len > 0) {
+            mbedtls_md_hmac_update(&ctx, info, info_len);
+        }
+        mbedtls_md_hmac_update(&ctx, &counter, 1);
+        mbedtls_md_hmac_finish(&ctx, t);
+        t_len = hash_len;
+
+        size_t copy_len = (okm_len - offset < hash_len) ? (okm_len - offset) : hash_len;
+        memcpy(okm + offset, t, copy_len);
+        offset += copy_len;
+        counter++;
+    }
+
+    mbedtls_md_free(&ctx);
+    return 0;
+}
 
 static RDError rdDeriveKeys(const uint8_t* sharedSecret, size_t secretLen,
                             const uint8_t* salt, size_t saltLen) {
     uint8_t keyMaterial[RD_AES_KEY_SIZE + RD_HMAC_KEY_SIZE];
+    uint8_t prk[32];  // SHA256 output size
 
-    int ret = mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),
-                           salt, saltLen,
-                           sharedSecret, secretLen,
-                           (const uint8_t*)"cardputer-remote-v1", 19,
-                           keyMaterial, sizeof(keyMaterial));
+    // HKDF-Extract
+    int ret = hkdf_extract(salt, saltLen, sharedSecret, secretLen, prk);
     if (ret != 0) {
-        Serial.printf("[RD] HKDF failed: %d\n", ret);
+        Serial.printf("[RD] HKDF extract failed: %d\n", ret);
+        return RD_ERR_CRYPTO;
+    }
+
+    // HKDF-Expand
+    ret = hkdf_expand(prk, sizeof(prk),
+                      (const uint8_t*)"cardputer-remote-v1", 19,
+                      keyMaterial, sizeof(keyMaterial));
+    if (ret != 0) {
+        Serial.printf("[RD] HKDF expand failed: %d\n", ret);
         return RD_ERR_CRYPTO;
     }
 
