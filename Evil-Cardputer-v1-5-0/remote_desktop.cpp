@@ -26,11 +26,11 @@
 // ============================================================================
 
 static RDConfig rdConfig = {
-    .serverHost = "",
-    .serverPort = RD_DEFAULT_PORT,
-    .autoConnect = false,
-    .jpegQuality = 70,
-    .targetFps = 10,
+    "",                     // serverHost
+    RD_DEFAULT_PORT,        // serverPort
+    false,                  // autoConnect
+    70,                     // jpegQuality
+    10                      // targetFps
 };
 
 static const char* RD_CONFIG_PATH = "/remote_desktop.json";
@@ -178,16 +178,16 @@ static RDError rdInitCrypto() {
     }
 
     // Setup ECDH with secp256r1
-    ret = mbedtls_ecp_group_load(&rdSession.ecdh.ctx.mbed_ecdh.grp, MBEDTLS_ECP_DP_SECP256R1);
+    ret = mbedtls_ecp_group_load(&rdSession.ecdh.grp, MBEDTLS_ECP_DP_SECP256R1);
     if (ret != 0) {
         Serial.printf("[RD] ECP group load failed: %d\n", ret);
         return RD_ERR_CRYPTO;
     }
 
     // Generate ephemeral keypair
-    ret = mbedtls_ecdh_gen_public(&rdSession.ecdh.ctx.mbed_ecdh.grp,
-                                   &rdSession.ecdh.ctx.mbed_ecdh.d,
-                                   &rdSession.ecdh.ctx.mbed_ecdh.Q,
+    ret = mbedtls_ecdh_gen_public(&rdSession.ecdh.grp,
+                                   &rdSession.ecdh.d,
+                                   &rdSession.ecdh.Q,
                                    mbedtls_ctr_drbg_random,
                                    &rdSession.ctr_drbg);
     if (ret != 0) {
@@ -451,8 +451,8 @@ static RDError rdHandshake() {
     // Get our public key
     uint8_t ourPubKey[RD_ECDH_PUBKEY_SIZE];
     size_t pubKeyLen = 0;
-    int ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.ctx.mbed_ecdh.grp,
-                                              &rdSession.ecdh.ctx.mbed_ecdh.Q,
+    int ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
+                                              &rdSession.ecdh.Q,
                                               MBEDTLS_ECP_PF_UNCOMPRESSED,
                                               &pubKeyLen, ourPubKey, sizeof(ourPubKey));
     if (ret != 0) {
@@ -483,8 +483,8 @@ static RDError rdHandshake() {
     }
 
     // Import server's public key
-    ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.ctx.mbed_ecdh.grp,
-                                         &rdSession.ecdh.ctx.mbed_ecdh.Qp,
+    ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.grp,
+                                         &rdSession.ecdh.Qp,
                                          response, RD_ECDH_PUBKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Import server pubkey failed: %d\n", ret);
@@ -495,10 +495,10 @@ static RDError rdHandshake() {
     mbedtls_mpi sharedSecret;
     mbedtls_mpi_init(&sharedSecret);
 
-    ret = mbedtls_ecdh_compute_shared(&rdSession.ecdh.ctx.mbed_ecdh.grp,
+    ret = mbedtls_ecdh_compute_shared(&rdSession.ecdh.grp,
                                        &sharedSecret,
-                                       &rdSession.ecdh.ctx.mbed_ecdh.Qp,
-                                       &rdSession.ecdh.ctx.mbed_ecdh.d,
+                                       &rdSession.ecdh.Qp,
+                                       &rdSession.ecdh.d,
                                        mbedtls_ctr_drbg_random,
                                        &rdSession.ctr_drbg);
     if (ret != 0) {
