@@ -128,6 +128,8 @@ enum RDError : int8_t {
     RD_ERR_USER_CANCEL      = -9,
     RD_ERR_REPLAY           = -10,
     RD_ERR_NONCE_OVERFLOW   = -11,
+    RD_ERR_REJECTED         = -12,    // User rejected connection
+    RD_ERR_NO_COOKIE        = -13,    // Cookie file missing
 };
 
 // ============================================================================
@@ -138,6 +140,7 @@ enum RDError : int8_t {
 #define RD_PRIVKEY_PATH         "/rd_keys/client.key"      // 32 bytes binary
 #define RD_PUBKEY_PATH          "/rd_keys/client.pub"      // 33 bytes compressed
 #define RD_SERVER_PUBKEY_PATH   "/rd_keys/server.pub"      // 33 bytes compressed
+#define RD_COOKIE_PATH          "/rd_keys/cookie"          // 16 bytes binary
 
 // ============================================================================
 // Configuration (saved to SD card)
@@ -165,6 +168,9 @@ bool rdLoadKeys();
 
 // Check if keys exist on SD card
 bool rdKeysExist();
+
+// Check if discovery cookie exists on SD card
+bool rdCookieExists();
 
 // ============================================================================
 // Session State

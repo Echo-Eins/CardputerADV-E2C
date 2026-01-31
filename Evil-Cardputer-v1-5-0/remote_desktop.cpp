@@ -66,9 +66,11 @@ static const char* RD_CONFIG_PATH = "/remote_desktop.json";
 
 static struct {
     bool loaded;
+    bool cookieLoaded;
     uint8_t privateKey[RD_ECDH_PRIVKEY_SIZE];      // Our ECDSA private key
     uint8_t publicKey[RD_ECDH_PUBKEY_SIZE];        // Our ECDSA public key (compressed)
     uint8_t serverPublicKey[RD_ECDH_PUBKEY_SIZE];  // Server's ECDSA public key
+    uint8_t cookie[RD_COOKIE_SIZE];                 // Discovery cookie
     mbedtls_ecp_keypair ecdsaKey;                   // Our signing keypair
     mbedtls_ecp_point serverPubPoint;               // Server's public key point
 } rdKeys;
@@ -184,6 +186,28 @@ bool rdKeysExist() {
     return SD.exists(RD_PRIVKEY_PATH) &&
            SD.exists(RD_PUBKEY_PATH) &&
            SD.exists(RD_SERVER_PUBKEY_PATH);
+}
+
+bool rdCookieExists() {
+    return SD.exists(RD_COOKIE_PATH);
+}
+
+// Load discovery cookie from SD card
+static bool rdLoadCookie() {
+    if (rdKeys.cookieLoaded) return true;
+
+    File f = SD.open(RD_COOKIE_PATH, FILE_READ);
+    if (!f || f.size() != RD_COOKIE_SIZE) {
+        Serial.println("[RD] Failed to read discovery cookie");
+        if (f) f.close();
+        return false;
+    }
+    f.read(rdKeys.cookie, RD_COOKIE_SIZE);
+    f.close();
+
+    rdKeys.cookieLoaded = true;
+    Serial.println("[RD] Discovery cookie loaded");
+    return true;
 }
 
 bool rdGenerateKeyPair() {
@@ -488,6 +512,8 @@ const char* rdErrorToString(RDError err) {
         case RD_ERR_USER_CANCEL:    return "Cancelled";
         case RD_ERR_REPLAY:         return "Replay attack";
         case RD_ERR_NONCE_OVERFLOW: return "Nonce overflow";
+        case RD_ERR_REJECTED:       return "Rejected by server";
+        case RD_ERR_NO_COOKIE:      return "No cookie file";
         default:                    return "Unknown error";
     }
 }
@@ -896,6 +922,127 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
 // Simple wrapper for unencrypted packets
 static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* len, uint32_t timeout) {
     return rdReceivePacketEx(type, payload, len, NULL, false, timeout);
+}
+
+// ============================================================================
+// Connection Confirmation Dialog
+// ============================================================================
+
+static bool rdConfirmConnection(const char* serverName, const char* serverIP) {
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setTextColor(TFT_YELLOW);
+    M5.Display.setTextSize(1.5);
+
+    M5.Display.setCursor(10, 20);
+    M5.Display.println("Connection Request");
+
+    M5.Display.setTextColor(TFT_WHITE);
+    M5.Display.setCursor(10, 45);
+    M5.Display.printf("Server: %s", serverName);
+
+    M5.Display.setCursor(10, 65);
+    M5.Display.setTextColor(TFT_CYAN);
+    M5.Display.printf("IP: %s", serverIP);
+
+    M5.Display.setCursor(10, 95);
+    M5.Display.setTextColor(TFT_GREEN);
+    M5.Display.print("ENTER = Accept  ");
+    M5.Display.setTextColor(TFT_RED);
+    M5.Display.print("BS = Reject");
+
+    M5.Display.display();
+
+    // Wait for user input
+    unsigned long start = millis();
+    const unsigned long CONFIRM_TIMEOUT_MS = 30000;  // 30 second timeout
+
+    rdClearKeyboard();
+
+    while (millis() - start < CONFIRM_TIMEOUT_MS) {
+        M5Cardputer.update();
+
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+            Serial.println("[RD] Connection accepted by user");
+            delay(200);  // Debounce
+            return true;
+        }
+
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            Serial.println("[RD] Connection rejected by user");
+            delay(200);  // Debounce
+            return false;
+        }
+
+        delay(50);
+    }
+
+    Serial.println("[RD] Connection confirmation timed out");
+    return false;  // Timeout = reject
+}
+
+// ============================================================================
+// Send Discovery Request with Cookie (via TCP after mDNS find)
+// ============================================================================
+
+static RDError rdSendDiscoveryRequest() {
+    // Load cookie if not already loaded
+    if (!rdLoadCookie()) {
+        Serial.println("[RD] Cookie not available, skipping discovery auth");
+        return RD_ERR_NO_COOKIE;
+    }
+
+    // Build discovery request payload: cookie(16) + device_name
+    const char* deviceName = "Cardputer";
+    size_t nameLen = strlen(deviceName);
+    uint8_t payload[RD_COOKIE_SIZE + 64];
+
+    memcpy(payload, rdKeys.cookie, RD_COOKIE_SIZE);
+    memcpy(payload + RD_COOKIE_SIZE, deviceName, nameLen);
+
+    // Send discovery request packet
+    RDError err = rdSendPacket(RD_PKT_DISCOVERY_REQUEST, payload, RD_COOKIE_SIZE + nameLen);
+    if (err != RD_OK) {
+        Serial.println("[RD] Failed to send discovery request");
+        return err;
+    }
+
+    Serial.println("[RD] Sent discovery request with cookie");
+
+    // Wait for discovery response
+    uint8_t response[256];
+    uint16_t respLen;
+    RDPacketType respType;
+
+    err = rdReceivePacket(&respType, response, &respLen, 5000);
+    if (err != RD_OK) {
+        Serial.printf("[RD] No discovery response: %s\n", rdErrorToString(err));
+        return err;
+    }
+
+    if (respType == RD_PKT_ERROR) {
+        Serial.println("[RD] Server rejected discovery (bad cookie?)");
+        return RD_ERR_REJECTED;
+    }
+
+    if (respType != RD_PKT_DISCOVERY_RESPONSE) {
+        Serial.printf("[RD] Unexpected response type: 0x%02X\n", respType);
+        return RD_ERR_PROTOCOL;
+    }
+
+    // Parse response: cookie(16) + device_name + port(2)
+    if (respLen < RD_COOKIE_SIZE + 2) {
+        Serial.println("[RD] Discovery response too short");
+        return RD_ERR_PROTOCOL;
+    }
+
+    // Verify cookie matches
+    if (memcmp(response, rdKeys.cookie, RD_COOKIE_SIZE) != 0) {
+        Serial.println("[RD] Discovery response cookie mismatch!");
+        return RD_ERR_REJECTED;
+    }
+
+    Serial.println("[RD] Discovery response validated");
+    return RD_OK;
 }
 
 // ============================================================================
@@ -1471,7 +1618,17 @@ static void rdShowSettings() {
     M5.Display.setCursor(10, y);
     M5.Display.printf("FPS: %d", rdConfig.targetFps);
 
-    y += 25;
+    y += 15;
+    M5.Display.setCursor(10, y);
+    if (rdCookieExists()) {
+        M5.Display.setTextColor(TFT_GREEN);
+        M5.Display.print("Cookie: OK");
+    } else {
+        M5.Display.setTextColor(TFT_RED);
+        M5.Display.print("Cookie: MISSING");
+    }
+
+    y += 20;
     M5.Display.setTextColor(TFT_GREEN);
     M5.Display.setCursor(10, y);
     M5.Display.println("ENTER: Connect");
@@ -1574,6 +1731,26 @@ void remoteDesktop() {
             if (err != RD_OK) {
                 rdDisconnect();
                 waitAndReturnToMenu(rdErrorToString(err));
+                break;
+            }
+
+            // Send discovery request with cookie
+            err = rdSendDiscoveryRequest();
+            if (err == RD_ERR_NO_COOKIE) {
+                // Cookie not configured - warn but continue
+                rdDrawStatus("Warning:", "No cookie configured");
+                delay(1500);
+            } else if (err != RD_OK) {
+                rdDisconnect();
+                waitAndReturnToMenu(rdErrorToString(err));
+                break;
+            }
+
+            // Ask user to confirm connection
+            if (!rdConfirmConnection(rdSession.serverName,
+                                     rdSession.serverIP.toString().c_str())) {
+                rdDisconnect();
+                waitAndReturnToMenu("Connection rejected");
                 break;
             }
 
