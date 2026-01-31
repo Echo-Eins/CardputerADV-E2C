@@ -23,14 +23,14 @@
 
 // UI functions
 extern void waitAndReturnToMenu(String message);
-extern String getUserInput(const String& prompt);
+extern String getUserInput(bool isPassword = false);
 extern void enterDebounce();
 
 // Network functions (ARP scanning)
 extern void send_arp(const char* base_ip, std::vector<IPAddress>& hosts);
 extern void read_arp_table(const char* base_ip, int start, int end, std::vector<IPAddress>& hosts);
-extern bool arpRequest(const IPAddress& target);
-extern bool connectWithTimeout(WiFiClient& client, const IPAddress& ip, uint16_t port, unsigned long timeout);
+extern bool arpRequest(IPAddress host);
+extern bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
 
 // ============================================================================
 // LDAP Module Globals (accessible from main)

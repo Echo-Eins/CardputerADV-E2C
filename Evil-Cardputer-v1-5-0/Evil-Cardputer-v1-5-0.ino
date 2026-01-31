@@ -743,6 +743,36 @@ static bool taskBarSpriteReady = false;
 #include <functional>
 #define DEF_DELAY 50
 
+// Missing HID key constants for ESP32 Arduino 2.x
+#ifndef KEY_PRINT_SCREEN
+#define KEY_PRINT_SCREEN  0x46
+#endif
+#ifndef KEY_SCROLL_LOCK
+#define KEY_SCROLL_LOCK   0x47
+#endif
+#ifndef KEY_PAUSE
+#define KEY_PAUSE         0x48
+#endif
+#ifndef KEY_MENU
+#define KEY_MENU          0x65
+#endif
+#ifndef KEY_SPACE
+#define KEY_SPACE         ' '
+#endif
+
+// Keyboard layouts not supported in ESP32 Arduino 2.x - define stubs
+#define KeyboardLayout_en_US nullptr
+#define KeyboardLayout_pt_BR nullptr
+#define KeyboardLayout_pt_PT nullptr
+#define KeyboardLayout_fr_FR nullptr
+#define KeyboardLayout_es_ES nullptr
+#define KeyboardLayout_it_IT nullptr
+#define KeyboardLayout_en_UK nullptr
+#define KeyboardLayout_de_DE nullptr
+#define KeyboardLayout_sv_SE nullptr
+#define KeyboardLayout_da_DK nullptr
+#define KeyboardLayout_hu_HU nullptr
+
 USBHIDKeyboard Kb;
 bool kbChosen = false;
 //badusb end
@@ -13032,9 +13062,12 @@ void key_input(FS &fs, const String &bad_script) {
 
 
 void chooseKb(const uint8_t *layout) {
+    // Note: ESP32 Arduino 2.x USBHIDKeyboard doesn't support keyboard layouts
+    // The layout parameter is ignored - US layout is always used
+    (void)layout;  // Suppress unused parameter warning
     kbChosen = true;
-    Kb.begin(layout);  // Initialise le clavier avec la disposition choisie
-    USB.begin();       // S'assure que l'USB est initialisé après le choix du clavier
+    Kb.begin();    // Initialize keyboard (no layout support in ESP32)
+    USB.begin();   // Make sure USB is initialized after keyboard
 }
 
 
@@ -13055,7 +13088,8 @@ void showKeyboardLayoutOptions() {
     loopOptions(keyboardOptions, false, true, "Keyboard Layout");
 
     if (!kbChosen) {
-        Kb.begin(KeyboardLayout_fr_FR); // Commencer avec la disposition par défaut si rien n'est choisi
+        Kb.begin(); // Initialize with default (US) layout - ESP32 doesn't support layouts
+        USB.begin();
     }
 }
 

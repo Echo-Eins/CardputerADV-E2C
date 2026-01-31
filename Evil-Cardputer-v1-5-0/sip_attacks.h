@@ -22,7 +22,7 @@
 // ============================================================================
 extern void waitAndReturnToMenu(String message);
 extern bool inMenu;
-extern uint32_t menuBackgroundColor;
+extern int menuBackgroundColor;
 
 // ============================================================================
 // SIP Module Public Functions

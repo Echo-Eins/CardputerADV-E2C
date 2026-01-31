@@ -16,7 +16,7 @@
 // ============================================================================
 
 extern void waitAndReturnToMenu(String message);
-extern String getUserInput(const String& prompt);
+extern String getUserInput(bool isPassword = false);
 extern bool inMenu;
 
 // ============================================================================

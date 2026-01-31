@@ -19,9 +19,9 @@
 // ============================================================================
 
 extern void waitAndReturnToMenu(String message);
-extern String getUserInput();
-extern uint32_t menuTextUnFocusedColor;
-extern uint32_t menuBackgroundColor;
+extern String getUserInput(bool isPassword = false);
+extern int menuTextUnFocusedColor;
+extern int menuBackgroundColor;
 
 // ============================================================================
 // Bluetooth Keyboard State (accessible from main)
