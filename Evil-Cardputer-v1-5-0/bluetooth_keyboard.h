@@ -19,7 +19,7 @@
 // ============================================================================
 
 extern void waitAndReturnToMenu(String message);
-extern String getUserInput(bool isPassword = false);
+extern String getUserInput(bool isPassword);
 extern int menuTextUnFocusedColor;
 extern int menuBackgroundColor;
 

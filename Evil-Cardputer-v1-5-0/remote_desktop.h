@@ -19,7 +19,7 @@
 // ============================================================================
 
 extern void waitAndReturnToMenu(String message);
-extern String getUserInput(bool isPassword = false);
+extern String getUserInput(bool isPassword);
 extern bool inMenu;
 extern bool ledOn;
 extern bool soundOn;
