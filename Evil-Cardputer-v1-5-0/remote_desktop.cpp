@@ -1351,16 +1351,9 @@ static void rdLoop() {
             RDPacketType type;
             uint16_t len;
 
-            // Peek at header to determine if encrypted
-            uint8_t headerPeek[RD_PACKET_HEADER_SIZE];
-            rdSession.client.peekBytes(headerPeek, RD_PACKET_HEADER_SIZE);
-            RDPacketType peekType = (RDPacketType)headerPeek[1];
-
-            // Encrypted packet types: ScreenFrame, ScreenDelta
-            // These have TAG sent separately after the payload
-            bool isEncrypted = (peekType == RD_PKT_SCREEN_FRAME || peekType == RD_PKT_SCREEN_DELTA);
-
-            RDError err = rdReceivePacketEx(&type, rxBuffer, &len, tag, isEncrypted, 100);
+            // All packets have TAG (zero for unencrypted, real for encrypted)
+            // Always read TAG, then determine handling based on packet type
+            RDError err = rdReceivePacketEx(&type, rxBuffer, &len, tag, true, 100);
             if (err != RD_OK) {
                 if (err != RD_ERR_TIMEOUT) {
                     Serial.printf("[RD] Receive error: %s\n", rdErrorToString(err));
