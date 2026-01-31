@@ -772,8 +772,20 @@ static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t 
 
 // Send encrypted packet (after handshake)
 // Format matches Rust server: header + (nonce + ciphertext) + tag_separately
+// Max outgoing payload: 256 bytes (commands are 2 bytes, transcript MAC is 32 bytes)
+static const size_t RD_MAX_SEND_PAYLOAD = 256;
+
 static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len) {
+    // Static buffer to avoid VLA stack overflow
+    static uint8_t ciphertext[RD_MAX_SEND_PAYLOAD];
+
     if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
+
+    // Validate payload size
+    if (len > RD_MAX_SEND_PAYLOAD) {
+        Serial.printf("[RD] Payload too large: %u > %zu\n", len, RD_MAX_SEND_PAYLOAD);
+        return RD_ERR_PROTOCOL;
+    }
 
     // Check for nonce overflow
     if (rdSession.txCounter == 0xFFFFFFFF) {
@@ -789,8 +801,7 @@ static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16
     memcpy(nonce + 4, rdSession.txNonceRandom, 8);
     rdSession.txCounter++;
 
-    // Encrypt payload
-    uint8_t ciphertext[len];
+    // Encrypt payload (using static buffer)
     uint8_t tag[RD_AES_GCM_TAG_SIZE];
     int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcmEncrypt, MBEDTLS_GCM_ENCRYPT,
                                          len, nonce, RD_AES_GCM_NONCE_SIZE,
