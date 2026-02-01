@@ -138,13 +138,14 @@ impl CryptoContext {
     }
 
     /// Generate ephemeral keypair for ECDH
-    pub fn generate_ephemeral_keypair(&self) -> (EphemeralSecret, [u8; 33]) {
+    /// Returns uncompressed public key (65 bytes, 0x04 prefix)
+    /// ESP32 Arduino mbedtls lacks MBEDTLS_ECP_POINT_COMPRESSION,
+    /// so it cannot parse compressed (33-byte) points.
+    pub fn generate_ephemeral_keypair(&self) -> (EphemeralSecret, Vec<u8>) {
         let secret = EphemeralSecret::random(&mut OsRng);
         let public_key = secret.public_key();
-        let encoded = public_key.to_encoded_point(true);
-        let mut compressed = [0u8; 33];
-        compressed.copy_from_slice(encoded.as_bytes());
-        (secret, compressed)
+        let encoded = public_key.to_encoded_point(false); // uncompressed
+        (secret, encoded.as_bytes().to_vec())
     }
 
     /// Generate a random 32-byte nonce
@@ -179,9 +180,10 @@ impl CryptoContext {
     }
 
     /// Verify signature from an ephemeral public key during handshake
+    /// Accepts both compressed (33 bytes) and uncompressed (65 bytes) public keys
     pub fn verify_ephemeral_signature(
         &self,
-        ephemeral_public_key: &[u8; 33],
+        ephemeral_public_key: &[u8],
         data: &[u8],
         signature: &[u8; 64],
     ) -> Result<PublicKey, CryptoError> {
@@ -202,14 +204,15 @@ impl CryptoContext {
     }
 
     /// Perform ECDH key exchange and derive session keys
+    /// Accepts both compressed (33 bytes) and uncompressed (65 bytes) peer public keys
     pub fn derive_session_keys(
         &mut self,
         our_ephemeral_secret: EphemeralSecret,
-        peer_ephemeral_public: &[u8; 33],
+        peer_ephemeral_public: &[u8],
         our_nonce: &[u8; 32],
         peer_nonce: &[u8; 32],
     ) -> Result<(), CryptoError> {
-        // Parse peer's ephemeral public key
+        // Parse peer's ephemeral public key (auto-detects compressed/uncompressed)
         let encoded_point = EncodedPoint::from_bytes(peer_ephemeral_public)
             .map_err(|_| CryptoError::InvalidPublicKey)?;
 
@@ -382,12 +385,10 @@ impl CryptoContext {
         mac.finalize().into_bytes().into()
     }
 
-    /// Get our public key as compressed bytes
-    pub fn get_our_public_key_compressed(&self) -> [u8; 33] {
-        let encoded = self.our_public_key.to_encoded_point(true);
-        let mut compressed = [0u8; 33];
-        compressed.copy_from_slice(encoded.as_bytes());
-        compressed
+    /// Get our public key as uncompressed bytes (65 bytes, 0x04 prefix)
+    pub fn get_our_public_key_bytes(&self) -> Vec<u8> {
+        let encoded = self.our_public_key.to_encoded_point(false); // uncompressed
+        encoded.as_bytes().to_vec()
     }
 
     /// Check if session is established
@@ -422,14 +423,14 @@ mod tests {
         let mut server = CryptoContext::new(server_key, true).unwrap();
         let mut client = CryptoContext::new(client_key, false).unwrap();
 
-        // Exchange public keys
-        let server_pub = hex::encode(server.get_our_public_key_compressed());
-        let client_pub = hex::encode(client.get_our_public_key_compressed());
+        // Exchange public keys (now uncompressed)
+        let server_pub = hex::encode(server.get_our_public_key_bytes());
+        let client_pub = hex::encode(client.get_our_public_key_bytes());
 
         server.set_peer_public_key(&client_pub).unwrap();
         client.set_peer_public_key(&server_pub).unwrap();
 
-        // Generate ephemeral keys
+        // Generate ephemeral keys (now returns Vec<u8>)
         let (server_eph_secret, server_eph_pub) = server.generate_ephemeral_keypair();
         let (client_eph_secret, client_eph_pub) = client.generate_ephemeral_keypair();
 
@@ -437,7 +438,7 @@ mod tests {
         let server_nonce = CryptoContext::generate_nonce();
         let client_nonce = CryptoContext::generate_nonce();
 
-        // Derive keys
+        // Derive keys (now accepts &[u8] slices)
         server
             .derive_session_keys(server_eph_secret, &client_eph_pub, &server_nonce, &client_nonce)
             .unwrap();

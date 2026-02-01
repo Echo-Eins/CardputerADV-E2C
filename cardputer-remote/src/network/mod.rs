@@ -1,7 +1,10 @@
 //! Network module - TCP server and mDNS discovery
 //!
 //! Full PKI authentication required for all clients.
-//! Handshake format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
+//! Handshake format: pubkey(33 or 65) + nonce(32) + signature(64)
+//! Accepts compressed (129 bytes) or uncompressed (161 bytes) handshakes.
+//! Always SENDS uncompressed (65-byte) public keys because ESP32 Arduino
+//! mbedtls lacks MBEDTLS_ECP_POINT_COMPRESSION.
 
 use crate::config::Config;
 use crate::crypto::{constant_time_eq, CryptoContext, CryptoError};
@@ -19,11 +22,15 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-/// Binary handshake format sizes (same for all clients)
-const PUBKEY_SIZE: usize = 33;        // Compressed secp256r1
+/// Binary handshake format sizes
+const PUBKEY_COMPRESSED: usize = 33;   // Compressed secp256r1
+const PUBKEY_UNCOMPRESSED: usize = 65; // Uncompressed secp256r1 (0x04 prefix)
 const HANDSHAKE_NONCE_SIZE: usize = 32;
-const SIGNATURE_SIZE: usize = 64;     // ECDSA r||s format
-const HANDSHAKE_MSG_SIZE: usize = PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE + SIGNATURE_SIZE;  // 129 bytes
+const SIGNATURE_SIZE: usize = 64;      // ECDSA r||s format
+/// Handshake msg size with compressed pubkey (legacy)
+const HANDSHAKE_MSG_COMPRESSED: usize = PUBKEY_COMPRESSED + HANDSHAKE_NONCE_SIZE + SIGNATURE_SIZE;  // 129
+/// Handshake msg size with uncompressed pubkey (current)
+const HANDSHAKE_MSG_UNCOMPRESSED: usize = PUBKEY_UNCOMPRESSED + HANDSHAKE_NONCE_SIZE + SIGNATURE_SIZE;  // 161
 
 pub mod session;
 pub use session::Session;
@@ -226,25 +233,29 @@ impl Server {
         mut crypto: CryptoContext, init_packet: Packet,
     ) -> Result<Session, NetworkError> {
         // ===== PROCESS HANDSHAKE INIT =====
-        // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
-
-        if init_packet.payload.len() != HANDSHAKE_MSG_SIZE {
+        // Accept both compressed (129 bytes) and uncompressed (161 bytes) formats
+        let payload_len = init_packet.payload.len();
+        let pubkey_size = if payload_len == HANDSHAKE_MSG_COMPRESSED {
+            PUBKEY_COMPRESSED
+        } else if payload_len == HANDSHAKE_MSG_UNCOMPRESSED {
+            PUBKEY_UNCOMPRESSED
+        } else {
             return Err(NetworkError::HandshakeFailed(
-                format!("HandshakeInit wrong size: {} (expected {})", init_packet.payload.len(), HANDSHAKE_MSG_SIZE)
+                format!("HandshakeInit wrong size: {} (expected {} or {})",
+                        payload_len, HANDSHAKE_MSG_COMPRESSED, HANDSHAKE_MSG_UNCOMPRESSED)
             ));
-        }
+        };
 
-        // Parse components
-        let mut init_pubkey = [0u8; PUBKEY_SIZE];
+        // Parse components (pubkey size depends on format)
+        let init_pubkey = init_packet.payload[..pubkey_size].to_vec();
         let mut init_nonce = [0u8; HANDSHAKE_NONCE_SIZE];
         let mut init_signature = [0u8; SIGNATURE_SIZE];
-        init_pubkey.copy_from_slice(&init_packet.payload[..PUBKEY_SIZE]);
-        init_nonce.copy_from_slice(&init_packet.payload[PUBKEY_SIZE..PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE]);
-        init_signature.copy_from_slice(&init_packet.payload[PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE..]);
+        init_nonce.copy_from_slice(&init_packet.payload[pubkey_size..pubkey_size + HANDSHAKE_NONCE_SIZE]);
+        init_signature.copy_from_slice(&init_packet.payload[pubkey_size + HANDSHAKE_NONCE_SIZE..]);
 
         // ===== VERIFY CLIENT SIGNATURE =====
         // Client signs: ephemeral_pubkey || nonce
-        let mut sign_data = Vec::with_capacity(PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE);
+        let mut sign_data = Vec::with_capacity(pubkey_size + HANDSHAKE_NONCE_SIZE);
         sign_data.extend_from_slice(&init_pubkey);
         sign_data.extend_from_slice(&init_nonce);
 
@@ -252,18 +263,19 @@ impl Server {
         info!("Client signature verified from {}", addr);
 
         // ===== GENERATE OUR RESPONSE =====
+        // Always send uncompressed (65-byte) pubkey so ESP32 can parse it
         let (our_ephemeral_secret, our_ephemeral_public) = crypto.generate_ephemeral_keypair();
         let our_nonce = CryptoContext::generate_nonce();
 
         // Sign: our_ephemeral_pubkey || client_nonce || our_nonce
-        let mut response_sign_data = Vec::with_capacity(PUBKEY_SIZE + HANDSHAKE_NONCE_SIZE + HANDSHAKE_NONCE_SIZE);
+        let mut response_sign_data = Vec::with_capacity(our_ephemeral_public.len() + HANDSHAKE_NONCE_SIZE * 2);
         response_sign_data.extend_from_slice(&our_ephemeral_public);
         response_sign_data.extend_from_slice(&init_nonce);
         response_sign_data.extend_from_slice(&our_nonce);
         let response_signature = crypto.sign(&response_sign_data);
 
-        // Build response: pubkey(33) + nonce(32) + signature(64)
-        let mut response_bytes = Vec::with_capacity(HANDSHAKE_MSG_SIZE);
+        // Build response: pubkey(65) + nonce(32) + signature(64) = 161 bytes
+        let mut response_bytes = Vec::with_capacity(HANDSHAKE_MSG_UNCOMPRESSED);
         response_bytes.extend_from_slice(&our_ephemeral_public);
         response_bytes.extend_from_slice(&our_nonce);
         response_bytes.extend_from_slice(&response_signature);
@@ -298,7 +310,7 @@ impl Server {
         }
 
         // Compute expected MAC: HMAC(hmac_key, client_pub || server_pub || client_nonce || server_nonce)
-        let mut transcript = Vec::with_capacity(PUBKEY_SIZE * 2 + HANDSHAKE_NONCE_SIZE * 2);
+        let mut transcript = Vec::with_capacity(init_pubkey.len() + our_ephemeral_public.len() + HANDSHAKE_NONCE_SIZE * 2);
         transcript.extend_from_slice(&init_pubkey);
         transcript.extend_from_slice(&our_ephemeral_public);
         transcript.extend_from_slice(&init_nonce);
@@ -312,8 +324,6 @@ impl Server {
         info!("Transcript MAC verified for {}", addr);
 
         // ===== SEND ENCRYPTED SESSION START =====
-        // Note: Session start is now encrypted since keys are derived
-        // But we send it unencrypted for simplicity (empty payload)
         Self::send_unencrypted_packet(&mut stream, PacketType::SessionStart, &[]).await?;
 
         info!("Handshake complete with {} - secure channel established", addr);

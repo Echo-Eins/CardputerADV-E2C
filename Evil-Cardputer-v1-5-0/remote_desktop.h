@@ -2,7 +2,7 @@
  * remote_desktop.h - Remote Desktop Module for Evil-Cardputer
  *
  * Secure remote desktop client with:
- * - ECDH key exchange (secp256r1) with compressed public keys
+ * - ECDH key exchange (secp256r1) with uncompressed public keys
  * - HKDF-SHA256 key derivation (RFC 5869)
  * - AES-128-GCM authenticated encryption
  * - Dual session keys (client→server, server→client)
@@ -41,8 +41,9 @@ extern bool soundOn;
 #define RD_AES_KEY_SIZE         16      // AES-128
 #define RD_AES_GCM_TAG_SIZE     16      // GCM authentication tag
 #define RD_AES_GCM_NONCE_SIZE   12      // 96-bit nonce (4 counter + 8 random)
-#define RD_ECDH_PUBKEY_SIZE     33      // Compressed secp256r1 point
-#define RD_ECDH_PUBKEY_UNCOMP   65      // Uncompressed (for internal use)
+#define RD_ECDH_PUBKEY_SIZE     65      // Uncompressed secp256r1 point (0x04 prefix)
+                                        // ESP32 Arduino mbedtls lacks POINT_COMPRESSION
+                                        // so compressed (33-byte) format cannot be parsed
 #define RD_ECDH_PRIVKEY_SIZE    32      // secp256r1 private key
 #define RD_ECDSA_SIG_SIZE       64      // ECDSA signature (r + s, 32 bytes each)
 #define RD_HANDSHAKE_NONCE_SIZE 32      // Random nonce for key derivation
@@ -52,8 +53,8 @@ extern bool soundOn;
 #define RD_TRANSCRIPT_MAC_SIZE  32      // Handshake verification MAC
 
 // Handshake message sizes (with signatures)
-#define RD_HANDSHAKE_INIT_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 33+32+64 = 129
-#define RD_HANDSHAKE_RESP_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 129
+#define RD_HANDSHAKE_INIT_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 65+32+64 = 161
+#define RD_HANDSHAKE_RESP_SIZE  (RD_ECDH_PUBKEY_SIZE + RD_HANDSHAKE_NONCE_SIZE + RD_ECDSA_SIG_SIZE)  // 161
 
 // Derived key material sizes
 #define RD_SESSION_KEY_MATERIAL 64      // c2s(16) + s2c(16) + hmac(32)
@@ -138,8 +139,8 @@ enum RDError : int8_t {
 
 #define RD_KEYS_DIR             "/rd_keys"
 #define RD_PRIVKEY_PATH         "/rd_keys/client.key"      // 32 bytes binary
-#define RD_PUBKEY_PATH          "/rd_keys/client.pub"      // 33 bytes compressed
-#define RD_SERVER_PUBKEY_PATH   "/rd_keys/server.pub"      // 33 bytes compressed
+#define RD_PUBKEY_PATH          "/rd_keys/client.pub"      // 65 bytes uncompressed
+#define RD_SERVER_PUBKEY_PATH   "/rd_keys/server.pub"      // 65 bytes uncompressed
 #define RD_COOKIE_PATH          "/rd_keys/cookie"          // 16 bytes binary
 
 // ============================================================================

@@ -15,8 +15,8 @@
  *
  * Key storage (SD card):
  * - /rd_keys/client.key  - Our ECDSA private key (32 bytes)
- * - /rd_keys/client.pub  - Our ECDSA public key (33 bytes compressed)
- * - /rd_keys/server.pub  - Server's ECDSA public key (33 bytes compressed)
+ * - /rd_keys/client.pub  - Our ECDSA public key (65 bytes uncompressed)
+ * - /rd_keys/server.pub  - Server's ECDSA public key (65 bytes uncompressed)
  */
 
 #include "remote_desktop.h"
@@ -254,11 +254,11 @@ bool rdGenerateKeyPair() {
         return false;
     }
 
-    // Export public key (33 bytes compressed)
+    // Export public key (65 bytes uncompressed - ESP32 mbedtls lacks POINT_COMPRESSION)
     uint8_t pubKey[RD_ECDH_PUBKEY_SIZE];
     size_t pubLen = 0;
     ret = mbedtls_ecp_point_write_binary(&keypair.grp, &keypair.Q,
-                                          MBEDTLS_ECP_PF_COMPRESSED,
+                                          MBEDTLS_ECP_PF_UNCOMPRESSED,
                                           &pubLen, pubKey, sizeof(pubKey));
     if (ret != 0 || pubLen != RD_ECDH_PUBKEY_SIZE) {
         Serial.printf("[RD] Export public key failed: -0x%04X\n", -ret);
@@ -330,21 +330,42 @@ bool rdLoadKeys() {
     f.read(rdKeys.privateKey, RD_ECDH_PRIVKEY_SIZE);
     f.close();
 
-    // Load our public key
+    // Load our public key (65 bytes uncompressed)
     f = SD.open(RD_PUBKEY_PATH, FILE_READ);
-    if (!f || f.size() != RD_ECDH_PUBKEY_SIZE) {
-        Serial.println("[RD] Failed to read public key");
-        if (f) f.close();
+    if (!f) {
+        Serial.println("[RD] Failed to open public key file");
+        return false;
+    }
+    if (f.size() == 33) {
+        Serial.println("[RD] ERROR: client.pub is 33 bytes (old compressed format)");
+        Serial.println("[RD] ESP32 mbedtls cannot parse compressed EC points (-0x4E80)");
+        Serial.println("[RD] Please regenerate keys - they will be 65 bytes (uncompressed)");
+        f.close();
+        return false;
+    }
+    if (f.size() != RD_ECDH_PUBKEY_SIZE) {
+        Serial.printf("[RD] Bad client.pub size: %d (expected %d)\n", f.size(), RD_ECDH_PUBKEY_SIZE);
+        f.close();
         return false;
     }
     f.read(rdKeys.publicKey, RD_ECDH_PUBKEY_SIZE);
     f.close();
 
-    // Load server's public key
+    // Load server's public key (65 bytes uncompressed)
     f = SD.open(RD_SERVER_PUBKEY_PATH, FILE_READ);
-    if (!f || f.size() != RD_ECDH_PUBKEY_SIZE) {
-        Serial.println("[RD] Failed to read server public key");
-        if (f) f.close();
+    if (!f) {
+        Serial.println("[RD] Failed to open server public key file");
+        return false;
+    }
+    if (f.size() == 33) {
+        Serial.println("[RD] ERROR: server.pub is 33 bytes (old compressed format)");
+        Serial.println("[RD] Please regenerate server keys with updated keygen tool");
+        f.close();
+        return false;
+    }
+    if (f.size() != RD_ECDH_PUBKEY_SIZE) {
+        Serial.printf("[RD] Bad server.pub size: %d (expected %d)\n", f.size(), RD_ECDH_PUBKEY_SIZE);
+        f.close();
         return false;
     }
     f.read(rdKeys.serverPublicKey, RD_ECDH_PUBKEY_SIZE);
@@ -568,11 +589,11 @@ static RDError rdInitCrypto() {
         return RD_ERR_CRYPTO;
     }
 
-    // Export compressed public key (33 bytes)
+    // Export uncompressed public key (65 bytes)
     size_t pubKeyLen = 0;
     ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
                                           &rdSession.ecdh.Q,
-                                          MBEDTLS_ECP_PF_COMPRESSED,
+                                          MBEDTLS_ECP_PF_UNCOMPRESSED,
                                           &pubKeyLen, rdSession.ourEphemeralPubKey,
                                           sizeof(rdSession.ourEphemeralPubKey));
     if (ret != 0 || pubKeyLen != RD_ECDH_PUBKEY_SIZE) {
@@ -944,11 +965,13 @@ static bool rdConfirmConnection(const char* serverName, const char* serverIP) {
     M5.Display.setTextColor(TFT_CYAN);
     M5.Display.printf("IP: %s", serverIP);
 
-    M5.Display.setCursor(10, 95);
+    M5.Display.setCursor(10, 90);
     M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.print("ENTER = Accept  ");
+    M5.Display.println("ENTER = Accept");
+
+    M5.Display.setCursor(10, 105);
     M5.Display.setTextColor(TFT_RED);
-    M5.Display.print("BS = Reject");
+    M5.Display.println("BACKSPACE = Reject");
 
     M5.Display.display();
 

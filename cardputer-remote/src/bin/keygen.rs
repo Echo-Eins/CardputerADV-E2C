@@ -149,13 +149,13 @@ fn main() {
             }
 
             if let Some(ref pub_key) = cardputer_public {
-                println!("# client.pub (33 bytes) - Cardputer public key");
+                println!("# client.pub ({} bytes) - Cardputer public key (uncompressed)", pub_key.len());
                 print_powershell_command("client.pub", pub_key);
                 println!();
             }
 
             if let Some(ref pub_key) = pc_public {
-                println!("# server.pub (33 bytes) - PC server public key");
+                println!("# server.pub ({} bytes) - PC server public key (uncompressed)", pub_key.len());
                 print_powershell_command("server.pub", pub_key);
                 println!();
             }
@@ -226,8 +226,10 @@ fn generate_keypair(name: &str) -> (Vec<u8>, Vec<u8>) {
     let private_bytes = signing_key.to_bytes().to_vec();
     let private_hex = hex::encode(&private_bytes);
 
-    // Get compressed public key
-    let public_point = verifying_key.to_encoded_point(true);
+    // Get uncompressed public key (65 bytes, 0x04 prefix)
+    // ESP32 Arduino mbedtls lacks MBEDTLS_ECP_POINT_COMPRESSION
+    // and cannot parse compressed (33-byte) EC points
+    let public_point = verifying_key.to_encoded_point(false);
     let public_bytes = public_point.as_bytes().to_vec();
     let public_hex = hex::encode(&public_bytes);
 

@@ -59,7 +59,7 @@ pub struct SecurityConfig {
     /// Private key for ECDH (secp256r1, hex encoded, 32 bytes)
     pub private_key: String,
 
-    /// Expected Cardputer public key (compressed, hex encoded, 33 bytes)
+    /// Expected Cardputer public key (hex encoded, 33 bytes compressed or 65 bytes uncompressed)
     pub cardputer_public_key: String,
 }
 
@@ -161,12 +161,12 @@ impl Config {
             ));
         }
 
-        // Validate Cardputer public key (33 bytes compressed = 66 hex chars)
+        // Validate Cardputer public key (33 bytes compressed or 65 bytes uncompressed)
         let pubkey_bytes = hex::decode(&self.security.cardputer_public_key)
             .map_err(|_| ConfigError::ValidationError("Invalid cardputer_public_key hex".into()))?;
-        if pubkey_bytes.len() != 33 {
+        if pubkey_bytes.len() != 33 && pubkey_bytes.len() != 65 {
             return Err(ConfigError::ValidationError(
-                "cardputer_public_key must be 33 bytes compressed (66 hex chars)".into(),
+                "cardputer_public_key must be 33 bytes compressed (66 hex) or 65 bytes uncompressed (130 hex)".into(),
             ));
         }
 
