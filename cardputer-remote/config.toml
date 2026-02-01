@@ -30,7 +30,7 @@ cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef012345
 
 [network]
 # mDNS service name (will be advertised as _cardputer-remote._tcp.local)
-mdns_service_name = "CardputerRemote"
+mdns_service_name = "cardputer-remote"
 
 # Device name shown to Cardputer during discovery
 device_name = "MyPC"

@@ -78,7 +78,7 @@ pub struct NetworkConfig {
 }
 
 fn default_mdns_service_name() -> String {
-    "CardputerRemote".to_string()
+    "cardputer-remote".to_string()
 }
 
 fn default_bind_address() -> String {
