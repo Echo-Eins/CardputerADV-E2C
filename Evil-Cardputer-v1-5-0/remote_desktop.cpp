@@ -44,7 +44,7 @@
 // ============================================================================
 
 static const char* RD_HKDF_INFO = "cardputer-remote-v1-session-keys";
-static const size_t RD_HKDF_INFO_LEN = 33;
+static const size_t RD_HKDF_INFO_LEN = 32;  // Must NOT include null terminator (match Rust b"...")
 
 // ============================================================================
 // Configuration
@@ -610,11 +610,9 @@ static RDError rdInitCrypto() {
         return RD_ERR_CRYPTO;
     }
 
-    // Generate random part of TX nonce
-    ret = mbedtls_ctr_drbg_random(&rdSession.ctr_drbg, rdSession.txNonceRandom, 8);
-    if (ret != 0) {
-        return RD_ERR_CRYPTO;
-    }
+    // TX nonce random = first 8 bytes of our handshake nonce
+    // Server expects peer_nonce[0..8] as incoming nonce random part
+    memcpy(rdSession.txNonceRandom, rdSession.clientNonce, 8);
 
     rdSession.txCounter = 0;
     rdSession.rxCounter = 0;
