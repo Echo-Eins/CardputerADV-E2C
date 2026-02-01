@@ -41,7 +41,7 @@ private_key = "<PC private key>"
 cardputer_public_key = "<Cardputer public key>"
 
 [network]
-mdns_service_name = "CardputerRemote"
+mdns_service_name = "cardputer-remote"
 device_name = "MyPC"
 bind_address = "0.0.0.0"
 

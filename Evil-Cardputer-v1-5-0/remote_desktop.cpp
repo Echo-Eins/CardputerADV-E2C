@@ -823,6 +823,7 @@ static const size_t RD_MAX_SEND_PAYLOAD = 256;
 static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len) {
     // Static buffer to avoid VLA stack overflow
     static uint8_t ciphertext[RD_MAX_SEND_PAYLOAD];
+    static uint8_t emptyBuf[1] = {0};  // Safe buffer for NULL payload with len=0
 
     if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
 
@@ -836,6 +837,9 @@ static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16
     if (rdSession.txCounter == 0xFFFFFFFF) {
         return RD_ERR_NONCE_OVERFLOW;
     }
+
+    // Use safe pointer for mbedtls (avoid NULL even with len=0)
+    const uint8_t* input = (payload != NULL) ? payload : emptyBuf;
 
     // Build nonce: counter(4 BE) + random(8)
     uint8_t nonce[RD_AES_GCM_NONCE_SIZE];
@@ -851,7 +855,7 @@ static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16
     int ret = mbedtls_gcm_crypt_and_tag(&rdSession.gcmEncrypt, MBEDTLS_GCM_ENCRYPT,
                                          len, nonce, RD_AES_GCM_NONCE_SIZE,
                                          NULL, 0,  // No AAD
-                                         payload, ciphertext,
+                                         input, ciphertext,
                                          RD_AES_GCM_TAG_SIZE, tag);
     if (ret != 0) {
         Serial.printf("[RD] Encrypt failed: -0x%04X\n", -ret);
@@ -893,10 +897,18 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
                                    uint8_t* tag, bool encrypted, uint32_t timeout) {
     unsigned long start = millis();
 
-    // Wait for header
+    // Wait for header (with cancel support during handshake)
     while (rdSession.client.available() < RD_PACKET_HEADER_SIZE) {
         if (millis() - start > timeout) return RD_ERR_TIMEOUT;
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
+        // Allow user to cancel with backspace during handshake
+        if (rdSession.state == RD_STATE_HANDSHAKE) {
+            M5Cardputer.update();
+            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+                Serial.println("[RD] User cancelled during handshake");
+                return RD_ERR_USER_CANCEL;
+            }
+        }
         delay(1);
     }
 
@@ -914,10 +926,17 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     // All packets have TAG after payload
     size_t totalBytes = payloadLen + RD_AES_GCM_TAG_SIZE;
 
-    // Wait for payload + tag
+    // Wait for payload + tag (with cancel support during handshake)
     while ((size_t)rdSession.client.available() < totalBytes) {
         if (millis() - start > timeout) return RD_ERR_TIMEOUT;
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
+        if (rdSession.state == RD_STATE_HANDSHAKE) {
+            M5Cardputer.update();
+            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+                Serial.println("[RD] User cancelled during handshake");
+                return RD_ERR_USER_CANCEL;
+            }
+        }
         delay(1);
     }
 
@@ -1337,8 +1356,12 @@ static RDError rdHandshake() {
 
 static void rdDisconnect() {
     if (rdSession.client.connected()) {
-        // Try to send session end (ignore errors)
-        rdSendPacket(RD_PKT_SESSION_END, NULL, 0);
+        // Try to send session end encrypted (ignore errors)
+        if (rdSession.state == RD_STATE_CONNECTED || rdSession.state == RD_STATE_ERROR) {
+            rdSendEncrypted(RD_PKT_SESSION_END, NULL, 0);
+        } else {
+            rdSendPacket(RD_PKT_SESSION_END, NULL, 0);
+        }
         delay(50);
         rdSession.client.stop();
     }
@@ -1574,7 +1597,7 @@ static void rdLoop() {
                 }
 
                 case RD_PKT_HEARTBEAT:
-                    rdSendPacket(RD_PKT_HEARTBEAT_ACK, NULL, 0);
+                    rdSendEncrypted(RD_PKT_HEARTBEAT_ACK, NULL, 0);
                     break;
 
                 case RD_PKT_SESSION_END:
@@ -1600,7 +1623,7 @@ static void rdLoop() {
 
         // Send heartbeat every 5 seconds
         if (millis() - lastHeartbeat > 5000) {
-            rdSendPacket(RD_PKT_HEARTBEAT, NULL, 0);
+            rdSendEncrypted(RD_PKT_HEARTBEAT, NULL, 0);
             lastHeartbeat = millis();
         }
 
@@ -1656,7 +1679,7 @@ static void rdShowSettings() {
 
     M5.Display.setTextColor(TFT_DARKGREY);
     M5.Display.setCursor(10, y + 15);
-    M5.Display.println("S: Set server  Q: Quality");
+    M5.Display.println("S: Set IP  A: Auto  Q: Quality");
 
     M5.Display.setCursor(10, y + 30);
     M5.Display.println("BACKSPACE: Back");
@@ -1737,6 +1760,16 @@ void remoteDesktop() {
             continue;
         }
 
+        // Reset to auto-discovery
+        if (M5Cardputer.Keyboard.isKeyPressed('a') || M5Cardputer.Keyboard.isKeyPressed('A')) {
+            delay(200);
+            rdConfig.serverHost[0] = '\0';  // Clear manual IP
+            rdSaveConfig();
+            rdClearKeyboard();
+            rdShowSettings();
+            continue;
+        }
+
         // Set quality
         if (M5Cardputer.Keyboard.isKeyPressed('q') || M5Cardputer.Keyboard.isKeyPressed('Q')) {
             delay(200);
@@ -1759,60 +1792,74 @@ void remoteDesktop() {
             delay(200);  // Debounce
 
             RDError err;
+            bool connectFailed = false;
 
             // Discover server
             err = rdDiscover();
             if (err != RD_OK) {
-                waitAndReturnToMenu(rdErrorToString(err));
-                break;
+                rdDrawStatus("Error:", rdErrorToString(err));
+                delay(2000);
+                connectFailed = true;
             }
 
             // Connect
-            err = rdConnect();
-            if (err != RD_OK) {
-                rdDisconnect();
-                waitAndReturnToMenu(rdErrorToString(err));
-                break;
+            if (!connectFailed) {
+                err = rdConnect();
+                if (err != RD_OK) {
+                    rdDisconnect();
+                    rdDrawStatus("Error:", rdErrorToString(err));
+                    delay(2000);
+                    connectFailed = true;
+                }
             }
 
             // Send discovery request with cookie
-            err = rdSendDiscoveryRequest();
-            if (err == RD_ERR_NO_COOKIE) {
-                // Cookie not configured - warn but continue
-                rdDrawStatus("Warning:", "No cookie configured");
-                delay(1500);
-            } else if (err != RD_OK) {
-                rdDisconnect();
-                waitAndReturnToMenu(rdErrorToString(err));
-                break;
+            if (!connectFailed) {
+                err = rdSendDiscoveryRequest();
+                if (err == RD_ERR_NO_COOKIE) {
+                    // Cookie not configured - warn but continue
+                    rdDrawStatus("Warning:", "No cookie configured");
+                    delay(1500);
+                } else if (err != RD_OK) {
+                    rdDisconnect();
+                    rdDrawStatus("Error:", rdErrorToString(err));
+                    delay(2000);
+                    connectFailed = true;
+                }
             }
 
             // Ask user to confirm connection
-            if (!rdConfirmConnection(rdSession.serverName,
-                                     rdSession.serverIP.toString().c_str())) {
-                rdDisconnect();
-                waitAndReturnToMenu("Connection rejected");
-                break;
+            if (!connectFailed) {
+                if (!rdConfirmConnection(rdSession.serverName,
+                                         rdSession.serverIP.toString().c_str())) {
+                    rdDisconnect();
+                    connectFailed = true;
+                }
             }
 
             // Handshake
-            err = rdHandshake();
-            if (err != RD_OK) {
-                rdDisconnect();
-                waitAndReturnToMenu(rdErrorToString(err));
-                break;
+            if (!connectFailed) {
+                err = rdHandshake();
+                if (err != RD_OK) {
+                    rdDisconnect();
+                    rdDrawStatus("Error:", rdErrorToString(err));
+                    delay(2000);
+                    connectFailed = true;
+                }
             }
 
-            // Request first frame
-            rdSendPacket(RD_PKT_SCREEN_REQUEST, NULL, 0);
+            if (!connectFailed) {
+                // Request first frame (must be encrypted - server expects all post-session packets encrypted)
+                rdSendEncrypted(RD_PKT_SCREEN_REQUEST, NULL, 0);
 
-            // Main loop
-            rdLoop();
+                // Main loop
+                rdLoop();
 
-            // Cleanup
-            rdDisconnect();
+                // Cleanup
+                rdDisconnect();
+            }
 
-            // Clear keyboard and return to settings
+            // Return to settings (not main menu)
             rdClearKeyboard();
             rdShowSettings();
         }

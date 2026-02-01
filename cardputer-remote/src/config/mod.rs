@@ -230,7 +230,7 @@ impl Default for Config {
                     "020000000000000000000000000000000000000000000000000000000000000000".to_string(),
             },
             network: NetworkConfig {
-                mdns_service_name: "CardputerRemote".to_string(),
+                mdns_service_name: "cardputer-remote".to_string(),
                 device_name: "PC".to_string(),
                 bind_address: "0.0.0.0".to_string(),
             },
@@ -267,7 +267,7 @@ private_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef01"
 
 [network]
-mdns_service_name = "CardputerRemote"
+mdns_service_name = "cardputer-remote"
 device_name = "TestPC"
 bind_address = "0.0.0.0"
 

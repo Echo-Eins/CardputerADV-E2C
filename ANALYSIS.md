@@ -184,7 +184,7 @@ private_key = "<64 hex chars>"
 cardputer_public_key = "<66 hex chars>"
 
 [network]
-mdns_service_name = "CardputerRemote"
+mdns_service_name = "cardputer-remote"
 device_name = "PC"
 bind_address = "0.0.0.0"
 
