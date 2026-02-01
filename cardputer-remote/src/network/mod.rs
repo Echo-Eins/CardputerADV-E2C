@@ -6,7 +6,6 @@
 use crate::config::Config;
 use crate::crypto::{constant_time_eq, CryptoContext, CryptoError};
 use crate::protocol::{
-    DiscoveryResponse, HandshakeComplete, HandshakeInit, HandshakeResponse,
     Packet, PacketHeader, PacketType, HEADER_SIZE, NONCE_SIZE, TAG_SIZE,
 };
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -166,12 +165,68 @@ impl Server {
         // Set expected client public key for signature verification
         crypto.set_peer_public_key(&config.security.cardputer_public_key)?;
 
-        // ===== RECEIVE HANDSHAKE INIT =====
-        // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
-        let init_packet = Self::receive_packet(&mut stream).await?;
-        if init_packet.header.packet_type != PacketType::HandshakeInit {
-            return Err(NetworkError::HandshakeFailed("Expected HandshakeInit".into()));
+        // ===== RECEIVE FIRST PACKET (DiscoveryRequest or HandshakeInit) =====
+        let first_packet = Self::receive_packet(&mut stream).await?;
+
+        // Handle DiscoveryRequest if sent
+        if first_packet.header.packet_type == PacketType::DiscoveryRequest {
+            info!("Received DiscoveryRequest from {}", addr);
+
+            // Validate cookie (first 16 bytes of payload)
+            if first_packet.payload.len() < 16 {
+                return Err(NetworkError::HandshakeFailed("DiscoveryRequest too short".into()));
+            }
+
+            let request_cookie = &first_packet.payload[..16];
+            let expected_cookie = config.get_discovery_cookie();
+
+            if !constant_time_eq(request_cookie, &expected_cookie) {
+                warn!("Invalid discovery cookie from {}", addr);
+                // Send error response
+                Self::send_unencrypted_packet(&mut stream, PacketType::ErrorPacket, b"Invalid cookie").await?;
+                return Err(NetworkError::InvalidCookie);
+            }
+
+            info!("Discovery cookie validated from {}", addr);
+
+            // Send DiscoveryResponse: cookie(16) + device_name + port(2)
+            let device_name = config.network.device_name.as_bytes();
+            let mut response = Vec::with_capacity(16 + device_name.len() + 2);
+            response.extend_from_slice(&expected_cookie);
+            response.extend_from_slice(device_name);
+            response.push((config.server.port >> 8) as u8);
+            response.push((config.server.port & 0xFF) as u8);
+
+            Self::send_unencrypted_packet(&mut stream, PacketType::DiscoveryResponse, &response).await?;
+            info!("Sent DiscoveryResponse to {}", addr);
+
+            // Now wait for HandshakeInit
+            let init_packet = Self::receive_packet(&mut stream).await?;
+            if init_packet.header.packet_type != PacketType::HandshakeInit {
+                return Err(NetworkError::HandshakeFailed(
+                    format!("Expected HandshakeInit after discovery, got {:?}", init_packet.header.packet_type)
+                ));
+            }
+
+            return Self::process_handshake(stream, addr, config, crypto, init_packet).await;
         }
+
+        // Direct HandshakeInit (without discovery)
+        if first_packet.header.packet_type != PacketType::HandshakeInit {
+            return Err(NetworkError::HandshakeFailed(
+                format!("Expected HandshakeInit or DiscoveryRequest, got {:?}", first_packet.header.packet_type)
+            ));
+        }
+
+        Self::process_handshake(stream, addr, config, crypto, first_packet).await
+    }
+
+    async fn process_handshake(
+        mut stream: TcpStream, addr: SocketAddr, config: Arc<Config>,
+        mut crypto: CryptoContext, init_packet: Packet,
+    ) -> Result<Session, NetworkError> {
+        // ===== PROCESS HANDSHAKE INIT =====
+        // Format: pubkey(33) + nonce(32) + signature(64) = 129 bytes
 
         if init_packet.payload.len() != HANDSHAKE_MSG_SIZE {
             return Err(NetworkError::HandshakeFailed(
