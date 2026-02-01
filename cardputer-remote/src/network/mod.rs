@@ -6,7 +6,7 @@
 use crate::config::Config;
 use crate::crypto::{constant_time_eq, CryptoContext, CryptoError};
 use crate::protocol::{
-    Packet, PacketHeader, PacketType, HEADER_SIZE, NONCE_SIZE, TAG_SIZE,
+    DiscoveryResponse, Packet, PacketHeader, PacketType, HEADER_SIZE, NONCE_SIZE, TAG_SIZE,
 };
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::net::SocketAddr;
