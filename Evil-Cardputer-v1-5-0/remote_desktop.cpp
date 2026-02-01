@@ -1658,9 +1658,29 @@ void remoteDesktop() {
 
     rdLoadConfig();
 
-    // Initialize session state
-    memset(&rdSession, 0, sizeof(rdSession));
+    // Initialize session state (properly, without memset on C++ objects)
     rdSession.state = RD_STATE_DISCONNECTED;
+    rdSession.client = WiFiClient();  // Reinitialize WiFiClient
+    rdSession.serverIP = IPAddress();  // Reinitialize IPAddress
+
+    // Zero out POD types only
+    memset(rdSession.c2sKey, 0, sizeof(rdSession.c2sKey));
+    memset(rdSession.s2cKey, 0, sizeof(rdSession.s2cKey));
+    memset(rdSession.hmacKey, 0, sizeof(rdSession.hmacKey));
+    memset(rdSession.clientNonce, 0, sizeof(rdSession.clientNonce));
+    memset(rdSession.serverNonce, 0, sizeof(rdSession.serverNonce));
+    memset(rdSession.txNonceRandom, 0, sizeof(rdSession.txNonceRandom));
+    memset(rdSession.rxNonceRandom, 0, sizeof(rdSession.rxNonceRandom));
+    memset(rdSession.ourEphemeralPubKey, 0, sizeof(rdSession.ourEphemeralPubKey));
+    memset(rdSession.serverName, 0, sizeof(rdSession.serverName));
+
+    rdSession.txCounter = 0;
+    rdSession.rxCounter = 0;
+    rdSession.frameBuffer = NULL;
+    rdSession.frameBufferSize = 0;
+    rdSession.framesReceived = 0;
+    rdSession.lastFrameTime = 0;
+    rdSession.currentFps = 0.0f;
 
     // === UI DEBOUNCE FIX ===
     // Clear keyboard state and wait to prevent immediate action
