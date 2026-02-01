@@ -1,0 +1,65 @@
+[package]
+name = "cardputer-remote"
+version = "1.0.0"
+edition = "2021"
+authors = ["CardputerADV Team"]
+description = "Secure remote desktop server for M5Stack Cardputer"
+license = "MIT"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Cryptography (ECDH secp256r1, AES-128-GCM, HMAC)
+p256 = { version = "0.13", features = ["ecdh", "ecdsa"] }
+aes-gcm = "0.10"
+rand = "0.8"
+sha2 = "0.10"
+hkdf = "0.12"
+hmac = "0.12"
+
+# Networking
+mdns-sd = "0.10"
+
+# Screen capture (Windows)
+scrap = "0.5"
+
+# Image processing
+image = { version = "0.24", features = ["jpeg"] }
+
+# Input simulation (Windows)
+enigo = "0.2"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = { version = "3.0", features = ["hex"] }
+toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+chrono = "0.4"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Hex encoding for keys
+hex = "0.4"
+
+# Generic array for crypto
+generic-array = "0.14"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+]}
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

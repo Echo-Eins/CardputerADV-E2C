@@ -1,0 +1,15 @@
+## IDF Component Manager Manifest File
+dependencies:
+  # ESP-IDF components (included with IDF)
+  idf:
+    version: ">=5.0.0"
+
+  # ESP LCD panel drivers
+  espressif/esp_lcd_st7789:
+    version: "^1.0.0"
+
+  # Hardware JPEG decoder for ESP32-S3
+  espressif/esp_jpeg:
+    version: "^1.0.0"
+    rules:
+      - if: "idf_version >=5.0"
