@@ -578,17 +578,27 @@ operations wait too long before detecting failures.
 switch statement.
 **Fix**: Added `case RD_PKT_HEARTBEAT_ACK: break;` to the client's receive loop.
 
-### Keyboard Input Not Working (Silent Failures)
+### Keyboard Input Not Working — enigo Key::Unicode Fails on Linux
 
-**Symptom**: Key presses on Cardputer do nothing on the server.
-**Possible causes** (debug in order):
-1. Key events logged at `debug!` level — invisible at default `info` level.
-   **Fixed**: Upgraded to `info!` logging.
-2. `enigo` failures silently discarded with `let _ = ...`.
-   **Fixed**: Now logs `warn!` on failure.
-3. Keycode not in server's keymap — `warn!` now logged for unknown keycodes.
-4. `enigo` requires X11/display access on Linux — won't work headless.
-5. Client sending wrong keycode format — was JSON, now raw bytes `[keycode, modifier]`.
+**Symptom**: Key presses on Cardputer do nothing on the server. Server logs:
+```
+WARN Enigo key press failed for Unicode('n'): you tried to simulate invalid input:
+     (key state could not be converted to u32)
+```
+**Cause**: `enigo.key(Key::Unicode(c), Direction::Press)` fails on Linux with
+the xkbcommon backend. The backend cannot convert Unicode characters to
+platform keycodes for discrete press/release simulation.
+**Fix**: For `Key::Unicode` keys (letters, digits, punctuation), use
+`enigo.text(&ch.to_string())` instead, which goes through a higher-level
+text input path that works reliably. Shift is applied by mapping to the
+shifted character using a US keyboard layout table. Named keys (`Key::Return`,
+`Key::Tab`, `Key::UpArrow`, `Key::F1`, etc.) continue using `enigo.key()`
+since they have direct platform keysym mappings.
+
+**Other historical causes** (all fixed):
+1. Key events logged at `debug!` level — invisible at default `info` level. Fixed: upgraded to `info!`.
+2. `enigo` failures silently discarded with `let _ = ...`. Fixed: now logs `warn!`.
+3. Client sending wrong keycode format — was JSON, now raw bytes `[keycode, modifier]`.
 
 ### Heartbeat Timing
 
