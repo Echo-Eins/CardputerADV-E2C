@@ -6,7 +6,7 @@ use crate::crypto::CryptoContext;
 use crate::input::InputController;
 use crate::network::{Connection, NetworkError};
 use crate::protocol::{
-    ClickAction, InputMode, KeyEvent, ModeSwitch, MouseButton, MouseClick, MouseMove,
+    ClickAction, KeyEvent, ModeSwitch, MouseButton, MouseClick, MouseMove,
     PacketType, ScreenFrame,
 };
 use std::net::SocketAddr;
@@ -292,17 +292,14 @@ impl Session {
 
             PacketType::KeyPress => {
                 // Client sends raw bytes: [keycode, modifier] (2 bytes)
+                // Always process key presses regardless of mode — the client
+                // handles mode switching locally (FN = mouse, normal = keyboard)
                 if payload.len() >= 2 {
                     let event = KeyEvent {
                         keycode: payload[0],
                         modifiers: payload[1],
                     };
-                    // In mouse mode, arrow keys move mouse
-                    if input.get_mode() == InputMode::Mouse {
-                        input.arrow_to_mouse(event.keycode);
-                    } else {
-                        input.key_press(event);
-                    }
+                    input.key_press(event);
                     debug!("Key press: {:?}", event);
                 }
             }
@@ -314,9 +311,7 @@ impl Session {
                         keycode: payload[0],
                         modifiers: payload[1],
                     };
-                    if input.get_mode() == InputMode::Keyboard {
-                        input.key_release(event);
-                    }
+                    input.key_release(event);
                     debug!("Key release: {:?}", event);
                 }
             }

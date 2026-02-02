@@ -923,41 +923,29 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     *type = (RDPacketType)header[1];
     uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
-    // All packets have TAG after payload
-    size_t totalBytes = payloadLen + RD_AES_GCM_TAG_SIZE;
-
-    // Once header is consumed, we MUST read the full packet to keep stream aligned.
-    // Use a long timeout (10s) regardless of the caller's timeout — partial reads
-    // corrupt the TCP stream and cause "Invalid protocol version" on the next packet.
-    const uint32_t payloadTimeout = 10000;
-    unsigned long payloadStart = millis();
-
-    // Wait for payload + tag (with cancel support during handshake)
-    while ((size_t)rdSession.client.available() < totalBytes) {
-        if (millis() - payloadStart > payloadTimeout) {
-            Serial.printf("[RD] Payload timeout: need %zu, have %d\n",
-                          totalBytes, rdSession.client.available());
-            return RD_ERR_TIMEOUT;
-        }
-        if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
-        if (rdSession.state == RD_STATE_HANDSHAKE) {
-            M5Cardputer.update();
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
-                Serial.println("[RD] User cancelled during handshake");
-                return RD_ERR_USER_CANCEL;
-            }
-        }
-        delay(1);
-    }
+    // Once header is consumed from TCP stream, we MUST read the full packet.
+    // Using available() < totalBytes deadlocks when payload exceeds the ESP32
+    // WiFiClient receive buffer (~5-6KB) — the remaining bytes can't arrive
+    // until we drain the buffer, but we wait for them all to be buffered first.
+    // Solution: use readBytes() directly, which reads as data streams in.
+    rdSession.client.setTimeout(10000);  // 10 second timeout for streaming reads
 
     if (payloadLen > 0) {
-        rdSession.client.readBytes(payload, payloadLen);
+        size_t bytesRead = rdSession.client.readBytes(payload, payloadLen);
+        if (bytesRead != payloadLen) {
+            Serial.printf("[RD] Payload incomplete: got %zu of %u\n", bytesRead, payloadLen);
+            return RD_ERR_TIMEOUT;
+        }
     }
     *len = payloadLen;
 
     // Always read TAG (protocol requires it)
     uint8_t readTag[RD_AES_GCM_TAG_SIZE];
-    rdSession.client.readBytes(readTag, RD_AES_GCM_TAG_SIZE);
+    size_t tagRead = rdSession.client.readBytes(readTag, RD_AES_GCM_TAG_SIZE);
+    if (tagRead != RD_AES_GCM_TAG_SIZE) {
+        Serial.printf("[RD] Tag incomplete: got %zu of %d\n", tagRead, RD_AES_GCM_TAG_SIZE);
+        return RD_ERR_TIMEOUT;
+    }
 
     // Return TAG if caller needs it for decryption
     if (encrypted && tag != NULL) {
@@ -1537,11 +1525,26 @@ static void rdProcessInput() {
 // Main session loop
 // ============================================================================
 
+// Show disconnect reason on screen
+static void rdShowDisconnectReason(const char* reason) {
+    // Draw semi-transparent overlay at bottom of screen
+    M5.Display.fillRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_BLACK);
+    M5.Display.drawRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_RED);
+
+    M5.Display.setTextColor(TFT_RED);
+    M5.Display.setTextSize(1.5);
+    M5.Display.setCursor(5, RD_DISPLAY_HEIGHT - 22);
+    M5.Display.print(reason);
+
+    M5.Display.display();
+}
+
 static void rdLoop() {
     static uint8_t rxBuffer[32768];   // 32KB for receiving encrypted frames
     static uint8_t decBuffer[32768];  // 32KB for decrypted data
     static uint8_t tag[RD_AES_GCM_TAG_SIZE];
     uint32_t lastHeartbeat = millis();  // Initialize to now, not 0
+    const char* disconnectReason = NULL;
 
     while (rdSession.state == RD_STATE_CONNECTED) {
         M5Cardputer.update();
@@ -1551,6 +1554,7 @@ static void rdLoop() {
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
             M5Cardputer.Keyboard.isKeyPressed(KEY_FN)) {
             Serial.println("[RD] User requested disconnect");
+            disconnectReason = "User disconnect";
             break;
         }
 
@@ -1569,6 +1573,7 @@ static void rdLoop() {
                 if (err != RD_ERR_TIMEOUT) {
                     Serial.printf("[RD] Receive error: %s\n", rdErrorToString(err));
                     rdSession.state = RD_STATE_ERROR;
+                    disconnectReason = rdErrorToString(err);
                     break;
                 }
                 continue;
@@ -1620,19 +1625,26 @@ static void rdLoop() {
                     rdSendEncrypted(RD_PKT_HEARTBEAT_ACK, NULL, 0);
                     break;
 
+                case RD_PKT_HEARTBEAT_ACK:
+                    // Server acknowledged our heartbeat — connection alive
+                    break;
+
                 case RD_PKT_SESSION_END:
                     Serial.println("[RD] Server ended session");
                     rdSession.state = RD_STATE_DISCONNECTED;
+                    disconnectReason = "Server ended session";
                     break;
 
                 case RD_PKT_SESSION_TIMEOUT:
                     Serial.println("[RD] Session timeout from server");
                     rdSession.state = RD_STATE_DISCONNECTED;
+                    disconnectReason = "Session timeout";
                     break;
 
                 case RD_PKT_ERROR:
                     Serial.println("[RD] Server error packet received");
                     rdSession.state = RD_STATE_ERROR;
+                    disconnectReason = "Server error";
                     break;
 
                 default:
@@ -1650,59 +1662,148 @@ static void rdLoop() {
         // Small delay to prevent CPU hogging
         delay(1);
     }
+
+    // Show disconnect reason on screen before returning
+    if (disconnectReason) {
+        rdShowDisconnectReason(disconnectReason);
+        delay(2000);
+    }
 }
 
 // ============================================================================
-// Settings menu
+// Scrollable settings menu (pattern from main .ino)
 // ============================================================================
 
-static void rdShowSettings() {
+// Settings menu item types
+enum RDSettingType : uint8_t {
+    RD_SETTING_INFO,     // Display-only info line
+    RD_SETTING_ACTION,   // Selectable action (key shortcut shown)
+};
+
+struct RDSettingItem {
+    const char* label;          // Static label text (NULL = dynamic)
+    RDSettingType type;
+    char key;                   // Shortcut key (0 = none)
+    uint16_t color;
+};
+
+static const int RD_SETTINGS_LINE_H = 13;
+static const int RD_SETTINGS_MAX_VISIBLE = (RD_DISPLAY_HEIGHT - 16) / RD_SETTINGS_LINE_H;  // ~9 lines
+static int rdSettingsScroll = 0;
+static int rdSettingsIndex = 0;
+
+// Build dynamic settings items list
+// Returns item count. Items are rendered on-the-fly to show current config values.
+static void rdDrawSettings() {
     M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_WHITE);
     M5.Display.setTextSize(1.5);
+    M5.Display.setTextFont(1);
 
-    int y = 10;
-    M5.Display.setCursor(10, y);
-    M5.Display.println("Remote Desktop Settings");
+    // Title bar
+    M5.Display.setTextColor(TFT_WHITE);
+    M5.Display.setCursor(5, 2);
+    M5.Display.print("Remote Desktop Settings");
 
-    y += 25;
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(10, y);
-    M5.Display.printf("Server: %s", strlen(rdConfig.serverHost) ? rdConfig.serverHost : "(auto)");
+    // Dynamic settings items
+    struct SettingsLine {
+        char text[48];
+        uint16_t color;
+        bool selectable;
+    };
 
-    y += 15;
-    M5.Display.setCursor(10, y);
-    M5.Display.printf("Port: %d", rdConfig.serverPort);
+    SettingsLine lines[12];
+    int total = 0;
 
-    y += 15;
-    M5.Display.setCursor(10, y);
-    M5.Display.printf("Quality: %d%%", rdConfig.jpegQuality);
+    // Build items
+    snprintf(lines[total].text, sizeof(lines[total].text), "Server: %s",
+             strlen(rdConfig.serverHost) ? rdConfig.serverHost : "(auto)");
+    lines[total].color = TFT_CYAN;
+    lines[total].selectable = false;
+    total++;
 
-    y += 15;
-    M5.Display.setCursor(10, y);
-    M5.Display.printf("FPS: %d", rdConfig.targetFps);
+    snprintf(lines[total].text, sizeof(lines[total].text), "Port: %d", rdConfig.serverPort);
+    lines[total].color = TFT_CYAN;
+    lines[total].selectable = false;
+    total++;
 
-    y += 15;
-    M5.Display.setCursor(10, y);
-    if (rdCookieExists()) {
-        M5.Display.setTextColor(TFT_GREEN);
-        M5.Display.print("Cookie: OK");
-    } else {
-        M5.Display.setTextColor(TFT_RED);
-        M5.Display.print("Cookie: MISSING");
+    snprintf(lines[total].text, sizeof(lines[total].text), "Quality: %d%%", rdConfig.jpegQuality);
+    lines[total].color = TFT_CYAN;
+    lines[total].selectable = false;
+    total++;
+
+    snprintf(lines[total].text, sizeof(lines[total].text), "FPS: %d", rdConfig.targetFps);
+    lines[total].color = TFT_CYAN;
+    lines[total].selectable = false;
+    total++;
+
+    snprintf(lines[total].text, sizeof(lines[total].text), "Cookie: %s",
+             rdCookieExists() ? "OK" : "MISSING");
+    lines[total].color = rdCookieExists() ? TFT_GREEN : TFT_RED;
+    lines[total].selectable = false;
+    total++;
+
+    snprintf(lines[total].text, sizeof(lines[total].text), "Keys: %s",
+             rdKeysExist() ? "OK" : "MISSING");
+    lines[total].color = rdKeysExist() ? TFT_GREEN : TFT_RED;
+    lines[total].selectable = false;
+    total++;
+
+    // Separator
+    strlcpy(lines[total].text, "--- Actions ---", sizeof(lines[total].text));
+    lines[total].color = TFT_DARKGREY;
+    lines[total].selectable = false;
+    total++;
+
+    strlcpy(lines[total].text, "[ENTER] Connect", sizeof(lines[total].text));
+    lines[total].color = TFT_GREEN;
+    lines[total].selectable = true;
+    total++;
+
+    strlcpy(lines[total].text, "[S] Set server IP", sizeof(lines[total].text));
+    lines[total].color = TFT_WHITE;
+    lines[total].selectable = true;
+    total++;
+
+    strlcpy(lines[total].text, "[A] Auto-discover (reset IP)", sizeof(lines[total].text));
+    lines[total].color = TFT_WHITE;
+    lines[total].selectable = true;
+    total++;
+
+    strlcpy(lines[total].text, "[Q] Set quality", sizeof(lines[total].text));
+    lines[total].color = TFT_WHITE;
+    lines[total].selectable = true;
+    total++;
+
+    strlcpy(lines[total].text, "[BS] Back to menu", sizeof(lines[total].text));
+    lines[total].color = TFT_DARKGREY;
+    lines[total].selectable = true;
+    total++;
+
+    // Clamp scroll
+    rdSettingsScroll = std::max(0, std::min(rdSettingsScroll, total - RD_SETTINGS_MAX_VISIBLE));
+
+    // Render visible items
+    const int startY = 16;
+    for (int i = 0; i < RD_SETTINGS_MAX_VISIBLE; i++) {
+        int idx = rdSettingsScroll + i;
+        if (idx >= total) break;
+
+        int y = startY + i * RD_SETTINGS_LINE_H;
+        M5.Display.setTextColor(lines[idx].color);
+        M5.Display.setCursor(5, y);
+        M5.Display.print(lines[idx].text);
     }
 
-    y += 20;
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.setCursor(10, y);
-    M5.Display.println("ENTER: Connect");
-
-    M5.Display.setTextColor(TFT_DARKGREY);
-    M5.Display.setCursor(10, y + 15);
-    M5.Display.println("S: Set IP  A: Auto  Q: Quality");
-
-    M5.Display.setCursor(10, y + 30);
-    M5.Display.println("BACKSPACE: Back");
+    // Scrollbar (if content overflows)
+    if (total > RD_SETTINGS_MAX_VISIBLE) {
+        const int scrollX = RD_DISPLAY_WIDTH - 3;
+        const int trackH = RD_DISPLAY_HEIGHT - startY;
+        int thumbH = std::max(8, (trackH * RD_SETTINGS_MAX_VISIBLE) / total);
+        int maxStart = std::max(1, total - RD_SETTINGS_MAX_VISIBLE);
+        int thumbY = startY + (trackH - thumbH) * rdSettingsScroll / maxStart;
+        M5.Display.fillRect(scrollX, startY, 3, trackH, TFT_BLACK);
+        M5.Display.fillRect(scrollX, thumbY, 2, thumbH, TFT_DARKGREY);
+    }
 
     M5.Display.display();
 }
@@ -1752,7 +1853,12 @@ void remoteDesktop() {
     delay(300);  // Extra delay to ensure menu is shown first
 
     // Show settings / connect menu
-    rdShowSettings();
+    rdSettingsScroll = 0;
+    rdSettingsIndex = 0;
+    rdDrawSettings();
+
+    unsigned long lastKeyTime = 0;
+    const unsigned long keyRepeatDelay = 200;
 
     while (true) {
         M5Cardputer.update();
@@ -1762,6 +1868,22 @@ void remoteDesktop() {
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
             delay(200);  // Debounce
             break;
+        }
+
+        // Scroll up (;)
+        if (M5Cardputer.Keyboard.isKeyPressed(';') && millis() - lastKeyTime > keyRepeatDelay) {
+            if (rdSettingsScroll > 0) {
+                rdSettingsScroll--;
+                rdDrawSettings();
+            }
+            lastKeyTime = millis();
+        }
+
+        // Scroll down (.)
+        if (M5Cardputer.Keyboard.isKeyPressed('.') && millis() - lastKeyTime > keyRepeatDelay) {
+            rdSettingsScroll++;
+            rdDrawSettings();  // clamp happens inside
+            lastKeyTime = millis();
         }
 
         // Set server manually
@@ -1776,7 +1898,7 @@ void remoteDesktop() {
                 rdSaveConfig();
             }
             rdClearKeyboard();
-            rdShowSettings();
+            rdDrawSettings();
             continue;
         }
 
@@ -1786,7 +1908,7 @@ void remoteDesktop() {
             rdConfig.serverHost[0] = '\0';  // Clear manual IP
             rdSaveConfig();
             rdClearKeyboard();
-            rdShowSettings();
+            rdDrawSettings();
             continue;
         }
 
@@ -1803,7 +1925,7 @@ void remoteDesktop() {
                 rdSaveConfig();
             }
             rdClearKeyboard();
-            rdShowSettings();
+            rdDrawSettings();
             continue;
         }
 
@@ -1881,7 +2003,7 @@ void remoteDesktop() {
 
             // Return to settings (not main menu)
             rdClearKeyboard();
-            rdShowSettings();
+            rdDrawSettings();
         }
 
         delay(50);
