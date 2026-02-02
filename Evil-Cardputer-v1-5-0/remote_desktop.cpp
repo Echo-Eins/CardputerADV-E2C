@@ -1521,7 +1521,7 @@ static void rdLoop() {
     static uint8_t rxBuffer[32768];   // 32KB for receiving encrypted frames
     static uint8_t decBuffer[32768];  // 32KB for decrypted data
     static uint8_t tag[RD_AES_GCM_TAG_SIZE];
-    static uint32_t lastHeartbeat = 0;
+    uint32_t lastHeartbeat = millis();  // Initialize to now, not 0
 
     while (rdSession.state == RD_STATE_CONNECTED) {
         M5Cardputer.update();

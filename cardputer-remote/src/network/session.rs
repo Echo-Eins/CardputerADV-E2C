@@ -6,7 +6,8 @@ use crate::crypto::CryptoContext;
 use crate::input::InputController;
 use crate::network::{Connection, NetworkError};
 use crate::protocol::{
-    InputMode, KeyEvent, ModeSwitch, MouseClick, MouseMove, PacketType, ScreenFrame,
+    ClickAction, InputMode, KeyEvent, ModeSwitch, MouseButton, MouseClick, MouseMove,
+    PacketType, ScreenFrame,
 };
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -268,14 +269,34 @@ impl Session {
             }
 
             PacketType::MouseClick => {
-                if let Ok(click) = serde_json::from_slice::<MouseClick>(payload) {
+                // Client sends raw bytes: [button, action] (2 bytes)
+                if payload.len() >= 2 {
+                    let button = match payload[0] {
+                        0 => MouseButton::Left,
+                        1 => MouseButton::Right,
+                        2 => MouseButton::Middle,
+                        _ => MouseButton::Left,
+                    };
+                    let action = match payload[1] {
+                        0 => ClickAction::Press,
+                        1 => ClickAction::Release,
+                        2 => ClickAction::Click,
+                        3 => ClickAction::DoubleClick,
+                        _ => ClickAction::Click,
+                    };
+                    let click = MouseClick { button, action };
                     input.mouse_click(click);
                     debug!("Mouse click: {:?}", click);
                 }
             }
 
             PacketType::KeyPress => {
-                if let Ok(event) = serde_json::from_slice::<KeyEvent>(payload) {
+                // Client sends raw bytes: [keycode, modifier] (2 bytes)
+                if payload.len() >= 2 {
+                    let event = KeyEvent {
+                        keycode: payload[0],
+                        modifiers: payload[1],
+                    };
                     // In mouse mode, arrow keys move mouse
                     if input.get_mode() == InputMode::Mouse {
                         input.arrow_to_mouse(event.keycode);
@@ -287,7 +308,12 @@ impl Session {
             }
 
             PacketType::KeyRelease => {
-                if let Ok(event) = serde_json::from_slice::<KeyEvent>(payload) {
+                // Client sends raw bytes: [keycode, modifier] (2 bytes)
+                if payload.len() >= 2 {
+                    let event = KeyEvent {
+                        keycode: payload[0],
+                        modifiers: payload[1],
+                    };
                     if input.get_mode() == InputMode::Keyboard {
                         input.key_release(event);
                     }

@@ -292,16 +292,13 @@ impl CryptoContext {
     }
 
     /// Validate and extract counter from incoming nonce
+    /// last_incoming_nonce stores the NEXT expected minimum counter value.
+    /// A counter is valid if counter >= last_incoming_nonce (monotonically increasing).
     fn validate_incoming_nonce(&mut self, nonce: &[u8; NONCE_SIZE]) -> Result<(), CryptoError> {
         let counter = u32::from_be_bytes([nonce[0], nonce[1], nonce[2], nonce[3]]);
 
-        // Check for replay (must be strictly greater than last seen)
-        // Use separate flag to track if we've received any packet
+        // Replay protection: counter must be >= next expected value
         if counter < self.last_incoming_nonce {
-            return Err(CryptoError::DecryptionFailed);
-        }
-        // For counter=0, only allow once (first packet)
-        if counter == self.last_incoming_nonce && self.last_incoming_nonce > 0 {
             return Err(CryptoError::DecryptionFailed);
         }
 
@@ -312,7 +309,7 @@ impl CryptoContext {
             }
         }
 
-        // Store counter + 1 to ensure counter=0 can only be used once
+        // Store next expected minimum (counter + 1)
         self.last_incoming_nonce = counter.saturating_add(1);
         Ok(())
     }

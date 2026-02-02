@@ -17,8 +17,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
@@ -323,9 +324,7 @@ impl Server {
 
         info!("Transcript MAC verified for {}", addr);
 
-        // ===== SEND ENCRYPTED SESSION START =====
-        Self::send_unencrypted_packet(&mut stream, PacketType::SessionStart, &[]).await?;
-
+        // Session::run() will send encrypted SessionStart as the first session packet
         info!("Handshake complete with {} - secure channel established", addr);
         Ok(Session::new(stream, addr, crypto, config))
     }
@@ -360,14 +359,23 @@ impl Server {
     }
 }
 
+/// Connection wraps a split TcpStream with BufReader on the read half.
+/// BufReader preserves partially-read data when a tokio::select! branch
+/// cancels the receive future, preventing TCP stream misalignment.
 pub struct Connection {
-    stream: TcpStream,
+    reader: BufReader<OwnedReadHalf>,
+    writer: OwnedWriteHalf,
     crypto: CryptoContext,
 }
 
 impl Connection {
     pub fn new(stream: TcpStream, crypto: CryptoContext) -> Self {
-        Self { stream, crypto }
+        let (read_half, write_half) = stream.into_split();
+        Self {
+            reader: BufReader::new(read_half),
+            writer: write_half,
+            crypto,
+        }
     }
 
     pub async fn send(&mut self, packet_type: PacketType, payload: &[u8]) -> Result<(), NetworkError> {
@@ -378,16 +386,16 @@ impl Connection {
         full_payload.extend_from_slice(&ciphertext);
 
         let header = PacketHeader::new(packet_type, full_payload.len())?;
-        self.stream.write_all(&header.to_bytes()).await?;
-        self.stream.write_all(&full_payload).await?;
-        self.stream.write_all(&tag).await?;
-        self.stream.flush().await?;
+        self.writer.write_all(&header.to_bytes()).await?;
+        self.writer.write_all(&full_payload).await?;
+        self.writer.write_all(&tag).await?;
+        self.writer.flush().await?;
         Ok(())
     }
 
     pub async fn receive(&mut self) -> Result<(PacketType, Vec<u8>), NetworkError> {
         let mut header_buf = [0u8; HEADER_SIZE];
-        match self.stream.read_exact(&mut header_buf).await {
+        match self.reader.read_exact(&mut header_buf).await {
             Ok(_) => {}
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                 return Err(NetworkError::ConnectionClosed);
@@ -405,10 +413,10 @@ impl Connection {
         }
 
         let mut payload = vec![0u8; payload_size];
-        self.stream.read_exact(&mut payload).await?;
+        self.reader.read_exact(&mut payload).await?;
 
         let mut tag = [0u8; TAG_SIZE];
-        self.stream.read_exact(&mut tag).await?;
+        self.reader.read_exact(&mut tag).await?;
 
         let mut nonce = [0u8; NONCE_SIZE];
         nonce.copy_from_slice(&payload[..NONCE_SIZE]);
