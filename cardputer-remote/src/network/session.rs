@@ -321,10 +321,11 @@ impl Session {
             }
 
             PacketType::KeyType => {
-                // Type a string directly
+                // Client sends the resolved character directly (e.g., '!' for Shift+1).
+                // No HID conversion needed — just type it.
                 if let Ok(text) = std::str::from_utf8(payload) {
+                    info!("Key type: \"{}\"", text);
                     input.type_string(text);
-                    debug!("Key type: {}", text);
                 }
             }
 

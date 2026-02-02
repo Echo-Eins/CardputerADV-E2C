@@ -1489,33 +1489,30 @@ static void rdProcessInput() {
         return;
     }
 
-    // Regular key presses - send as HID keycodes
+    // ── Keyboard mode ──
+    // The M5Cardputer library resolves key matrix + Shift/Caps locally,
+    // so status.word already contains the final character (e.g., '!' for Shift+1).
+    // Printable characters are sent via KeyType — the server types them as-is.
+    // Special keys (Enter, Backspace, Tab, Escape) use HID KeyPress/KeyRelease.
     for (auto ch : status.word) {
-        uint8_t keycode = 0;
-        uint8_t modifier = 0;
-
-        // ASCII to HID conversion
-        if (ch >= 'a' && ch <= 'z') {
-            keycode = 0x04 + (ch - 'a');
-        } else if (ch >= 'A' && ch <= 'Z') {
-            keycode = 0x04 + (ch - 'A');
-            modifier = 0x02;  // Shift
-        } else if (ch >= '1' && ch <= '9') {
-            keycode = 0x1E + (ch - '1');
-        } else if (ch == '0') {
-            keycode = 0x27;
-        } else if (ch == ' ') {
-            keycode = 0x2C;
-        } else if (ch == '\n' || ch == '\r') {
-            keycode = 0x28;  // Enter
-        }
-
-        if (keycode != 0) {
-            uint8_t data[2] = {keycode, modifier};
+        if (ch >= 0x20 && ch <= 0x7E) {
+            // Printable ASCII → send the character directly via KeyType
+            uint8_t data[1] = {(uint8_t)ch};
+            rdSendEncrypted(RD_PKT_KEY_TYPE, data, 1);
+        } else if (ch == '\t') {
+            // Tab
+            uint8_t data[2] = {0x2B, 0};
+            rdSendEncrypted(RD_PKT_KEY_PRESS, data, 2);
+            delay(10);
+            rdSendEncrypted(RD_PKT_KEY_RELEASE, data, 2);
+        } else if (ch == 0x1B) {
+            // Escape
+            uint8_t data[2] = {0x29, 0};
             rdSendEncrypted(RD_PKT_KEY_PRESS, data, 2);
             delay(10);
             rdSendEncrypted(RD_PKT_KEY_RELEASE, data, 2);
         }
+        // \n, \r, \b handled by status.enter / status.del below
     }
 
     // Special keys
