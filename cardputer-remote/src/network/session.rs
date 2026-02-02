@@ -178,6 +178,7 @@ impl Session {
                                 }
                                 Err(e) => {
                                     error!("Packet handling error: {}", e);
+                                    let _ = self.connection.send_error(&format!("{}", e)).await;
                                     break;
                                 }
                             }
@@ -188,6 +189,8 @@ impl Session {
                         }
                         Err(e) => {
                             error!("Receive error: {}", e);
+                            // Send error to client so it can display the reason
+                            let _ = self.connection.send_error(&format!("{}", e)).await;
                             break;
                         }
                     }
@@ -197,6 +200,7 @@ impl Session {
                 Some(frame) = frame_rx.recv() => {
                     if let Err(e) = self.send_frame(frame).await {
                         error!("Failed to send frame: {}", e);
+                        let _ = self.connection.send_error(&format!("Frame send: {}", e)).await;
                         break;
                     }
                 }
@@ -264,7 +268,7 @@ impl Session {
                         dy: payload[1] as i8,
                     };
                     input.mouse_move(movement);
-                    debug!("Mouse move: {:?}", movement);
+                    debug!("Mouse move: dx={} dy={}", movement.dx, movement.dy);
                 }
             }
 
@@ -285,8 +289,8 @@ impl Session {
                         _ => ClickAction::Click,
                     };
                     let click = MouseClick { button, action };
+                    info!("Mouse click: {:?} {:?}", click.button, click.action);
                     input.mouse_click(click);
-                    debug!("Mouse click: {:?}", click);
                 }
             }
 
@@ -299,8 +303,8 @@ impl Session {
                         keycode: payload[0],
                         modifiers: payload[1],
                     };
+                    info!("Key press: keycode=0x{:02X} modifiers=0x{:02X}", event.keycode, event.modifiers);
                     input.key_press(event);
-                    debug!("Key press: {:?}", event);
                 }
             }
 
@@ -311,8 +315,8 @@ impl Session {
                         keycode: payload[0],
                         modifiers: payload[1],
                     };
+                    info!("Key release: keycode=0x{:02X} modifiers=0x{:02X}", event.keycode, event.modifiers);
                     input.key_release(event);
-                    debug!("Key release: {:?}", event);
                 }
             }
 

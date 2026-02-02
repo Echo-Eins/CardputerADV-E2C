@@ -135,6 +135,25 @@ impl PacketHeader {
         Ok(Self { version, packet_type, length })
     }
 
+    /// Parse header without version validation (for encrypted session packets).
+    /// Post-handshake packets are authenticated by AES-GCM, making the version
+    /// byte redundant. This avoids false "Invalid version" errors from stream
+    /// issues that are properly caught by GCM decryption failure instead.
+    pub fn from_bytes_encrypted(bytes: &[u8]) -> Result<Self, ProtocolError> {
+        if bytes.len() < HEADER_SIZE {
+            return Err(ProtocolError::IncompletePacket {
+                expected: HEADER_SIZE,
+                got: bytes.len(),
+            });
+        }
+        let packet_type = PacketType::try_from(bytes[1])?;
+        let length = ((bytes[2] as u16) << 8) | (bytes[3] as u16);
+        if length as usize > MAX_PAYLOAD_SIZE {
+            return Err(ProtocolError::PayloadTooLarge(length as usize));
+        }
+        Ok(Self { version: bytes[0], packet_type, length })
+    }
+
     pub fn total_size(&self) -> usize {
         HEADER_SIZE + self.length as usize + TAG_SIZE
     }

@@ -26,6 +26,7 @@
 #include <ESPmDNS.h>
 #include <SD.h>
 #include <ArduinoJson.h>
+#include <lwip/sockets.h>  // For setsockopt SO_RCVBUF
 
 // MbedTLS for cryptography
 #include "mbedtls/ecdh.h"
@@ -924,11 +925,10 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
     // Once header is consumed from TCP stream, we MUST read the full packet.
-    // Using available() < totalBytes deadlocks when payload exceeds the ESP32
-    // WiFiClient receive buffer (~5-6KB) — the remaining bytes can't arrive
-    // until we drain the buffer, but we wait for them all to be buffered first.
-    // Solution: use readBytes() directly, which reads as data streams in.
-    rdSession.client.setTimeout(10000);  // 10 second timeout for streaming reads
+    // readBytes() streams data as it arrives — no deadlock even for large frames.
+    // With SO_RCVBUF set to 30KB, the TCP buffer can hold 2-3 full packets,
+    // so data flows through without backpressure stalls.
+    // Default WiFiClient timeout (1s) is sufficient with the larger buffer.
 
     if (payloadLen > 0) {
         size_t bytesRead = rdSession.client.readBytes(payload, payloadLen);
@@ -1161,6 +1161,19 @@ static RDError rdConnect() {
     }
 
     rdSession.client.setNoDelay(true);
+
+    // Increase TCP receive buffer to 30KB (2-3 full screen frames + overhead)
+    // This prevents backpressure stalls when large JPEG frames arrive
+    int sockFd = rdSession.client.fd();
+    if (sockFd >= 0) {
+        int bufSize = 30720;  // 30KB
+        if (setsockopt(sockFd, SOL_SOCKET, SO_RCVBUF, &bufSize, sizeof(bufSize)) == 0) {
+            Serial.printf("[RD] TCP receive buffer set to %d bytes\n", bufSize);
+        } else {
+            Serial.println("[RD] Warning: failed to set TCP receive buffer");
+        }
+    }
+
     Serial.println("[RD] TCP connected");
 
     return RD_OK;
@@ -1539,6 +1552,8 @@ static void rdShowDisconnectReason(const char* reason) {
     M5.Display.display();
 }
 
+static char rdServerErrorMsg[128];  // Static buffer for server error message
+
 static void rdLoop() {
     static uint8_t rxBuffer[32768];   // 32KB for receiving encrypted frames
     static uint8_t decBuffer[32768];  // 32KB for decrypted data
@@ -1641,11 +1656,35 @@ static void rdLoop() {
                     disconnectReason = "Session timeout";
                     break;
 
-                case RD_PKT_ERROR:
+                case RD_PKT_ERROR: {
                     Serial.println("[RD] Server error packet received");
+                    bool gotMsg = false;
+                    // Try to decrypt the error message from server
+                    if (len > RD_AES_GCM_NONCE_SIZE) {
+                        const uint8_t* nonce = rxBuffer;
+                        const uint8_t* ct = rxBuffer + RD_AES_GCM_NONCE_SIZE;
+                        size_t ctLen = len - RD_AES_GCM_NONCE_SIZE;
+                        int ret = mbedtls_gcm_auth_decrypt(
+                            &rdSession.gcmDecrypt, ctLen,
+                            nonce, RD_AES_GCM_NONCE_SIZE,
+                            NULL, 0, tag, RD_AES_GCM_TAG_SIZE,
+                            ct, decBuffer);
+                        if (ret == 0 && ctLen > 0) {
+                            size_t msgLen = (ctLen < sizeof(rdServerErrorMsg) - 1)
+                                            ? ctLen : sizeof(rdServerErrorMsg) - 1;
+                            memcpy(rdServerErrorMsg, decBuffer, msgLen);
+                            rdServerErrorMsg[msgLen] = '\0';
+                            Serial.printf("[RD] Server error: %s\n", rdServerErrorMsg);
+                            disconnectReason = rdServerErrorMsg;
+                            gotMsg = true;
+                        }
+                    }
+                    if (!gotMsg) {
+                        disconnectReason = "Server error";
+                    }
                     rdSession.state = RD_STATE_ERROR;
-                    disconnectReason = "Server error";
                     break;
+                }
 
                 default:
                     Serial.printf("[RD] Unknown packet type: 0x%02X\n", type);

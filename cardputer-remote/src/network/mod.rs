@@ -359,22 +359,41 @@ impl Server {
     }
 }
 
-/// Connection wraps a split TcpStream with BufReader on the read half.
-/// BufReader preserves partially-read data when a tokio::select! branch
-/// cancels the receive future, preventing TCP stream misalignment.
+/// Connection wraps a split TcpStream with cancellation-safe receive.
+///
+/// The receive state machine uses persistent buffers so that partially-read
+/// data survives tokio::select! cancellation. Each call to `receive()` picks
+/// up exactly where the previous (cancelled) call left off.
 pub struct Connection {
     reader: BufReader<OwnedReadHalf>,
     writer: OwnedWriteHalf,
     crypto: CryptoContext,
+    // Persistent receive state for cancellation safety
+    recv_header: [u8; HEADER_SIZE],
+    recv_header_filled: usize,
+    recv_packet_type: Option<PacketType>,
+    recv_payload_len: usize,
+    recv_payload: Vec<u8>,
+    recv_payload_filled: usize,
+    recv_tag: [u8; TAG_SIZE],
+    recv_tag_filled: usize,
 }
 
 impl Connection {
     pub fn new(stream: TcpStream, crypto: CryptoContext) -> Self {
         let (read_half, write_half) = stream.into_split();
         Self {
-            reader: BufReader::new(read_half),
+            reader: BufReader::with_capacity(65536, read_half),
             writer: write_half,
             crypto,
+            recv_header: [0u8; HEADER_SIZE],
+            recv_header_filled: 0,
+            recv_packet_type: None,
+            recv_payload_len: 0,
+            recv_payload: Vec::new(),
+            recv_payload_filled: 0,
+            recv_tag: [0u8; TAG_SIZE],
+            recv_tag_filled: 0,
         }
     }
 
@@ -393,37 +412,114 @@ impl Connection {
         Ok(())
     }
 
+    /// Cancellation-safe receive: reads into persistent buffers so that
+    /// partially-read data survives tokio::select! dropping this future.
+    ///
+    /// Uses manual `read()` + progress tracking instead of `read_exact()`.
+    /// With `read_exact`, bytes consumed from BufReader's internal buffer
+    /// into the destination are lost when the future is dropped mid-read.
+    /// Here, the destination IS the persistent struct field, so nothing is lost.
     pub async fn receive(&mut self) -> Result<(PacketType, Vec<u8>), NetworkError> {
-        let mut header_buf = [0u8; HEADER_SIZE];
-        match self.reader.read_exact(&mut header_buf).await {
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+        // Phase 1: Read header bytes
+        while self.recv_header_filled < HEADER_SIZE {
+            let n = self.reader
+                .read(&mut self.recv_header[self.recv_header_filled..HEADER_SIZE])
+                .await
+                .map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                        NetworkError::ConnectionClosed
+                    } else {
+                        NetworkError::IoError(e)
+                    }
+                })?;
+            if n == 0 {
+                self.reset_recv_state();
                 return Err(NetworkError::ConnectionClosed);
             }
-            Err(e) => return Err(e.into()),
+            self.recv_header_filled += n;
         }
 
-        let header = PacketHeader::from_bytes(&header_buf)?;
-        let payload_size = header.length as usize;
+        // Phase 2: Parse header (once)
+        if self.recv_packet_type.is_none() {
+            let header = PacketHeader::from_bytes_encrypted(&self.recv_header)?;
+            let payload_size = header.length as usize;
 
-        if payload_size < NONCE_SIZE {
-            return Err(NetworkError::ProtocolError(
-                crate::protocol::ProtocolError::IncompletePacket { expected: NONCE_SIZE, got: payload_size }
-            ));
+            if payload_size < NONCE_SIZE {
+                self.reset_recv_state();
+                return Err(NetworkError::ProtocolError(
+                    crate::protocol::ProtocolError::IncompletePacket {
+                        expected: NONCE_SIZE,
+                        got: payload_size,
+                    },
+                ));
+            }
+
+            self.recv_packet_type = Some(header.packet_type);
+            self.recv_payload_len = payload_size;
+            self.recv_payload = vec![0u8; payload_size];
         }
 
-        let mut payload = vec![0u8; payload_size];
-        self.reader.read_exact(&mut payload).await?;
+        // Phase 3: Read payload bytes
+        while self.recv_payload_filled < self.recv_payload_len {
+            let n = self.reader
+                .read(&mut self.recv_payload[self.recv_payload_filled..self.recv_payload_len])
+                .await
+                .map_err(|e| {
+                    self.reset_recv_state();
+                    NetworkError::IoError(e)
+                })?;
+            if n == 0 {
+                self.reset_recv_state();
+                return Err(NetworkError::ConnectionClosed);
+            }
+            self.recv_payload_filled += n;
+        }
 
-        let mut tag = [0u8; TAG_SIZE];
-        self.reader.read_exact(&mut tag).await?;
+        // Phase 4: Read tag bytes
+        while self.recv_tag_filled < TAG_SIZE {
+            let n = self.reader
+                .read(&mut self.recv_tag[self.recv_tag_filled..TAG_SIZE])
+                .await
+                .map_err(|e| {
+                    self.reset_recv_state();
+                    NetworkError::IoError(e)
+                })?;
+            if n == 0 {
+                self.reset_recv_state();
+                return Err(NetworkError::ConnectionClosed);
+            }
+            self.recv_tag_filled += n;
+        }
+
+        // Phase 5: Decrypt complete packet and reset state
+        let packet_type = self.recv_packet_type.unwrap();
+        let payload = std::mem::take(&mut self.recv_payload);
+        let tag = self.recv_tag;
+        self.reset_recv_state();
 
         let mut nonce = [0u8; NONCE_SIZE];
         nonce.copy_from_slice(&payload[..NONCE_SIZE]);
         let ciphertext = &payload[NONCE_SIZE..];
 
         let plaintext = self.crypto.decrypt(ciphertext, &nonce, &tag)?;
-        Ok((header.packet_type, plaintext))
+        Ok((packet_type, plaintext))
+    }
+
+    /// Reset receive state machine to initial state
+    fn reset_recv_state(&mut self) {
+        self.recv_header = [0u8; HEADER_SIZE];
+        self.recv_header_filled = 0;
+        self.recv_packet_type = None;
+        self.recv_payload_len = 0;
+        self.recv_payload = Vec::new();
+        self.recv_payload_filled = 0;
+        self.recv_tag = [0u8; TAG_SIZE];
+        self.recv_tag_filled = 0;
+    }
+
+    /// Send an error message to the client before disconnecting
+    pub async fn send_error(&mut self, message: &str) -> Result<(), NetworkError> {
+        self.send(PacketType::ErrorPacket, message.as_bytes()).await
     }
 
     pub fn is_encrypted(&self) -> bool {

@@ -9,6 +9,7 @@ use enigo::{
 };
 use std::collections::HashMap;
 use thiserror::Error;
+use tracing::{info, warn};
 
 #[derive(Debug, Error)]
 pub enum InputError {
@@ -174,21 +175,34 @@ impl InputController {
     pub fn key_press(&mut self, event: KeyEvent) {
         // Apply modifiers
         if event.modifiers & 0x01 != 0 {
-            let _ = self.enigo.key(Key::Control, Direction::Press);
+            if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                warn!("Enigo Ctrl press failed: {}", e);
+            }
         }
         if event.modifiers & 0x02 != 0 {
-            let _ = self.enigo.key(Key::Shift, Direction::Press);
+            if let Err(e) = self.enigo.key(Key::Shift, Direction::Press) {
+                warn!("Enigo Shift press failed: {}", e);
+            }
         }
         if event.modifiers & 0x04 != 0 {
-            let _ = self.enigo.key(Key::Alt, Direction::Press);
+            if let Err(e) = self.enigo.key(Key::Alt, Direction::Press) {
+                warn!("Enigo Alt press failed: {}", e);
+            }
         }
         if event.modifiers & 0x08 != 0 {
-            let _ = self.enigo.key(Key::Meta, Direction::Press);
+            if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                warn!("Enigo Meta press failed: {}", e);
+            }
         }
 
         // Press the key
         if let Some(&key) = self.keymap.get(&event.keycode) {
-            let _ = self.enigo.key(key, Direction::Press);
+            info!("Enigo key press: {:?} (HID 0x{:02X})", key, event.keycode);
+            if let Err(e) = self.enigo.key(key, Direction::Press) {
+                warn!("Enigo key press failed for {:?}: {}", key, e);
+            }
+        } else {
+            warn!("Unknown HID keycode: 0x{:02X} — not in keymap", event.keycode);
         }
     }
 
@@ -196,21 +210,31 @@ impl InputController {
     pub fn key_release(&mut self, event: KeyEvent) {
         // Release the key
         if let Some(&key) = self.keymap.get(&event.keycode) {
-            let _ = self.enigo.key(key, Direction::Release);
+            if let Err(e) = self.enigo.key(key, Direction::Release) {
+                warn!("Enigo key release failed for {:?}: {}", key, e);
+            }
         }
 
         // Release modifiers
         if event.modifiers & 0x01 != 0 {
-            let _ = self.enigo.key(Key::Control, Direction::Release);
+            if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                warn!("Enigo Ctrl release failed: {}", e);
+            }
         }
         if event.modifiers & 0x02 != 0 {
-            let _ = self.enigo.key(Key::Shift, Direction::Release);
+            if let Err(e) = self.enigo.key(Key::Shift, Direction::Release) {
+                warn!("Enigo Shift release failed: {}", e);
+            }
         }
         if event.modifiers & 0x04 != 0 {
-            let _ = self.enigo.key(Key::Alt, Direction::Release);
+            if let Err(e) = self.enigo.key(Key::Alt, Direction::Release) {
+                warn!("Enigo Alt release failed: {}", e);
+            }
         }
         if event.modifiers & 0x08 != 0 {
-            let _ = self.enigo.key(Key::Meta, Direction::Release);
+            if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                warn!("Enigo Meta release failed: {}", e);
+            }
         }
     }
 
