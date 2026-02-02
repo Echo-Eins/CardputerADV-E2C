@@ -926,9 +926,19 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     // All packets have TAG after payload
     size_t totalBytes = payloadLen + RD_AES_GCM_TAG_SIZE;
 
+    // Once header is consumed, we MUST read the full packet to keep stream aligned.
+    // Use a long timeout (10s) regardless of the caller's timeout — partial reads
+    // corrupt the TCP stream and cause "Invalid protocol version" on the next packet.
+    const uint32_t payloadTimeout = 10000;
+    unsigned long payloadStart = millis();
+
     // Wait for payload + tag (with cancel support during handshake)
     while ((size_t)rdSession.client.available() < totalBytes) {
-        if (millis() - start > timeout) return RD_ERR_TIMEOUT;
+        if (millis() - payloadStart > payloadTimeout) {
+            Serial.printf("[RD] Payload timeout: need %zu, have %d\n",
+                          totalBytes, rdSession.client.available());
+            return RD_ERR_TIMEOUT;
+        }
         if (!rdSession.client.connected()) return RD_ERR_CONNECT_FAILED;
         if (rdSession.state == RD_STATE_HANDSHAKE) {
             M5Cardputer.update();
@@ -1448,6 +1458,9 @@ static void rdProcessInput() {
     Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
 
     // Handle FN combinations for mouse control
+    // Physical layout:  L  ↑(;)  '
+    //                   ←(,) ↓(.) →(/)
+    // FN + arrows = mouse move, FN + L = left click, FN + ' = right click
     if (status.fn) {
         int8_t dx = 0, dy = 0;
 
@@ -1461,8 +1474,15 @@ static void rdProcessInput() {
             rdSendEncrypted(RD_PKT_MOUSE_MOVE, data, 2);
         }
 
-        if (status.enter) {
+        // Left mouse button: FN + L or FN + Enter
+        if (M5Cardputer.Keyboard.isKeyPressed('l') || status.enter) {
             uint8_t data[2] = {0, 2};  // Left button, click action
+            rdSendEncrypted(RD_PKT_MOUSE_CLICK, data, 2);
+        }
+
+        // Right mouse button: FN + '
+        if (M5Cardputer.Keyboard.isKeyPressed('\'')) {
+            uint8_t data[2] = {1, 2};  // Right button, click action
             rdSendEncrypted(RD_PKT_MOUSE_CLICK, data, 2);
         }
         return;
