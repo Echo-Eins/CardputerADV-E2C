@@ -173,90 +173,90 @@ const byte DNS_PORT = 53;
 int currentIndex = 0, lastIndex = -1;
 bool inMenu = true;
 static const char * const PROGMEM menuItems[] = {
-  "Scan WiFi",
-  "Select Network",
-  "Clone & Details",
-  "Set Wifi SSID",
-  "Set Wifi Password",
-  "Set Mac Address",
-  "Start Captive Portal",
-  "Stop Captive Portal",
-  "Change Portal",
-  "Check Credentials",
-  "Delete All Creds",
-  "Monitor Status",
-  "Probe Attack",
-  "Probe Sniffing",
-  "Karma Attack",
-  "Karma Auto",
-  "Karma Spear",
-  "Select Probe",
-  "Delete Probe",
-  "Delete All Probes",
-  "Wardriving",
-  "Wardriving Master",
-  "Beacon Spam",
-  "Deauther",
-  "Auto Deauther",
-  "Evil Twin",
-  "Handshake Master",
-  "WiFi Raw Sniffing",
-  "Sniff Raw Clients",
-  "Wifi Channel Visualizer",
-  "Client Sniffing and Deauth",
-  "Handshake/Deauth Sniffing",
-  "Check Handshakes",
-  "Wall Of Flipper",
-  "Connect to network",
-  "SSH Shell",
-  "Scan IP Ports",
-  "Scan Network Hosts",
-  "Scan Network Full",
-  "Scan Network List",
-  "Web Crawler",
-  "PwnGrid Spam",
-  "Skimmer Detector",
-  "Mouse Jiggler",
-  "BadUSB",
-  "Bluetooth Keyboard",
-  "Reverse TCP Tunnel",
-  "DHCP Starvation",
-  "Rogue DHCP STA",
-  "Rogue DHCP AP",
-  "Switch DNS",
-  "Network Hijacking",
-  "Detect Printer",
-  "File Print",
-  "Check printer status",
-  "HoneyPot",
-  "LLM Chat Stream",
-  "EvilChatMesh",
-  "SD on USB",
-  "Responder",
-  "WPAD Abuse",
-  "Crack NTLMv2",
-  "Clean NTLMv2 duplicate",
-  "FileManager",
-  "UART Shell",
-  "SIP Scanner",
-  "SIP Enumeration",
-  "SIP Message Spoof",
-  "SIP Flooding",
-  "SIP Ring All",
-  "CCTV Toolkit",
-  "SSDP Poisoner",
-  "SkyJack",
-  "WiFi Dead Drop",
-  "BLENameFlood",
-  "Wall Of Airtag",
-  "FindMyEvil",
-  "List UPnP Mapping",
-  "UPnP NAT",
-  "LDAPDump",
-  "IMSI Catcher",
-  "Open Wifi Checker",
-  "Remote Desktop",
-  "Settings",
+  "Scan WiFi",                     // 0
+  "Select Network",                // 1
+  "Connect to network",            // 2
+  "Remote Desktop",                // 3
+  "LLM Chat Stream",              // 4
+  "Clone & Details",               // 5
+  "Set Wifi SSID",                 // 6
+  "Set Wifi Password",             // 7
+  "Set Mac Address",               // 8
+  "Start Captive Portal",          // 9
+  "Stop Captive Portal",           // 10
+  "Change Portal",                 // 11
+  "Check Credentials",             // 12
+  "Delete All Creds",              // 13
+  "Monitor Status",                // 14
+  "Probe Attack",                  // 15
+  "Probe Sniffing",                // 16
+  "Karma Attack",                  // 17
+  "Karma Auto",                    // 18
+  "Karma Spear",                   // 19
+  "Select Probe",                  // 20
+  "Delete Probe",                  // 21
+  "Delete All Probes",             // 22
+  "Wardriving",                    // 23
+  "Wardriving Master",             // 24
+  "Beacon Spam",                   // 25
+  "Deauther",                      // 26
+  "Auto Deauther",                 // 27
+  "Evil Twin",                     // 28
+  "Handshake Master",              // 29
+  "WiFi Raw Sniffing",             // 30
+  "Sniff Raw Clients",             // 31
+  "Wifi Channel Visualizer",       // 32
+  "Client Sniffing and Deauth",    // 33
+  "Handshake/Deauth Sniffing",     // 34
+  "Check Handshakes",              // 35
+  "Wall Of Flipper",               // 36
+  "SSH Shell",                     // 37
+  "Scan IP Ports",                 // 38
+  "Scan Network Hosts",            // 39
+  "Scan Network Full",             // 40
+  "Scan Network List",             // 41
+  "Web Crawler",                   // 42
+  "PwnGrid Spam",                  // 43
+  "Skimmer Detector",              // 44
+  "Mouse Jiggler",                 // 45
+  "BadUSB",                        // 46
+  "Bluetooth Keyboard",            // 47
+  "Reverse TCP Tunnel",            // 48
+  "DHCP Starvation",               // 49
+  "Rogue DHCP STA",                // 50
+  "Rogue DHCP AP",                 // 51
+  "Switch DNS",                    // 52
+  "Network Hijacking",             // 53
+  "Detect Printer",                // 54
+  "File Print",                    // 55
+  "Check printer status",          // 56
+  "HoneyPot",                      // 57
+  "EvilChatMesh",                  // 58
+  "SD on USB",                     // 59
+  "Responder",                     // 60
+  "WPAD Abuse",                    // 61
+  "Crack NTLMv2",                  // 62
+  "Clean NTLMv2 duplicate",        // 63
+  "FileManager",                   // 64
+  "UART Shell",                    // 65
+  "SIP Scanner",                   // 66
+  "SIP Enumeration",               // 67
+  "SIP Message Spoof",             // 68
+  "SIP Flooding",                  // 69
+  "SIP Ring All",                  // 70
+  "CCTV Toolkit",                  // 71
+  "SSDP Poisoner",                 // 72
+  "SkyJack",                       // 73
+  "WiFi Dead Drop",                // 74
+  "BLENameFlood",                  // 75
+  "Wall Of Airtag",                // 76
+  "FindMyEvil",                    // 77
+  "List UPnP Mapping",             // 78
+  "UPnP NAT",                      // 79
+  "LDAPDump",                      // 80
+  "IMSI Catcher",                  // 81
+  "Open Wifi Checker",             // 82
+  "Settings",                      // 83
 };
 
 
@@ -1943,87 +1943,87 @@ void executeMenuItem(int index) {
   switch (index) {
     case 0:  scanWifiNetworks(); break;
     case 1:  showWifiList(); break;
-    case 2:  showWifiDetails(currentListIndex); break;
-    case 3:  setWifiSSID(); break;
-    case 4:  setWifiPassword(); break;
-    case 5:  setMacAddress(); break;
-    case 6:  createCaptivePortal(); break;
-    case 7:  stopCaptivePortal(); break;
-    case 8:  changePortal(); break;
-    case 9:  checkCredentials(); break;
-    case 10: deleteCredentials(); break;
-    case 11: displayMonitorPage1(); break;
-    case 12: probeAttack(); break;
-    case 13: probeSniffing(); break;
-    case 14: karmaAttack(); break;
-    case 15: startAutoKarma(); break;
-    case 16: karmaSpear(); break;
-    case 17: listProbes(); break;
-    case 18: deleteProbe(); break;
-    case 19: deleteAllProbes(); break;
-    case 20: wardrivingMode(); break;
-    case 21: startWardivingMaster(); break;
-    case 22: beaconAttack(); break;
-    case 23: deauthAttack(currentListIndex); break;
-    case 24: autoDeauther(); break;
-    case 25: startEvilTwin(currentListIndex); break;
-    case 26: sniffMaster(); break;
-    case 27: allTrafficSniffer(); break;
-    case 28: sniffNetwork(); break;
-    case 29: wifiVisualizer(); break;
-    case 30: deauthClients(); break;
-    case 31: deauthDetect(); break;
-    case 32: checkHandshakes(); break;
-    case 33: wallOfFlipper(); break;
-    case 34: connectWifi(currentListIndex); break;
-    case 35: sshConnect(); break;
-    case 36: scanIpPort(); break;
-    case 37: scanHosts(); break;
-    case 38: FullNetworkAnalysis(false); break;
-    case 39: ListNetworkAnalysis(); break;
-    case 40: webCrawling(); break;
-    case 41: send_pwnagotchi_beacon_main(); break;
-    case 42: skimmerDetection(); break;
-    case 43: runMouseJiggler(); break;
-    case 44: badUSB(); break;
-    case 45: initBluetoothKeyboard(); break;
-    case 46: reverseTCPTunnel(); break;
-    case 47: startDHCPStarvation(); break;
-    case 48: rogueDHCP(ROGUE_DHCP_STA); break;
-    case 49: rogueDHCP(ROGUE_DHCP_AP); break;
-    case 50: switchDNS(); break;
-    case 51: DHCPAttackAuto(); break;
-    case 52: detectPrinter(); break;
-    case 53: printFile(); break;
-    case 54: checkPrinterStatus(); break;
-    case 55: startHoneypot(); break;
-    case 56: evilLLMChatStream(); break;
-    case 57: EvilChatMesh(); break;
-    case 58: sdToUsb(); break;
-    case 59: responder(); break;
-    case 60: wpadAbuse(); break;
-    case 61: crackNTLMv2(); break;
-    case 62: CleanNTLMHashes(); break;
-    case 63: fileManager(); break;
-    case 64: startUARTShell(); break;
-    case 65: sipScan(); break;
-    case 66: sipEnumExtensions(); break;
-    case 67: sipSpoofMessage(); break;
-    case 68: sipFlood(); break;
-    case 69: sipRingAll(); break;
-    case 70: scanCCTVCameras(); break;
-    case 71: fakeSSDP(); break;
-    case 72: skyjackDroneMode(); break;
-    case 73: WifiDeadDrop(); break;
-    case 74: bleNameFloodUI(); break;
-    case 75: wallOfAirTags(); break;
-    case 76: FindMyEvilTx(); break;
-    case 77: listUPnPMappings(); break;
-    case 78: upnpTargetNATWorkflow(); break;
-    case 79: runLDAPDomainDump(); break;
-    case 80: imsiCatcher(); break;
-    case 81: openWifiDashboardLoop(); break;
-    case 82: remoteDesktop(); break;
+    case 2:  connectWifi(currentListIndex); break;
+    case 3:  remoteDesktop(); break;
+    case 4:  evilLLMChatStream(); break;
+    case 5:  showWifiDetails(currentListIndex); break;
+    case 6:  setWifiSSID(); break;
+    case 7:  setWifiPassword(); break;
+    case 8:  setMacAddress(); break;
+    case 9:  createCaptivePortal(); break;
+    case 10: stopCaptivePortal(); break;
+    case 11: changePortal(); break;
+    case 12: checkCredentials(); break;
+    case 13: deleteCredentials(); break;
+    case 14: displayMonitorPage1(); break;
+    case 15: probeAttack(); break;
+    case 16: probeSniffing(); break;
+    case 17: karmaAttack(); break;
+    case 18: startAutoKarma(); break;
+    case 19: karmaSpear(); break;
+    case 20: listProbes(); break;
+    case 21: deleteProbe(); break;
+    case 22: deleteAllProbes(); break;
+    case 23: wardrivingMode(); break;
+    case 24: startWardivingMaster(); break;
+    case 25: beaconAttack(); break;
+    case 26: deauthAttack(currentListIndex); break;
+    case 27: autoDeauther(); break;
+    case 28: startEvilTwin(currentListIndex); break;
+    case 29: sniffMaster(); break;
+    case 30: allTrafficSniffer(); break;
+    case 31: sniffNetwork(); break;
+    case 32: wifiVisualizer(); break;
+    case 33: deauthClients(); break;
+    case 34: deauthDetect(); break;
+    case 35: checkHandshakes(); break;
+    case 36: wallOfFlipper(); break;
+    case 37: sshConnect(); break;
+    case 38: scanIpPort(); break;
+    case 39: scanHosts(); break;
+    case 40: FullNetworkAnalysis(false); break;
+    case 41: ListNetworkAnalysis(); break;
+    case 42: webCrawling(); break;
+    case 43: send_pwnagotchi_beacon_main(); break;
+    case 44: skimmerDetection(); break;
+    case 45: runMouseJiggler(); break;
+    case 46: badUSB(); break;
+    case 47: initBluetoothKeyboard(); break;
+    case 48: reverseTCPTunnel(); break;
+    case 49: startDHCPStarvation(); break;
+    case 50: rogueDHCP(ROGUE_DHCP_STA); break;
+    case 51: rogueDHCP(ROGUE_DHCP_AP); break;
+    case 52: switchDNS(); break;
+    case 53: DHCPAttackAuto(); break;
+    case 54: detectPrinter(); break;
+    case 55: printFile(); break;
+    case 56: checkPrinterStatus(); break;
+    case 57: startHoneypot(); break;
+    case 58: EvilChatMesh(); break;
+    case 59: sdToUsb(); break;
+    case 60: responder(); break;
+    case 61: wpadAbuse(); break;
+    case 62: crackNTLMv2(); break;
+    case 63: CleanNTLMHashes(); break;
+    case 64: fileManager(); break;
+    case 65: startUARTShell(); break;
+    case 66: sipScan(); break;
+    case 67: sipEnumExtensions(); break;
+    case 68: sipSpoofMessage(); break;
+    case 69: sipFlood(); break;
+    case 70: sipRingAll(); break;
+    case 71: scanCCTVCameras(); break;
+    case 72: fakeSSDP(); break;
+    case 73: skyjackDroneMode(); break;
+    case 74: WifiDeadDrop(); break;
+    case 75: bleNameFloodUI(); break;
+    case 76: wallOfAirTags(); break;
+    case 77: FindMyEvilTx(); break;
+    case 78: listUPnPMappings(); break;
+    case 79: upnpTargetNATWorkflow(); break;
+    case 80: runLDAPDomainDump(); break;
+    case 81: imsiCatcher(); break;
+    case 82: openWifiDashboardLoop(); break;
     case 83: showSettingsMenu(); break;
   }
   isOperationInProgress = false;
