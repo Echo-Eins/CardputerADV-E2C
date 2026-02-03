@@ -1,60 +1,23 @@
-# Cardputer Remote Desktop Server Configuration
-# Version: 1.0.0
-
 [server]
-# TCP port for connections
 port = 19847
-
-# Session timeout in seconds (0 = never timeout)
 session_timeout_secs = 0
-
-# Maximum FPS for screen updates
 max_fps = 10
-
-# JPEG quality (1-100)
 jpeg_quality = 70
 
 [security]
-# 16-byte discovery cookie (hex encoded, 32 characters)
-# Generate new one: openssl rand -hex 16
-discovery_cookie = "a1b2c3d4e5f6789012345678deadbeef"
-
-# Private key for ECDH (secp256r1, hex encoded)
-# Generate new one: openssl ecparam -name prime256v1 -genkey -noout | openssl ec -text -noout
-# Then extract the private key bytes (32 bytes = 64 hex chars)
-private_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-
-# Expected Cardputer public key (compressed, 33 bytes = 66 hex chars)
-# This is used for mutual authentication
-cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef01"
+discovery_cookie = "9ea4024f75e463a6b46c24cbfd101e00"
+private_key = "c50d7f9134f6b114dd2baa0203da9b94b308a5ffb8f23fcae1a2030697103c65"
+cardputer_public_key = "04a14d3edcc36ea7ef8ed6b4893106a9887087783a9b76dfd245aa0271a11aea17a7737673f5dd40fe1a07f8075b2963e0fd25f8a81fba1029a98f5abbb3779c3c"
 
 [network]
-# Full mDNS service type — used as-is, no automatic prefixes or suffixes.
-# Must match the Cardputer client query: MDNS.queryService("cardputer-remote", "tcp")
-# which resolves to "_cardputer-remote._tcp.local"
 mdns_service_type = "_cardputer-remote._tcp.local."
-
-# Device name shown to Cardputer during discovery
-device_name = "MyPC"
-
-# Bind address (0.0.0.0 for all interfaces)
+device_name = "PC"
 bind_address = "0.0.0.0"
 
 [display]
-# Target resolution for Cardputer (240x135)
 target_width = 240
 target_height = 135
 
-# Screen capture region (null = full screen)
-# Format: [x, y, width, height]
-# capture_region = [0, 0, 1920, 1080]
-
 [logging]
-# Log level: trace, debug, info, warn, error
 level = "info"
-
-# Log file path (null = stdout only)
-log_file = "cardputer-remote.log"
-
-# Enable JSON format for structured logging
 json_format = false

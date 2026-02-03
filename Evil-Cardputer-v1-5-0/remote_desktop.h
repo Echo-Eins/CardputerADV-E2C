@@ -35,7 +35,7 @@ extern bool soundOn;
 
 #define RD_PROTOCOL_VERSION     0x01
 #define RD_DEFAULT_PORT         19847
-#define RD_SERVICE_TYPE         "_cardputer-remote._tcp"
+#define RD_SERVICE_TYPE         "_cardputer-remote._tcp.local"
 
 // Crypto constants
 #define RD_AES_KEY_SIZE         16      // AES-128
