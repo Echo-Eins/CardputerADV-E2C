@@ -29,8 +29,10 @@ private_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef01"
 
 [network]
-# mDNS service name (will be advertised as _cardputer-remote._tcp.local)
-mdns_service_name = "cardputer-remote"
+# Full mDNS service type — used as-is, no automatic prefixes or suffixes.
+# Must match the Cardputer client query: MDNS.queryService("cardputer-remote", "tcp")
+# which resolves to "_cardputer-remote._tcp.local"
+mdns_service_type = "_cardputer-remote._tcp.local."
 
 # Device name shown to Cardputer during discovery
 device_name = "MyPC"

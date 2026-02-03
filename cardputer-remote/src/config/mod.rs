@@ -65,9 +65,10 @@ pub struct SecurityConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
-    /// mDNS service name
-    #[serde(default = "default_mdns_service_name")]
-    pub mdns_service_name: String,
+    /// Full mDNS service type, used as-is (no automatic prefixes/suffixes).
+    /// Must match the client's query format: "_<name>._tcp.local."
+    #[serde(default = "default_mdns_service_type")]
+    pub mdns_service_type: String,
 
     /// Device name shown during discovery
     pub device_name: String,
@@ -77,8 +78,8 @@ pub struct NetworkConfig {
     pub bind_address: String,
 }
 
-fn default_mdns_service_name() -> String {
-    "cardputer-remote".to_string()
+fn default_mdns_service_type() -> String {
+    "_cardputer-remote._tcp.local.".to_string()
 }
 
 fn default_bind_address() -> String {
@@ -189,6 +190,14 @@ impl Config {
             ));
         }
 
+        // Validate mDNS service type format: must be "_<name>._tcp.local." or "_<name>._udp.local."
+        let st = &self.network.mdns_service_type;
+        if !st.starts_with('_') || (!st.ends_with("._tcp.local.") && !st.ends_with("._udp.local.")) {
+            return Err(ConfigError::ValidationError(
+                format!("mdns_service_type must be in format \"_<name>._tcp.local.\" or \"_<name>._udp.local.\", got: {}", st),
+            ));
+        }
+
         // Validate display dimensions
         if self.display.target_width == 0 || self.display.target_height == 0 {
             return Err(ConfigError::ValidationError(
@@ -230,7 +239,7 @@ impl Default for Config {
                     "020000000000000000000000000000000000000000000000000000000000000000".to_string(),
             },
             network: NetworkConfig {
-                mdns_service_name: "cardputer-remote".to_string(),
+                mdns_service_type: "_cardputer-remote._tcp.local.".to_string(),
                 device_name: "PC".to_string(),
                 bind_address: "0.0.0.0".to_string(),
             },
@@ -267,7 +276,7 @@ private_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef01"
 
 [network]
-mdns_service_name = "cardputer-remote"
+mdns_service_type = "_cardputer-remote._tcp.local."
 device_name = "TestPC"
 bind_address = "0.0.0.0"
 

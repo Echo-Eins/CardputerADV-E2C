@@ -70,7 +70,7 @@ pub struct DiscoveryService {
 impl DiscoveryService {
     pub fn new(config: &Config) -> Result<Self, NetworkError> {
         let daemon = ServiceDaemon::new().map_err(|e| NetworkError::MdnsError(e.to_string()))?;
-        let service_type = format!("_{}._tcp.local.", config.network.mdns_service_name.to_lowercase());
+        let service_type = config.network.mdns_service_type.clone();
 
         Ok(Self {
             daemon,
