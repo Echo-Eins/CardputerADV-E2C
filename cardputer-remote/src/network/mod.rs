@@ -397,17 +397,27 @@ impl Connection {
         }
     }
 
+    /// Send an encrypted packet as a single atomic write.
+    ///
+    /// Builds one contiguous buffer [header | nonce | ciphertext | tag] and
+    /// writes it in a single `write_all` call. This prevents TCP from
+    /// fragmenting the packet across multiple segments, which could cause the
+    /// ESP32 client to read a partial packet and corrupt the stream.
     pub async fn send(&mut self, packet_type: PacketType, payload: &[u8]) -> Result<(), NetworkError> {
         let (ciphertext, nonce, tag) = self.crypto.encrypt(payload)?;
 
-        let mut full_payload = Vec::with_capacity(NONCE_SIZE + ciphertext.len());
-        full_payload.extend_from_slice(&nonce);
-        full_payload.extend_from_slice(&ciphertext);
+        let payload_len = NONCE_SIZE + ciphertext.len();
+        let header = PacketHeader::new(packet_type, payload_len)?;
+        let header_bytes = header.to_bytes();
 
-        let header = PacketHeader::new(packet_type, full_payload.len())?;
-        self.writer.write_all(&header.to_bytes()).await?;
-        self.writer.write_all(&full_payload).await?;
-        self.writer.write_all(&tag).await?;
+        let total = HEADER_SIZE + payload_len + TAG_SIZE;
+        let mut buf = Vec::with_capacity(total);
+        buf.extend_from_slice(&header_bytes);
+        buf.extend_from_slice(&nonce);
+        buf.extend_from_slice(&ciphertext);
+        buf.extend_from_slice(&tag);
+
+        self.writer.write_all(&buf).await?;
         self.writer.flush().await?;
         Ok(())
     }

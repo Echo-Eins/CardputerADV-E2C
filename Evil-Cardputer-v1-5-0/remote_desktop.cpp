@@ -916,25 +916,30 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     uint8_t header[RD_PACKET_HEADER_SIZE];
     rdSession.client.readBytes(header, RD_PACKET_HEADER_SIZE);
 
-    if (header[0] != RD_PROTOCOL_VERSION) {
-        Serial.printf("[RD] Bad version: 0x%02X\n", header[0]);
-        return RD_ERR_PROTOCOL;
+    // Version check only during handshake. In encrypted session, AES-GCM
+    // authentication replaces the version byte's role, and a mismatch here
+    // would just mean stream corruption (caught by GCM failure anyway).
+    if (rdSession.state != RD_STATE_CONNECTED) {
+        if (header[0] != RD_PROTOCOL_VERSION) {
+            Serial.printf("[RD] Bad version: 0x%02X\n", header[0]);
+            return RD_ERR_PROTOCOL;
+        }
     }
 
     *type = (RDPacketType)header[1];
     uint16_t payloadLen = ((uint16_t)header[2] << 8) | header[3];
 
-    // Once header is consumed from TCP stream, we MUST read the full packet.
-    // readBytes() streams data as it arrives — no deadlock even for large frames.
-    // With SO_RCVBUF set to 30KB, the TCP buffer can hold 2-3 full packets,
-    // so data flows through without backpressure stalls.
-    // Default WiFiClient timeout (1s) is sufficient with the larger buffer.
+    // ── POINT OF NO RETURN ──
+    // Header is consumed from TCP stream. We MUST read payload + tag or the
+    // stream is irrecoverably misaligned. Any failure below is FATAL — we
+    // return RD_ERR_PROTOCOL (not RD_ERR_TIMEOUT) so the caller disconnects
+    // instead of retrying on a corrupted stream.
 
     if (payloadLen > 0) {
         size_t bytesRead = rdSession.client.readBytes(payload, payloadLen);
         if (bytesRead != payloadLen) {
-            Serial.printf("[RD] Payload incomplete: got %zu of %u\n", bytesRead, payloadLen);
-            return RD_ERR_TIMEOUT;
+            Serial.printf("[RD] Payload incomplete: got %zu of %u — stream corrupted\n", bytesRead, payloadLen);
+            return RD_ERR_PROTOCOL;  // FATAL: stream misaligned
         }
     }
     *len = payloadLen;
@@ -943,8 +948,8 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
     uint8_t readTag[RD_AES_GCM_TAG_SIZE];
     size_t tagRead = rdSession.client.readBytes(readTag, RD_AES_GCM_TAG_SIZE);
     if (tagRead != RD_AES_GCM_TAG_SIZE) {
-        Serial.printf("[RD] Tag incomplete: got %zu of %d\n", tagRead, RD_AES_GCM_TAG_SIZE);
-        return RD_ERR_TIMEOUT;
+        Serial.printf("[RD] Tag incomplete: got %zu of %d — stream corrupted\n", tagRead, RD_AES_GCM_TAG_SIZE);
+        return RD_ERR_PROTOCOL;  // FATAL: stream misaligned
     }
 
     // Return TAG if caller needs it for decryption
