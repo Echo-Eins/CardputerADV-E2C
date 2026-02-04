@@ -128,15 +128,20 @@ impl DiscoveryService {
 }
 
 fn normalize_mdns_service_type(service_type: &str) -> String {
+    // Already in correct mdns-sd format: "_name._tcp.local."
     if service_type.ends_with(".local.") {
         return service_type.to_string();
     }
 
-    if service_type.contains("._tcp.") || service_type.contains("._udp.") {
-        let trimmed = service_type.trim_end_matches(".local.");
-        return format!("{}.local.", trimmed);
+    // Has protocol segment — strip any partial ".local" suffix, then append ".local."
+    if service_type.contains("._tcp") || service_type.contains("._udp") {
+        let base = service_type
+            .trim_end_matches('.')
+            .trim_end_matches(".local");
+        return format!("{}.local.", base);
     }
 
+    // Bare name — assume TCP
     format!("{}._tcp.local.", service_type.trim_end_matches('.'))
 }
 
