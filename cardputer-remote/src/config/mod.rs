@@ -79,7 +79,7 @@ pub struct NetworkConfig {
 }
 
 fn default_mdns_service_type() -> String {
-    "_cardputer-remote._tcp.local.".to_string()
+    "_cardputer-remote._tcp.local".to_string()
 }
 
 fn default_bind_address() -> String {
@@ -249,7 +249,7 @@ impl Default for Config {
                     "020000000000000000000000000000000000000000000000000000000000000000".to_string(),
             },
             network: NetworkConfig {
-                mdns_service_type: "_cardputer-remote._tcp.local.".to_string(),
+                mdns_service_type: "_cardputer-remote._tcp.local".to_string(),
                 device_name: "PC".to_string(),
                 bind_address: "0.0.0.0".to_string(),
             },
@@ -286,7 +286,7 @@ private_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 cardputer_public_key = "02deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef01"
 
 [network]
-mdns_service_type = "_cardputer-remote._tcp.local."
+mdns_service_type = "_cardputer-remote._tcp.local"
 device_name = "TestPC"
 bind_address = "0.0.0.0"
 

@@ -1104,7 +1104,7 @@ static RDError rdDiscover() {
         return RD_ERR_NO_SERVER;
     }
 
-    char serviceName[64] = "cardputer-remote";
+    char serviceName[64] = "_cardputer-remote._tcp.local";
     char serviceProto[8] = "tcp";
 
     if (rdConfig.mdnsServiceType[0] == '\0') {
