@@ -128,28 +128,16 @@ impl DiscoveryService {
 }
 
 fn normalize_mdns_service_type(service_type: &str) -> String {
-    let trimmed = service_type.trim().trim_end_matches('.');
-    let (name_part, protocol_part) = if let Some(pos) = trimmed.find("._tcp") {
-        (&trimmed[..pos], Some(&trimmed[pos..]))
-    } else if let Some(pos) = trimmed.find("._udp") {
-        (&trimmed[..pos], Some(&trimmed[pos..]))
-    } else {
-        (trimmed, None)
-    };
-
-    let name = if name_part.starts_with('_') {
-        name_part.to_string()
-    } else {
-        format!("_{}", name_part)
-    };
-
-    match protocol_part {
-        Some(protocol) => {
-            let protocol = protocol.strip_suffix(".local").unwrap_or(protocol);
-            format!("{}{}.local.", name, protocol)
-        }
-        None => format!("{}._tcp.local.", name),
+    if service_type.ends_with(".local.") {
+        return service_type.to_string();
     }
+
+    if service_type.contains("._tcp.") || service_type.contains("._udp.") {
+        let trimmed = service_type.trim_end_matches(".local.");
+        return format!("{}.local.", trimmed);
+    }
+
+    format!("{}._tcp.local.", service_type.trim_end_matches('.'))
 }
 
 pub struct Server {
