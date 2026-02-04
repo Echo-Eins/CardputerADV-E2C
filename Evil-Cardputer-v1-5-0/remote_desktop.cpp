@@ -56,7 +56,8 @@ static RDConfig rdConfig = {
     RD_DEFAULT_PORT,        // serverPort
     false,                  // autoConnect
     70,                     // jpegQuality
-    10                      // targetFps
+    10,                     // targetFps
+    ""                      // mdnsServiceType (defaults to RD_SERVICE_TYPE)
 };
 
 static const char* RD_CONFIG_PATH = "/remote_desktop.json";
@@ -160,6 +161,7 @@ void rdLoadConfig() {
         rdConfig.autoConnect = doc["autoConnect"] | false;
         rdConfig.jpegQuality = doc["jpegQuality"] | 70;
         rdConfig.targetFps = doc["targetFps"] | 10;
+        strlcpy(rdConfig.mdnsServiceType, doc["mdnsServiceType"] | "", sizeof(rdConfig.mdnsServiceType));
     }
     f.close();
 }
@@ -174,6 +176,7 @@ void rdSaveConfig() {
     doc["autoConnect"] = rdConfig.autoConnect;
     doc["jpegQuality"] = rdConfig.jpegQuality;
     doc["targetFps"] = rdConfig.targetFps;
+    doc["mdnsServiceType"] = rdConfig.mdnsServiceType;
 
     serializeJson(doc, f);
     f.close();
@@ -1098,6 +1101,37 @@ static RDError rdDiscover() {
 
     if (!MDNS.begin("cardputer")) {
         Serial.println("[RD] mDNS init failed");
+        return RD_ERR_NO_SERVER;
+    }
+
+    char serviceName[64] = "cardputer-remote";
+    char serviceProto[8] = "tcp";
+
+    if (rdConfig.mdnsServiceType[0] == '\0') {
+        strlcpy(rdConfig.mdnsServiceType, RD_SERVICE_TYPE, sizeof(rdConfig.mdnsServiceType));
+    }
+
+    if (rdConfig.mdnsServiceType[0] == '_') {
+        const char* firstDot = strchr(rdConfig.mdnsServiceType + 1, '.');
+        if (firstDot) {
+            size_t nameLen = static_cast<size_t>(firstDot - (rdConfig.mdnsServiceType + 1));
+            if (nameLen > 0 && nameLen < sizeof(serviceName)) {
+                memcpy(serviceName, rdConfig.mdnsServiceType + 1, nameLen);
+                serviceName[nameLen] = '\0';
+            }
+
+            if (strncmp(firstDot, "._tcp", 5) == 0) {
+                strlcpy(serviceProto, "tcp", sizeof(serviceProto));
+            } else if (strncmp(firstDot, "._udp", 5) == 0) {
+                strlcpy(serviceProto, "udp", sizeof(serviceProto));
+            } else {
+                Serial.printf("[RD] Invalid mDNS service type: %s\n", rdConfig.mdnsServiceType);
+                strlcpy(serviceName, "cardputer-remote", sizeof(serviceName));
+                strlcpy(serviceProto, "tcp", sizeof(serviceProto));
+            }
+        } else {
+            Serial.printf("[RD] Invalid mDNS service type: %s\n", rdConfig.mdnsServiceType);
+        }
     }
 
     unsigned long start = millis();
@@ -1105,7 +1139,7 @@ static RDError rdDiscover() {
 
     // Query with timeout
     while (millis() - start < RD_MDNS_TIMEOUT_MS) {
-        n = MDNS.queryService("cardputer-remote", "tcp");
+        n = MDNS.queryService(serviceName, serviceProto);
         if (n > 0) break;
 
         // Check for user cancel
