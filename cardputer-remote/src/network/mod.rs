@@ -70,7 +70,7 @@ pub struct DiscoveryService {
 impl DiscoveryService {
     pub fn new(config: &Config) -> Result<Self, NetworkError> {
         let daemon = ServiceDaemon::new().map_err(|e| NetworkError::MdnsError(e.to_string()))?;
-        let service_type = config.network.mdns_service_type.clone();
+        let service_type = normalize_mdns_service_type(&config.network.mdns_service_type);
 
         Ok(Self {
             daemon,
@@ -124,6 +124,31 @@ impl DiscoveryService {
             device_name: self.device_name.clone(),
             server_port: self.port,
         }
+    }
+}
+
+fn normalize_mdns_service_type(service_type: &str) -> String {
+    let trimmed = service_type.trim().trim_end_matches('.');
+    let (name_part, protocol_part) = if let Some(pos) = trimmed.find("._tcp") {
+        (&trimmed[..pos], Some(&trimmed[pos..]))
+    } else if let Some(pos) = trimmed.find("._udp") {
+        (&trimmed[..pos], Some(&trimmed[pos..]))
+    } else {
+        (trimmed, None)
+    };
+
+    let name = if name_part.starts_with('_') {
+        name_part.to_string()
+    } else {
+        format!("_{}", name_part)
+    };
+
+    match protocol_part {
+        Some(protocol) => {
+            let protocol = protocol.strip_suffix(".local").unwrap_or(protocol);
+            format!("{}{}.local.", name, protocol)
+        }
+        None => format!("{}._tcp.local.", name),
     }
 }
 

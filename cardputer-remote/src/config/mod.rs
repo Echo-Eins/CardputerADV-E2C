@@ -126,6 +126,17 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
+fn is_valid_mdns_label(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() || bytes.len() > 63 {
+        return false;
+    }
+    if bytes[0] == b'-' || bytes[bytes.len() - 1] == b'-' {
+        return false;
+    }
+    bytes.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+}
+
 impl Config {
     /// Load configuration from a TOML file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
@@ -190,11 +201,10 @@ impl Config {
             ));
         }
 
-        // Validate mDNS service type format: must be "_<name>._tcp.local." or "_<name>._udp.local."
-        let st = &self.network.mdns_service_type;
-        if !st.starts_with('_') || (!st.ends_with("._tcp.local.") && !st.ends_with("._udp.local.")) {
+        // Validate mDNS device name (hostname label): ASCII alnum + hyphen only, 1-63 chars
+        if !is_valid_mdns_label(&self.network.device_name) {
             return Err(ConfigError::ValidationError(
-                format!("mdns_service_type must be in format \"_<name>._tcp.local.\" or \"_<name>._udp.local.\", got: {}", st),
+                format!("device_name must be 1-63 chars of [A-Za-z0-9-] and not start/end with '-': {}", self.network.device_name),
             ));
         }
 

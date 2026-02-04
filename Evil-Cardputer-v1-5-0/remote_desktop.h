@@ -153,6 +153,7 @@ struct RDConfig {
     bool autoConnect;
     uint8_t jpegQuality;        // 1-100, server-side
     uint8_t targetFps;          // 1-30
+    char mdnsServiceType[64];   // Full service type, e.g. "_cardputer-remote._tcp.local."
 };
 
 // ============================================================================
