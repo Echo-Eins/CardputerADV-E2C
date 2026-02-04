@@ -89,31 +89,35 @@ impl DiscoveryService {
         info!("mDNS: device_name  = \"{}\"", self.device_name);
         info!("mDNS: port         = {}", self.port);
 
-        // Start browsing — this sends the initial PTR query
+        // Start browsing — sends PTR queries (exponential backoff per RFC 6762 §5.2).
+        // This is for discovering OTHER services, not for making us discoverable.
         info!("mDNS: calling daemon.browse(\"{}\")", self.service_type);
         let receiver = self.daemon.browse(&self.service_type)
             .map_err(|e| NetworkError::MdnsError(e.to_string()))?;
-        info!("mDNS: browse receiver created — PTR query should be on the wire");
+        info!("mDNS: browse receiver created");
 
-        // Register our own service
+        // Register our service — daemon will respond to incoming PTR/SRV/TXT queries
+        // and send initial gratuitous announcements.
         let hostname = format!("{}.local.", self.device_name);
-        info!("mDNS: registering service: name=\"{}\" host=\"{}\" port={}", self.device_name, hostname, self.port);
         let service_info = ServiceInfo::new(
             &self.service_type, &self.device_name,
             &hostname, "", self.port, None,
         ).map_err(|e| NetworkError::MdnsError(e.to_string()))?;
 
+        info!("mDNS: registering service: name=\"{}\" type=\"{}\" host=\"{}\" port={}",
+              self.device_name, self.service_type, hostname, self.port);
         self.daemon.register(service_info).map_err(|e| NetworkError::MdnsError(e.to_string()))?;
-        info!("mDNS: service registered successfully");
+        info!("mDNS: service registered — initial announcement sent");
 
-        let running = self.running.clone();
+        // Event loop: log all browse events
+        let running_events = self.running.clone();
         tokio::spawn(async move {
-            info!("mDNS: event loop started — listening for responses");
-            while running.load(Ordering::Relaxed) {
+            info!("mDNS: event loop started");
+            while running_events.load(Ordering::Relaxed) {
                 match receiver.recv_timeout(Duration::from_millis(500)) {
                     Ok(event) => match &event {
                         ServiceEvent::SearchStarted(stype) => {
-                            info!("mDNS EVENT SearchStarted: type=\"{}\"", stype);
+                            info!("mDNS EVENT SearchStarted: \"{}\"", stype);
                         }
                         ServiceEvent::ServiceFound(stype, fullname) => {
                             info!("mDNS EVENT ServiceFound: type=\"{}\" name=\"{}\"", stype, fullname);
@@ -132,22 +136,52 @@ impl DiscoveryService {
                             info!("mDNS EVENT ServiceRemoved: type=\"{}\" name=\"{}\"", stype, fullname);
                         }
                         ServiceEvent::SearchStopped(stype) => {
-                            info!("mDNS EVENT SearchStopped: type=\"{}\"", stype);
+                            info!("mDNS EVENT SearchStopped: \"{}\"", stype);
                         }
                     },
                     Err(e) => {
-                        // recv_timeout returns Timeout or Disconnected
                         let msg = format!("{}", e);
                         if msg.contains("Disconnected") {
-                            warn!("mDNS: event channel disconnected, stopping loop");
+                            warn!("mDNS: event channel disconnected");
                             break;
                         }
-                        // Timeout is normal — no events in 500ms
                     }
                 }
             }
             info!("mDNS: event loop stopped");
         });
+
+        // Re-announce loop: periodically re-register so the service stays visible.
+        // Without this, only the initial announcement + reactive query responses exist.
+        // ESP32 MDNS.queryService() has a 7s timeout — 10s interval ensures at least
+        // one announcement falls within any query window.
+        let running_announce = self.running.clone();
+        let daemon_clone = self.daemon.clone();
+        let stype = self.service_type.clone();
+        let dname = self.device_name.clone();
+        let port = self.port;
+        tokio::spawn(async move {
+            let mut count: u64 = 0;
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if !running_announce.load(Ordering::Relaxed) {
+                    break;
+                }
+                count += 1;
+                let host = format!("{}.local.", dname);
+                match ServiceInfo::new(&stype, &dname, &host, "", port, None) {
+                    Ok(info) => {
+                        match daemon_clone.register(info) {
+                            Ok(_) => info!("mDNS: re-announce #{} sent (type=\"{}\" name=\"{}\")", count, stype, dname),
+                            Err(e) => warn!("mDNS: re-announce #{} failed: {}", count, e),
+                        }
+                    }
+                    Err(e) => warn!("mDNS: re-announce #{} ServiceInfo error: {}", count, e),
+                }
+            }
+            info!("mDNS: re-announce loop stopped");
+        });
+
         Ok(())
     }
 
