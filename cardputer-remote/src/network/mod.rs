@@ -21,7 +21,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// Binary handshake format sizes
 const PUBKEY_COMPRESSED: usize = 33;   // Compressed secp256r1
@@ -84,27 +84,69 @@ impl DiscoveryService {
 
     pub async fn start(&self) -> Result<(), NetworkError> {
         self.running.store(true, Ordering::Relaxed);
+
+        info!("mDNS: service_type = \"{}\"", self.service_type);
+        info!("mDNS: device_name  = \"{}\"", self.device_name);
+        info!("mDNS: port         = {}", self.port);
+
+        // Start browsing — this sends the initial PTR query
+        info!("mDNS: calling daemon.browse(\"{}\")", self.service_type);
         let receiver = self.daemon.browse(&self.service_type)
             .map_err(|e| NetworkError::MdnsError(e.to_string()))?;
+        info!("mDNS: browse receiver created — PTR query should be on the wire");
 
-        info!("mDNS discovery started for {}", self.service_type);
-
+        // Register our own service
+        let hostname = format!("{}.local.", self.device_name);
+        info!("mDNS: registering service: name=\"{}\" host=\"{}\" port={}", self.device_name, hostname, self.port);
         let service_info = ServiceInfo::new(
             &self.service_type, &self.device_name,
-            &format!("{}.local.", self.device_name), "", self.port, None,
+            &hostname, "", self.port, None,
         ).map_err(|e| NetworkError::MdnsError(e.to_string()))?;
 
         self.daemon.register(service_info).map_err(|e| NetworkError::MdnsError(e.to_string()))?;
+        info!("mDNS: service registered successfully");
 
         let running = self.running.clone();
         tokio::spawn(async move {
+            info!("mDNS: event loop started — listening for responses");
             while running.load(Ordering::Relaxed) {
-                match receiver.recv_timeout(Duration::from_millis(100)) {
-                    Ok(ServiceEvent::ServiceResolved(info)) => debug!("Discovered: {:?}", info),
-                    Ok(ServiceEvent::SearchStarted(_)) => debug!("mDNS search started"),
-                    _ => {}
+                match receiver.recv_timeout(Duration::from_millis(500)) {
+                    Ok(event) => match &event {
+                        ServiceEvent::SearchStarted(stype) => {
+                            info!("mDNS EVENT SearchStarted: type=\"{}\"", stype);
+                        }
+                        ServiceEvent::ServiceFound(stype, fullname) => {
+                            info!("mDNS EVENT ServiceFound: type=\"{}\" name=\"{}\"", stype, fullname);
+                        }
+                        ServiceEvent::ServiceResolved(info) => {
+                            info!(
+                                "mDNS EVENT ServiceResolved: fullname=\"{}\" host=\"{}\" port={} addrs={:?} properties={:?}",
+                                info.get_fullname(),
+                                info.get_hostname(),
+                                info.get_port(),
+                                info.get_addresses(),
+                                info.get_properties(),
+                            );
+                        }
+                        ServiceEvent::ServiceRemoved(stype, fullname) => {
+                            info!("mDNS EVENT ServiceRemoved: type=\"{}\" name=\"{}\"", stype, fullname);
+                        }
+                        ServiceEvent::SearchStopped(stype) => {
+                            info!("mDNS EVENT SearchStopped: type=\"{}\"", stype);
+                        }
+                    },
+                    Err(e) => {
+                        // recv_timeout returns Timeout or Disconnected
+                        let msg = format!("{}", e);
+                        if msg.contains("Disconnected") {
+                            warn!("mDNS: event channel disconnected, stopping loop");
+                            break;
+                        }
+                        // Timeout is normal — no events in 500ms
+                    }
                 }
             }
+            info!("mDNS: event loop stopped");
         });
         Ok(())
     }
