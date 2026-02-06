@@ -143,6 +143,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         TabType::Processes => tabs::processes::render(f, area, app),
         TabType::Services => tabs::services::render(f, area, app),
         TabType::DiskAnalyzer => tabs::disk_analyzer::render(f, area, app),
+        TabType::CardputerLlmChat => tabs::cardputer_llm_chat::render(f, area, app),
         TabType::Settings => tabs::settings::render(f, area, app),
     }
 }
@@ -153,11 +154,21 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
         let status_text = if monitors_running { "running" } else { "stopped" };
         let status_color = if monitors_running { Color::Green } else { Color::Red };
 
+        // Gateway status
+        let gateway_running = app.state.cardputer_gateway_state.read().running;
+        let gateway_text = if gateway_running { "GW" } else { "gw" };
+        let gateway_color = if gateway_running { Color::Cyan } else { Color::DarkGray };
+
         let help_spans = vec![
-            Span::raw("[F1] Help │ [F2] Compact │ [Tab] Next │ [Ctrl+F] History │ [Ctrl+C] Exit │ [M+S] "),
+            Span::raw("[F1] Help │ [Tab] Next │ [Ctrl+F] History │ [Ctrl+C] Exit │ [M+S] "),
             Span::styled(
                 format!("({})", status_text),
                 Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" │ [Ctrl+G] "),
+            Span::styled(
+                format!("({})", gateway_text),
+                Style::default().fg(gateway_color).add_modifier(Modifier::BOLD),
             ),
         ];
 

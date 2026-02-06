@@ -134,6 +134,8 @@ pub struct IntegrationsConfig {
     pub everything: EverythingConfig,
     #[serde(default)]
     pub disk_analyzer: DiskAnalyzerConfig,
+    #[serde(default)]
+    pub cardputer_llm_chat: CardputerLlmChatConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -166,6 +168,64 @@ impl Default for DiskAnalyzerConfig {
         Self {
             show_extensions: Vec::new(),
             extended_view_default: false,
+        }
+    }
+}
+
+/// Cardputer LLM Chat Gateway configuration
+/// Provides HTTP API for ESP32 Cardputer to chat with Ollama models
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CardputerLlmChatConfig {
+    /// Enable the HTTP gateway
+    pub enabled: bool,
+    /// Bind address for the HTTP server
+    #[serde(default = "default_gateway_bind")]
+    pub bind_address: String,
+    /// Port for the HTTP server (fixed at 52525, no fallback)
+    #[serde(default = "default_gateway_port")]
+    pub port: u16,
+    /// Server private key (hex encoded, 32 bytes) for ECDSA auth
+    pub server_private_key: String,
+    /// Cardputer public key (hex encoded, 33 or 65 bytes) for verifying client signatures
+    pub cardputer_public_key: String,
+    /// Session token validity in seconds (default: 3600 = 1 hour)
+    #[serde(default = "default_session_timeout")]
+    pub session_timeout_secs: u64,
+    /// Chat response timeout in seconds (0 = unlimited)
+    #[serde(default)]
+    pub chat_timeout_secs: u64,
+    /// Nonce TTL for replay protection (default: 20 seconds)
+    #[serde(default = "default_nonce_ttl")]
+    pub nonce_ttl_secs: u64,
+}
+
+fn default_gateway_bind() -> String {
+    "0.0.0.0".to_string()
+}
+
+fn default_gateway_port() -> u16 {
+    52525
+}
+
+fn default_session_timeout() -> u64 {
+    3600
+}
+
+fn default_nonce_ttl() -> u64 {
+    20
+}
+
+impl Default for CardputerLlmChatConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bind_address: default_gateway_bind(),
+            port: default_gateway_port(),
+            server_private_key: String::new(),
+            cardputer_public_key: String::new(),
+            session_timeout_secs: default_session_timeout(),
+            chat_timeout_secs: 0,
+            nonce_ttl_secs: default_nonce_ttl(),
         }
     }
 }

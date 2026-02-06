@@ -11,6 +11,7 @@ pub enum TabType {
     Processes,
     Services,
     DiskAnalyzer,
+    CardputerLlmChat,
     Settings,
 }
 
@@ -26,6 +27,7 @@ impl TabType {
             TabType::Processes => "Processes",
             TabType::Services => "Services",
             TabType::DiskAnalyzer => "Disk Analyzer",
+            TabType::CardputerLlmChat => "Cardputer",
             TabType::Settings => "Settings",
         }
     }
@@ -41,6 +43,7 @@ impl TabType {
             "processes" => Some(TabType::Processes),
             "services" => Some(TabType::Services),
             "disk_analyzer" => Some(TabType::DiskAnalyzer),
+            "cardputer_llm_chat" | "cardputer" => Some(TabType::CardputerLlmChat),
             "settings" => Some(TabType::Settings),
             _ => None,
         }
@@ -58,6 +61,7 @@ impl TabType {
             TabType::Ollama,
             TabType::Processes,
             TabType::Services,
+            TabType::CardputerLlmChat,
             TabType::Settings,
         ]
     }

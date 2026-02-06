@@ -7,4 +7,5 @@ pub mod ollama;
 pub mod processes;
 pub mod services;
 pub mod disk_analyzer;
+pub mod cardputer_llm_chat;
 pub mod settings;

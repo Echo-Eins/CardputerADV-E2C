@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::{monitors_task, Config, TabManager, TabType};
-use crate::integrations::{ChatLogMetadata, OllamaClient, OllamaData, PowerShellExecutor};
+use crate::integrations::{ChatLogMetadata, OllamaClient, OllamaData, PowerShellExecutor, CardputerGateway, GatewayState};
 use crate::integrations::ollama::{OllamaModel, RunningModel};
 use crate::monitors::{
     CpuData, DiskAnalyzerData, DiskData, GpuData, NetworkData, ProcessData, RamData, ServiceData,
@@ -84,6 +84,10 @@ pub struct AppState {
     pub monitors_running: Arc<RwLock<bool>>,
     pub ms_keys_pressed: Option<Instant>,
     pub pressed_keys: HashSet<KeyCode>,
+
+    // Cardputer LLM Chat Gateway
+    pub cardputer_gateway: Option<Arc<CardputerGateway>>,
+    pub cardputer_gateway_state: Arc<RwLock<GatewayState>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1537,6 +1541,66 @@ impl AppState {
         }
     }
 
+    /// Toggle the Cardputer LLM Chat Gateway on/off
+    async fn toggle_cardputer_gateway(&mut self) {
+        let current_running = {
+            let state = self.cardputer_gateway_state.read();
+            state.running
+        };
+
+        if current_running {
+            // Stop the gateway
+            if let Some(ref gateway) = self.cardputer_gateway {
+                gateway.stop();
+                log::info!("Cardputer gateway stopped via Ctrl+G");
+            }
+        } else {
+            // Start the gateway
+            let cfg = self.config.read();
+            if !cfg.integrations.cardputer_llm_chat.enabled {
+                log::warn!("Cardputer gateway is disabled in config");
+                let mut state = self.cardputer_gateway_state.write();
+                state.last_error = Some("Gateway disabled in config".to_string());
+                return;
+            }
+
+            if self.cardputer_gateway.is_none() {
+                // Need to create a new gateway instance
+                match CardputerGateway::new(
+                    &cfg.integrations.cardputer_llm_chat.bind_address,
+                    cfg.integrations.cardputer_llm_chat.port,
+                    &cfg.integrations.cardputer_llm_chat.server_private_key,
+                    &cfg.integrations.cardputer_llm_chat.cardputer_public_key,
+                    cfg.integrations.cardputer_llm_chat.session_timeout_secs,
+                    cfg.integrations.cardputer_llm_chat.chat_timeout_secs,
+                    cfg.integrations.cardputer_llm_chat.nonce_ttl_secs,
+                    Arc::clone(&self.cardputer_gateway_state),
+                ) {
+                    Ok(gateway) => {
+                        self.cardputer_gateway = Some(Arc::new(gateway));
+                    }
+                    Err(e) => {
+                        log::error!("Failed to create Cardputer gateway: {}", e);
+                        let mut state = self.cardputer_gateway_state.write();
+                        state.last_error = Some(format!("Init failed: {}", e));
+                        return;
+                    }
+                }
+            }
+            drop(cfg); // Release config read lock before spawning
+
+            if let Some(ref gateway) = self.cardputer_gateway {
+                let gw_clone = Arc::clone(gateway);
+                tokio::spawn(async move {
+                    if let Err(e) = gw_clone.start().await {
+                        log::error!("Cardputer gateway failed: {}", e);
+                    }
+                });
+                log::info!("Cardputer gateway started via Ctrl+G");
+            }
+        }
+    }
+
     pub async fn new(config: Config) -> Result<Self> {
         let tab_manager = TabManager::new(config.tabs.enabled.clone(), &config.tabs.default);
 
@@ -1589,6 +1653,44 @@ impl AppState {
             Arc::clone(&ollama_data),
             Arc::clone(&ollama_error),
         );
+
+        // Initialize Cardputer LLM Chat Gateway
+        let cardputer_gateway_state = Arc::new(RwLock::new(GatewayState::default()));
+        let cardputer_gateway = {
+            let cfg = config.read();
+            if cfg.integrations.cardputer_llm_chat.enabled {
+                match CardputerGateway::new(
+                    &cfg.integrations.cardputer_llm_chat.bind_address,
+                    cfg.integrations.cardputer_llm_chat.port,
+                    &cfg.integrations.cardputer_llm_chat.server_private_key,
+                    &cfg.integrations.cardputer_llm_chat.cardputer_public_key,
+                    cfg.integrations.cardputer_llm_chat.session_timeout_secs,
+                    cfg.integrations.cardputer_llm_chat.chat_timeout_secs,
+                    cfg.integrations.cardputer_llm_chat.nonce_ttl_secs,
+                    Arc::clone(&cardputer_gateway_state),
+                ) {
+                    Ok(gateway) => {
+                        let gw = Arc::new(gateway);
+                        // Start the gateway server
+                        let gw_clone = Arc::clone(&gw);
+                        tokio::spawn(async move {
+                            if let Err(e) = gw_clone.start().await {
+                                log::error!("Cardputer gateway failed: {}", e);
+                            }
+                        });
+                        Some(gw)
+                    }
+                    Err(e) => {
+                        log::error!("Failed to create Cardputer gateway: {}", e);
+                        let mut state = cardputer_gateway_state.write();
+                        state.last_error = Some(format!("Init failed: {}", e));
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        };
 
         Ok(Self {
             config,
@@ -1710,6 +1812,9 @@ impl AppState {
             monitors_running,
             ms_keys_pressed: None,
             pressed_keys: HashSet::new(),
+
+            cardputer_gateway,
+            cardputer_gateway_state,
         })
     }
 
@@ -1777,6 +1882,14 @@ impl AppState {
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('f') {
             if is_initial_press {
                 self.command_menu_active = !self.command_menu_active;
+            }
+            return Ok(true);
+        }
+
+        // Handle Ctrl+G to toggle Cardputer LLM Chat Gateway
+        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('g') {
+            if is_initial_press {
+                self.toggle_cardputer_gateway().await;
             }
             return Ok(true);
         }

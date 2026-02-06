@@ -74,6 +74,26 @@ show_extensions = []
 # Default state for extended view (show folder contents for all items)
 extended_view_default = false
 
+[integrations.cardputer_llm_chat]
+# Enable HTTP gateway for Cardputer LLM Chat
+enabled = false
+# Bind address for the HTTP server
+bind_address = "0.0.0.0"
+# Port (fixed, no fallback)
+port = 52525
+# Server private key for ECDSA auth (32 bytes hex = 64 chars)
+# Generate with: openssl ecparam -name prime256v1 -genkey -noout | openssl ec -text -noout
+server_private_key = ""
+# Cardputer public key for verifying client signatures (33 or 65 bytes hex)
+# Must match the key used in cardputer-remote firmware
+cardputer_public_key = ""
+# Session token validity (seconds, default 1 hour)
+session_timeout_secs = 3600
+# Chat response timeout (0 = unlimited)
+chat_timeout_secs = 0
+# Nonce TTL for replay protection (seconds)
+nonce_ttl_secs = 20
+
 [ui]
 mouse_support = true
 tab_switch_key = "Tab"
