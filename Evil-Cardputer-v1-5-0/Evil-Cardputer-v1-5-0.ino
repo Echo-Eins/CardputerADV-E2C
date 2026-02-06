@@ -89,6 +89,9 @@ enum SearchKind {
 // LLM Chat Stream Module
 #include "llm_chat.h"
 
+// LLM Gateway Client (ECDSA authenticated)
+#include "llm_gateway.h"
+
 // Bluetooth HID Keyboard Module
 #include "bluetooth_keyboard.h"
 
@@ -256,7 +259,8 @@ static const char * const PROGMEM menuItems[] = {
   "LDAPDump",                      // 80
   "IMSI Catcher",                  // 81
   "Open Wifi Checker",             // 82
-  "Settings",                      // 83
+  "LLM Gateway",                   // 83
+  "Settings",                      // 84
 };
 
 
@@ -2024,7 +2028,8 @@ void executeMenuItem(int index) {
     case 80: runLDAPDomainDump(); break;
     case 81: imsiCatcher(); break;
     case 82: openWifiDashboardLoop(); break;
-    case 83: showSettingsMenu(); break;
+    case 83: llmGatewayChat(); break;
+    case 84: showSettingsMenu(); break;
   }
   isOperationInProgress = false;
 }
