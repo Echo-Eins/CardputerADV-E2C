@@ -107,6 +107,9 @@ enum SearchKind {
 // WiFi Credentials Manager
 #include "wifi_credentials.h"
 
+// Configuration Manager
+#include "config_manager.h"
+
 #include <esp_task_wdt.h>
 
 #include <HTTPClient.h>
@@ -633,9 +636,11 @@ const unsigned long karmaChannelInterval = 333; // en ms
 
 //AutoKarma end
 
-//config file
-const char* configFolderPath = "/evil/config";
-const char* configFilePath = "/evil/config/config.txt";
+//config file - paths now defined in config_manager.h
+// Use CONFIG_FOLDER_PATH and CONFIG_FILE_PATH from config_manager.h
+// Legacy aliases for backward compatibility:
+#define configFolderPath CONFIG_FOLDER_PATH
+#define configFilePath CONFIG_FILE_PATH
 // Boot launcher config
 bool startAtBootFlag = false;      // if true, launch a menu case at boot
 int  caseToStartAtBoot = -1;       // index of menuItems[] / executeMenuItem case
@@ -1246,6 +1251,9 @@ void setup() {
     Serial.println(F("----------------------"));
     Serial.println(F("SD card initialized !! "));
     Serial.println(F("----------------------"));
+
+    // Initialize configuration manager
+    ConfigManager::init();
 
     // Vérifier et créer le dossier audio s'il n'existe pas
     if (!SD.exists("/evil/audio")) {
@@ -7047,41 +7055,7 @@ void generateDefaultNick() {
     snprintf(currentNick, sizeof(currentNick), "noname%04d", random(0, 10000));
 }
 
-void saveConfigParameter(String key, int value) {
-  if (!SD.exists(configFolderPath)) {
-    SD.mkdir(configFolderPath);
-  }
-
-  String content = "";
-  File configFile = SD.open(configFilePath, FILE_READ);
-  if (configFile) {
-    while (configFile.available()) {
-      content += configFile.readStringUntil('\n') + '\n';
-    }
-    configFile.close();
-  } else {
-    Serial.println(F("Error when opening config.txt for reading (will create new)"));
-       
-  }
-
-  int startPos = content.indexOf(key + "=");
-  if (startPos != -1) {
-    int endPos = content.indexOf('\n', startPos);
-    String oldValue = content.substring(startPos, endPos);
-    content.replace(oldValue, key + "=" + String(value));
-  } else {
-    content += key + "=" + String(value) + "\n";
-  }
-
-  configFile = SD.open(configFilePath, FILE_WRITE);
-  if (configFile) {
-    configFile.print(content);
-    configFile.close();
-    Serial.println(key + " saved!");
-  } else {
-    Serial.println(F("Error when opening config.txt for writing"));
-  }
-}
+// saveConfigParameter() moved to config_manager.cpp
 
 // Toggle GPS pins mode and persist
 void applyGpsPinsForMode(int mode) {
@@ -7111,116 +7085,7 @@ void toggleGpsPinsMode() {
 }
 
 
-// Sauvegarde/maj de portal_file dans /config/config.txt
-void savePortalFileConfig(const String &pathIn) {
-  String portalPath = pathIn;
-  if (!portalPath.startsWith("/evil/sites/")) portalPath = "/evil/sites/" + portalPath;
-
-  if (!SD.exists(portalPath)) {
-    Serial.println("savePortalFileConfig: portal not found on SD -> " + portalPath);
-    return;
-  }
-
-  if (!SD.exists(configFolderPath)) SD.mkdir(configFolderPath);
-
-  String content = "";
-  bool found = false;
-
-  File f = SD.open(configFilePath, FILE_READ);
-  if (f) {
-    while (f.available()) {
-      String line = f.readStringUntil('\n');
-      if (line.startsWith("portal_file=")) {
-        content += "portal_file=" + portalPath + "\n";
-        found = true;
-      } else {
-        content += line + "\n";
-      }
-    }
-    f.close();
-  }
-
-  if (!found) content += "portal_file=" + portalPath + "\n";
-
-  f = SD.open(configFilePath, FILE_WRITE);
-  if (f) {
-    f.print(content);
-    f.close();
-    Serial.println("portal_file saved: " + portalPath);
-  } else {
-    Serial.println(F("savePortalFileConfig: write error"));
-  }
-}
-
-// Sauvegarde/maj de cloned_ssid dans /config/config.txt
-void saveClonedSSIDConfig(const String &ssid) {
-  if (ssid.length() == 0) {
-    Serial.println(F("saveClonedSSIDConfig: empty SSID -> abort"));
-    return;
-  }
-
-  if (!SD.exists(configFolderPath)) SD.mkdir(configFolderPath);
-
-  String content = "";
-  bool found = false;
-
-  File f = SD.open(configFilePath, FILE_READ);
-  if (f) {
-    while (f.available()) {
-      String line = f.readStringUntil('\n');
-      if (line.startsWith("cloned_ssid=")) {
-        content += "cloned_ssid=" + ssid + "\n";
-        found = true;
-      } else {
-        content += line + "\n";
-      }
-    }
-    f.close();
-  }
-
-  if (!found) content += "cloned_ssid=" + ssid + "\n";
-
-  f = SD.open(configFilePath, FILE_WRITE);
-  if (f) {
-    f.print(content);
-    f.close();
-    Serial.println("cloned_ssid saved: " + ssid);
-  } else {
-    Serial.println(F("saveClonedSSIDConfig: write error"));
-  }
-}
-// Sauvegarde/maj de cloned_ssid dans /config/config.txt
-void savePasswordConfig(const String &pass) {
-  if (!SD.exists(configFolderPath)) SD.mkdir(configFolderPath);
-
-  String content = "";
-  bool found = false;
-
-  File f = SD.open(configFilePath, FILE_READ);
-  if (f) {
-    while (f.available()) {
-      String line = f.readStringUntil('\n');
-      if (line.startsWith("portal_password=")) {
-        content += "portal_password=" + pass + "\n";
-        found = true;
-      } else {
-        content += line + "\n";
-      }
-    }
-    f.close();
-  }
-
-  if (!found) content += "portal_password=" + ssid + "\n";
-
-  f = SD.open(configFilePath, FILE_WRITE);
-  if (f) {
-    f.print(content);
-    f.close();
-    Serial.println("portal_password saved: " + ssid);
-  } else {
-    Serial.println(F("portal_password: write error"));
-  }
-}
+// savePortalFileConfig(), saveClonedSSIDConfig(), savePasswordConfig() moved to config_manager.cpp
 
 // Wrapper appelé par le menu Settings
 void saveCurrentPortalAndSSID() {
