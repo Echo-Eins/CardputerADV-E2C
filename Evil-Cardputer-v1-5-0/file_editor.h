@@ -20,7 +20,7 @@
 // ============================================================================
 
 extern void waitAndReturnToMenu(String message);
-extern bool confirmPopup(const char* message);
+extern bool confirmPopup(String message);
 extern String getUserInput(bool isPassword);
 extern bool inMenu;
 
