@@ -104,6 +104,9 @@ enum SearchKind {
 // Remote Desktop Module
 #include "remote_desktop.h"
 
+// WiFi Credentials Manager
+#include "wifi_credentials.h"
+
 #include <esp_task_wdt.h>
 
 #include <HTTPClient.h>
@@ -1354,6 +1357,10 @@ void setup() {
   restoreConfigParameter("startatboot");
   restoreConfigParameter("casetostartatboot");
   restoreConfigParameter("boot_countdown");
+
+  // Initialize WiFi credentials manager
+  wifiCredentialsInit();
+
   int textY = 30;
   int lineOffset = 10;
   int lineY1 = textY - lineOffset;
@@ -1458,7 +1465,103 @@ void setup() {
     delay(250);
   }
 
-  if (ssid != "") {
+  // Check for auto-connect networks from saved credentials
+  std::vector<SavedNetwork*> autoConnectNets = wifiCredentialsGetAutoConnectNetworks(ssidList);
+
+  if (autoConnectNets.size() > 0) {
+    SavedNetwork* selectedNet = nullptr;
+
+    if (autoConnectNets.size() == 1) {
+      // Only one auto-connect network visible
+      selectedNet = autoConnectNets[0];
+      Serial.printf("[WiFi] Auto-connecting to: %s\n", selectedNet->ssid.c_str());
+    } else {
+      // Multiple auto-connect networks - let user choose
+      Serial.printf("[WiFi] Found %d auto-connect networks\n", autoConnectNets.size());
+      M5.Display.clear();
+      M5.Display.setCursor(5, 5);
+      M5.Display.setTextColor(TFT_YELLOW);
+      M5.Display.println("Multiple saved networks:");
+      M5.Display.setTextColor(menuTextFocusedColor);
+
+      int selection = 0;
+      bool selected = false;
+      bool needRedraw = true;
+
+      while (!selected) {
+        if (needRedraw) {
+          for (int i = 0; i < (int)autoConnectNets.size() && i < 8; i++) {
+            M5.Display.setCursor(5, 20 + i * 12);
+            if (i == selection) {
+              M5.Display.setTextColor(TFT_GREEN);
+              M5.Display.print("> ");
+            } else {
+              M5.Display.setTextColor(TFT_WHITE);
+              M5.Display.print("  ");
+            }
+            M5.Display.println(autoConnectNets[i]->ssid);
+          }
+          M5.Display.display();
+          needRedraw = false;
+        }
+
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isKeyPressed(';') || M5Cardputer.Keyboard.isKeyPressed(',')) {
+          selection = (selection - 1 + autoConnectNets.size()) % autoConnectNets.size();
+          needRedraw = true;
+          delay(150);
+        }
+        if (M5Cardputer.Keyboard.isKeyPressed('.') || M5Cardputer.Keyboard.isKeyPressed('/')) {
+          selection = (selection + 1) % autoConnectNets.size();
+          needRedraw = true;
+          delay(150);
+        }
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+          selectedNet = autoConnectNets[selection];
+          selected = true;
+        }
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+          selected = true;  // Skip auto-connect
+        }
+        delay(50);
+      }
+    }
+
+    if (selectedNet) {
+      WiFi.mode(WIFI_MODE_STA);
+      WiFi.begin(selectedNet->ssid.c_str(), selectedNet->password.c_str());
+
+      M5.Display.clear();
+      M5.Display.setCursor(5, M5.Display.height() / 2 - 10);
+      M5.Display.println("Connecting to " + selectedNet->ssid + "...");
+      M5.Display.display();
+
+      unsigned long startAttemptTime = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 5000) {
+        delay(500);
+        Serial.print(".");
+      }
+      Serial.println();
+
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.println(F("Connected to wifi !!!"));
+        ssid = selectedNet->ssid;
+        password = selectedNet->password;
+        wifiCredentialsUpdateLastUsed(ssid);
+
+        M5.Display.clear();
+        M5.Display.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2);
+        M5.Display.println("Connected to");
+        M5.Display.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2 + 12);
+        M5.Display.println(ssid);
+        delay(1000);
+      } else {
+        Serial.println(F("Failed to auto-connect"));
+        WiFi.disconnect();
+      }
+    }
+  } else if (ssid != "") {
+    // Fallback to legacy saved credentials
     WiFi.mode(WIFI_MODE_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
 
@@ -1482,7 +1585,7 @@ void setup() {
       WiFi.disconnect();
     }
   } else {
-    Serial.println(F("SSID is empty."));
+    Serial.println(F("No auto-connect networks and SSID is empty."));
     Serial.println(F("Skipping Wi-Fi connection."));
     Serial.println(F("----------------------"));
   }
@@ -2674,6 +2777,15 @@ void showWifiList() {
     M5.Display.drawLine(x+2, y,   x+5, y, TFT_WHITE);
   };
 
+  // Key icon for saved networks (password remembered)
+  auto drawKeyIcon = [&](int x, int y) {
+    // Small key symbol in yellow/gold
+    M5.Display.fillCircle(x+2, y+3, 2, TFT_YELLOW);      // Key head (circle)
+    M5.Display.drawLine(x+4, y+3, x+8, y+3, TFT_YELLOW); // Key shaft
+    M5.Display.drawLine(x+6, y+3, x+6, y+5, TFT_YELLOW); // Key tooth 1
+    M5.Display.drawLine(x+8, y+3, x+8, y+5, TFT_YELLOW); // Key tooth 2
+  };
+
   auto drawRssiBars = [&](int x, int y, int32_t rssi) {
     int lvl = 0;
     if      (rssi > -65) lvl = 4;
@@ -2721,10 +2833,12 @@ void showWifiList() {
   int32_t rssiCache[30];
   uint8_t chanCache[30];
   bool    lockCache[30];
+  bool    savedCache[30];  // Has saved password
   for (int i = 0; i < numSsid; ++i) {
     rssiCache[i] = WiFi.RSSI(i);
     chanCache[i] = (uint8_t)WiFi.channel(i);
     lockCache[i] = isLocked(i);
+    savedCache[i] = wifiCredentialsHas(ssidList[i]);
   }
 
   static bool prevUp = false, prevDown = false;
@@ -2777,10 +2891,13 @@ void showWifiList() {
         int metaX = LIST_WIDTH - metaW - 2;
         if (metaX < LEFT_PAD + ICON_W + 6) metaX = LEFT_PAD + ICON_W + 6;
 
-        // Icônes gauche
+        // Icônes gauche: RSSI bars, lock icon, key icon (if saved)
         int iconX = LEFT_PAD;
         drawRssiBars(iconX, y, rssiCache[i]);
         drawLockIcon(iconX + 12, y + 1, lockCache[i]);
+        if (savedCache[i]) {
+          drawKeyIcon(iconX + 21, y + 2);  // Key icon after lock
+        }
 
         // SSID tronqué
         int textX = LEFT_PAD + ICON_W;
@@ -6033,6 +6150,132 @@ Settings
 ============================================================================================================================
 */
 
+// WiFi Passwords Management Menu
+void showWifiPasswordsMenu() {
+  const auto& savedNets = wifiCredentialsGetAll();
+
+  if (savedNets.size() == 0) {
+    M5.Display.clear();
+    M5.Display.setCursor(5, M5.Display.height() / 2 - 10);
+    M5.Display.setTextColor(TFT_YELLOW);
+    M5.Display.println("No saved WiFi networks");
+    M5.Display.display();
+    delay(1500);
+    return;
+  }
+
+  int selection = 0;
+  bool needRedraw = true;
+  bool exitMenu = false;
+  const int ROW_H = 14;
+  const int MAX_VISIBLE = 8;
+
+  enterDebounce();
+
+  while (!exitMenu) {
+    if (needRedraw) {
+      M5.Display.clear();
+      M5.Display.setCursor(5, 2);
+      M5.Display.setTextColor(TFT_CYAN);
+      M5.Display.println("Saved WiFi (" + String(savedNets.size()) + ")");
+      M5.Display.setTextColor(menuTextUnFocusedColor);
+      M5.Display.setCursor(5, 14);
+      M5.Display.println("ENTER=Options  BACK=Exit");
+
+      int startIdx = 0;
+      if (selection >= MAX_VISIBLE) {
+        startIdx = selection - MAX_VISIBLE + 1;
+      }
+
+      for (int i = 0; i < MAX_VISIBLE && (startIdx + i) < (int)savedNets.size(); i++) {
+        int idx = startIdx + i;
+        int y = 30 + i * ROW_H;
+
+        if (idx == selection) {
+          M5.Display.fillRect(0, y, M5.Display.width(), ROW_H, menuSelectedBackgroundColor);
+          M5.Display.setTextColor(TFT_GREEN);
+        } else {
+          M5.Display.setTextColor(TFT_WHITE);
+        }
+
+        M5.Display.setCursor(5, y + 2);
+        String line = savedNets[idx].ssid;
+        if (savedNets[idx].autoConnect) {
+          line += " [A]";  // Auto-connect indicator
+        }
+        // Truncate if too long
+        if (M5.Display.textWidth(line) > M5.Display.width() - 10) {
+          while (line.length() > 0 && M5.Display.textWidth(line + "...") > M5.Display.width() - 10) {
+            line.remove(line.length() - 1);
+          }
+          line += "...";
+        }
+        M5.Display.print(line);
+      }
+
+      M5.Display.display();
+      needRedraw = false;
+    }
+
+    M5Cardputer.update();
+
+    if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+      selection = (selection - 1 + savedNets.size()) % savedNets.size();
+      needRedraw = true;
+      delay(120);
+    }
+    if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+      selection = (selection + 1) % savedNets.size();
+      needRedraw = true;
+      delay(120);
+    }
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+      // Show options for selected network
+      String selectedSSID = savedNets[selection].ssid;
+      bool isAutoConnect = savedNets[selection].autoConnect;
+
+      std::vector<std::pair<String, std::function<void()>>> netOptions;
+      netOptions.push_back({isAutoConnect ? "Disable Auto-Connect" : "Enable Auto-Connect", [selectedSSID, isAutoConnect]() {
+        wifiCredentialsSetAutoConnect(selectedSSID, !isAutoConnect);
+      }});
+      netOptions.push_back({"Forget Network", [selectedSSID]() {
+        if (confirmPopup("Forget " + selectedSSID + "?")) {
+          wifiCredentialsForget(selectedSSID);
+        }
+      }});
+      netOptions.push_back({"Show Password", [selectedSSID]() {
+        String pw = wifiCredentialsGetPassword(selectedSSID);
+        M5.Display.clear();
+        M5.Display.setCursor(5, 10);
+        M5.Display.setTextColor(TFT_CYAN);
+        M5.Display.println(selectedSSID);
+        M5.Display.setCursor(5, 30);
+        M5.Display.setTextColor(TFT_WHITE);
+        M5.Display.println("Password:");
+        M5.Display.setCursor(5, 50);
+        M5.Display.setTextColor(TFT_GREEN);
+        M5.Display.println(pw);
+        M5.Display.display();
+        enterDebounce();
+        while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) && !M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+          M5Cardputer.update();
+          delay(50);
+        }
+      }});
+
+      loopOptions(netOptions, false, true, selectedSSID.c_str());
+      needRedraw = true;
+      // Reload in case networks changed
+      continue;
+    }
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      exitMenu = true;
+    }
+
+    delay(50);
+  }
+}
+
 void showSettingsMenu() {
     std::vector<std::pair<String, std::function<void()>>> options;
 
@@ -6055,7 +6298,8 @@ void showSettingsMenu() {
         options.push_back({ String("Set Auto Countdown"), [](){ setBootCountdown(); }});
         options.push_back({"Set CPU Frequency", setCPUFrequency});
         options.push_back({"Change Portal IP", setCaptivePortalIP});
-        
+        options.push_back({"Manage WiFi Passwords", showWifiPasswordsMenu});
+
         loopOptions(options, false, true, "Settings");
         // Vérifie si BACKSPACE a été pressé pour quitter le menu
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
@@ -11192,6 +11436,58 @@ bool connectToWiFi(const String& ssid, const String& password) {
   }
 }
 
+// Helper: Input password with keyboard
+String inputWifiPassword(const String& ssidName) {
+  String typedPassword = "";
+
+  M5.Display.clear();
+  M5.Display.setCursor(5, 10);
+  M5.Display.println("Enter Password for " + ssidName + " :");
+  M5.Display.setCursor(5, 30);
+  M5.Display.display();
+  enterDebounce();
+
+  while (true) {
+    M5Cardputer.update();
+    if (M5Cardputer.Keyboard.isChange()) {
+      if (M5Cardputer.Keyboard.isPressed()) {
+        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+
+        for (auto i : status.word) {
+          typedPassword += i;
+        }
+
+        if (status.del && typedPassword.length() > 0) {
+          typedPassword.remove(typedPassword.length() - 1);
+        }
+
+        M5.Display.clear();
+        M5.Display.setCursor(5, 10);
+        M5.Display.println("Password for " + ssidName + " :");
+        M5.Display.setCursor(5, 30);
+        M5.Display.println(typedPassword);
+        M5.Display.display();
+
+        if (status.enter) {
+          return typedPassword;
+        }
+
+        // Allow cancel with backspace on empty password
+        if (status.del && typedPassword.length() == 0) {
+          return "";  // Cancelled
+        }
+      }
+      delay(100);
+    }
+
+    // Check for ESC/back
+    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) && typedPassword.length() == 0) {
+      delay(200);
+      return "";  // Cancelled
+    }
+  }
+}
+
 // Fonction principale de connexion Wi-Fi
 void connectWifi(int networkIndex) {
   Serial.println(F("Starting WiFi connection process..."));
@@ -11209,78 +11505,82 @@ void connectWifi(int networkIndex) {
   }
 
   String nameSSID = ssidList[networkIndex];
-  String typedPassword = "";
+  String usedPassword = "";
 
   Serial.print(F("Selected network SSID: "));
   Serial.println(nameSSID);
 
-  // Si le réseau est ouvert, passer directement à la connexion
+  // Open network - no password needed
   if (getWifiSecurity(networkIndex) == "Open") {
     Serial.println(F("Network is open, no password required."));
     if (connectToWiFi(nameSSID, "")) {
       waitAndReturnToMenu("Connected to WiFi: " + nameSSID);
-      ssid = nameSSID; // Stocke le SSID sélectionné
+      ssid = nameSSID;
     } else {
       waitAndReturnToMenu("Failed to connect to WiFi: " + nameSSID);
     }
     return;
   }
-  
-  // Vérifier si le SSID est déjà enregistré
-  if (ssid == nameSSID) {
-    Serial.println(F("Previously connected to this network. Trying saved password..."));
-    if (connectToWiFi(nameSSID, password)) {
-      waitAndReturnToMenu("Connected to WiFi: " + nameSSID);
-      return;
-    } else {
-      Serial.println(F("Failed to connect with saved password, asking for a new one..."));
-    }
-  }
 
-  // Demander le mot de passe pour les réseaux sécurisés
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Enter Password for " + nameSSID + " :");
-  M5.Display.setCursor(5, 30);
-  M5.Display.display();
-  enterDebounce();
-  while (true) {
-    M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange()) {
-      if (M5Cardputer.Keyboard.isPressed()) {
-        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+  // Check if we have saved credentials for this network
+  if (wifiCredentialsHas(nameSSID)) {
+    String savedPassword = wifiCredentialsGetPassword(nameSSID);
+    Serial.println(F("Found saved password for this network"));
 
-        for (auto i : status.word) {
-          typedPassword += i;
-        }
+    // Show dialog: Use saved password?
+    if (confirmPopup("Use saved password?")) {
+      Serial.println(F("Trying saved password..."));
 
-        if (status.del && typedPassword.length() > 0) {
-          typedPassword.remove(typedPassword.length() - 1);
-        }
-
+      if (connectToWiFi(nameSSID, savedPassword)) {
+        // Success with saved password
+        wifiCredentialsUpdateLastUsed(nameSSID);
+        ssid = nameSSID;
+        password = savedPassword;
+        waitAndReturnToMenu("Connected to WiFi: " + nameSSID);
+        return;
+      } else {
+        // Saved password failed
+        Serial.println(F("Saved password failed, asking for new one..."));
         M5.Display.clear();
         M5.Display.setCursor(5, 10);
-        M5.Display.println("Password for " + nameSSID + " :");
+        M5.Display.setTextColor(TFT_RED);
+        M5.Display.println("Saved password failed!");
+        M5.Display.setTextColor(menuTextFocusedColor);
         M5.Display.setCursor(5, 30);
-        M5.Display.println(typedPassword); // Affichez le mot de passe en clair
+        M5.Display.println("Enter new password...");
         M5.Display.display();
-
-        if (status.enter) {
-          Serial.print(F("Attempting to connect to WiFi with password: "));
-          Serial.println(typedPassword);
-
-          if (connectToWiFi(nameSSID, typedPassword)) {
-            waitAndReturnToMenu("Connected to WiFi: " + nameSSID);
-            ssid = nameSSID; // Stocke le SSID sélectionné
-            password = typedPassword;
-          } else {
-            waitAndReturnToMenu("Failed to connect to WiFi: " + nameSSID);
-          }
-          break;
-        }
+        delay(1500);
       }
-      delay(200);
     }
+    // User chose not to use saved password, or saved password failed - fall through to manual entry
+  }
+
+  // Manual password entry
+  usedPassword = inputWifiPassword(nameSSID);
+
+  if (usedPassword.length() == 0) {
+    waitAndReturnToMenu("Cancelled");
+    return;
+  }
+
+  Serial.print(F("Attempting to connect with password: "));
+  Serial.println(usedPassword);
+
+  if (connectToWiFi(nameSSID, usedPassword)) {
+    // Success! Save the password
+    ssid = nameSSID;
+    password = usedPassword;
+
+    // Ask if user wants to save this password
+    if (confirmPopup("Save password?")) {
+      bool autoConn = confirmPopup("Auto-connect?");
+      wifiCredentialsSaveNetwork(nameSSID, usedPassword, autoConn);
+      waitAndReturnToMenu("Connected & Saved!");
+    } else {
+      waitAndReturnToMenu("Connected to WiFi: " + nameSSID);
+    }
+  } else {
+    waitAndReturnToMenu("Failed to connect to WiFi: " + nameSSID);
   }
 }
 
