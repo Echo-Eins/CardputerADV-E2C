@@ -87,6 +87,8 @@ pub struct CardputerGateway {
     gateway_state: Arc<RwLock<GatewayState>>,
     shutdown_flag: Arc<AtomicBool>,
     shutdown_notify: Arc<Notify>,
+    /// Shared HTTP state (initialized on start, used for graceful shutdown)
+    http_state: Arc<RwLock<Option<Arc<HttpState>>>>,
 }
 
 impl CardputerGateway {
@@ -124,6 +126,7 @@ impl CardputerGateway {
             gateway_state,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             shutdown_notify: Arc::new(Notify::new()),
+            http_state: Arc::new(RwLock::new(None)),
         })
     }
 
@@ -154,6 +157,9 @@ impl CardputerGateway {
             started_at: Instant::now(),
             gateway_state: Arc::clone(&self.gateway_state),
         });
+
+        // Store http_state for graceful shutdown
+        *self.http_state.write() = Some(Arc::clone(&http_state));
 
         // Build router
         let app = Router::new()
@@ -228,14 +234,29 @@ impl CardputerGateway {
         Ok(())
     }
 
-    /// Stop the HTTP server
+    /// Stop the HTTP server with graceful shutdown of chat sessions
     pub fn stop(&self) {
+        log::info!("Stopping Cardputer Gateway...");
+
+        // Gracefully shutdown chat sessions first
+        if let Some(ref http_state) = *self.http_state.read() {
+            http_state.chat.shutdown();
+        }
+
+        // Signal server to stop
         self.shutdown_flag.store(true, Ordering::SeqCst);
         self.shutdown_notify.notify_one();
 
+        // Clear http_state reference
+        *self.http_state.write() = None;
+
+        // Update gateway state
         let mut state = self.gateway_state.write();
         state.running = false;
         state.started_at = None;
+        state.active_chat_sessions = 0;
+
+        log::info!("Cardputer Gateway stopped");
     }
 
     /// Check if server is running

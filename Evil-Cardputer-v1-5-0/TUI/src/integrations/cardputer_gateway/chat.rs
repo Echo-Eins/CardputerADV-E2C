@@ -2,6 +2,7 @@
 //!
 //! Manages stateful chat sessions with Ollama models.
 //! Sessions maintain conversation context across multiple messages.
+//! Uses Ollama HTTP API for non-blocking async communication.
 
 use anyhow::{anyhow, Result};
 use chrono::Local;
@@ -11,11 +12,14 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use super::dto::*;
+
+/// Ollama API endpoint
+const OLLAMA_API_URL: &str = "http://localhost:11434/api/chat";
 
 /// A single message in a chat session
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,13 +30,15 @@ pub struct ChatMessage {
 }
 
 /// A chat session with an Ollama model
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatSession {
     pub id: String,
     pub model: String,
     pub messages: Vec<ChatMessage>,
-    pub created_at: Instant,
-    pub last_activity: Instant,
+    #[serde(skip)]
+    pub created_at: Option<Instant>,
+    #[serde(skip)]
+    pub last_activity: Option<Instant>,
 }
 
 impl ChatSession {
@@ -42,8 +48,8 @@ impl ChatSession {
             id: Uuid::new_v4().to_string(),
             model,
             messages: Vec::new(),
-            created_at: now,
-            last_activity: now,
+            created_at: Some(now),
+            last_activity: Some(now),
         }
     }
 
@@ -53,7 +59,7 @@ impl ChatSession {
             content,
             timestamp: chrono::Utc::now().timestamp() as u64,
         });
-        self.last_activity = Instant::now();
+        self.last_activity = Some(Instant::now());
     }
 
     pub fn add_assistant_message(&mut self, content: String) {
@@ -62,15 +68,16 @@ impl ChatSession {
             content,
             timestamp: chrono::Utc::now().timestamp() as u64,
         });
-        self.last_activity = Instant::now();
+        self.last_activity = Some(Instant::now());
     }
 }
 
 /// Chat session manager
 pub struct ChatManager {
-    sessions: RwLock<HashMap<String, ChatSession>>,
+    sessions: Arc<RwLock<HashMap<String, ChatSession>>>,
     chat_timeout: Duration,
     log_dir: PathBuf,
+    http_client: reqwest::Client,
 }
 
 impl ChatManager {
@@ -79,14 +86,27 @@ impl ChatManager {
         let log_dir = PathBuf::from("logs/cardputer");
         let _ = fs::create_dir_all(&log_dir);
 
+        // Create HTTP client with timeout
+        let client_timeout = if chat_timeout_secs == 0 {
+            Duration::from_secs(300) // 5 min default for HTTP client
+        } else {
+            Duration::from_secs(chat_timeout_secs)
+        };
+
+        let http_client = reqwest::Client::builder()
+            .timeout(client_timeout)
+            .build()
+            .unwrap_or_default();
+
         Self {
-            sessions: RwLock::new(HashMap::new()),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
             chat_timeout: if chat_timeout_secs == 0 {
                 Duration::from_secs(u64::MAX) // Effectively unlimited
             } else {
                 Duration::from_secs(chat_timeout_secs)
             },
             log_dir,
+            http_client,
         }
     }
 
@@ -107,32 +127,40 @@ impl ChatManager {
         response
     }
 
-    /// Send a message and get response (blocking)
+    /// Send a message and get response (non-blocking async via HTTP API)
     pub async fn send_message(&self, session_id: &str, user_message: &str) -> Result<ChatSendResponse> {
         // Get session and add user message
-        let (model, messages) = {
+        let (model, ollama_messages) = {
             let mut sessions = self.sessions.write();
             let session = sessions.get_mut(session_id)
                 .ok_or_else(|| anyhow!("Session not found"))?;
 
             session.add_user_message(user_message.to_string());
-            (session.model.clone(), session.messages.clone())
+
+            // Convert to Ollama API format
+            let ollama_msgs: Vec<OllamaMessage> = session.messages.iter()
+                .map(|m| OllamaMessage {
+                    role: m.role.clone(),
+                    content: m.content.clone(),
+                })
+                .collect();
+
+            (session.model.clone(), ollama_msgs)
         };
 
-        // Build conversation for Ollama
-        let conversation = build_ollama_prompt(&messages);
-
-        // Call Ollama with timeout
-        let timeout = self.chat_timeout;
-        let result = tokio::time::timeout(timeout, async {
-            call_ollama(&model, &conversation).await
+        // Call Ollama HTTP API (non-blocking)
+        let result = tokio::time::timeout(self.chat_timeout, async {
+            self.call_ollama_api(&model, &ollama_messages).await
         }).await;
 
         let (response_text, truncated) = match result {
             Ok(Ok(text)) => (text, false),
-            Ok(Err(e)) => return Err(e),
+            Ok(Err(e)) => {
+                log::error!("Ollama API error: {}", e);
+                return Err(e);
+            }
             Err(_) => {
-                // Timeout occurred
+                log::warn!("Ollama request timed out for session {}", session_id);
                 ("".to_string(), true)
             }
         };
@@ -150,6 +178,35 @@ impl ChatManager {
             response: response_text,
             truncated,
         })
+    }
+
+    /// Call Ollama HTTP API
+    async fn call_ollama_api(&self, model: &str, messages: &[OllamaMessage]) -> Result<String> {
+        let request = OllamaChatRequest {
+            model: model.to_string(),
+            messages: messages.to_vec(),
+            stream: false,
+        };
+
+        let response = self.http_client
+            .post(OLLAMA_API_URL)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to connect to Ollama: {}", e))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Ollama API error {}: {}", status, body));
+        }
+
+        let chat_response: OllamaChatResponse = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse Ollama response: {}", e))?;
+
+        Ok(chat_response.message.content)
     }
 
     /// Stop a chat session and save logs
@@ -181,11 +238,13 @@ impl ChatManager {
     }
 
     /// Get list of active session IDs
+    #[allow(dead_code)]
     pub fn active_sessions(&self) -> Vec<String> {
         self.sessions.read().keys().cloned().collect()
     }
 
     /// Clean up stale sessions (inactive for more than 1 hour)
+    #[allow(dead_code)]
     pub fn cleanup_stale_sessions(&self) {
         let stale_threshold = Duration::from_secs(3600);
         let now = Instant::now();
@@ -193,22 +252,49 @@ impl ChatManager {
         let stale_ids: Vec<String> = {
             let sessions = self.sessions.read();
             sessions.iter()
-                .filter(|(_, s)| now.duration_since(s.last_activity) > stale_threshold)
+                .filter(|(_, s)| {
+                    s.last_activity
+                        .map(|t| now.duration_since(t) > stale_threshold)
+                        .unwrap_or(true)
+                })
                 .map(|(id, _)| id.clone())
                 .collect()
         };
 
         for id in stale_ids {
-            if let Ok(_) = self.stop_session(&id) {
+            if self.stop_session(&id).is_ok() {
                 log::info!("Cleaned up stale session: {}", id);
             }
         }
     }
 
+    /// Graceful shutdown - save all active sessions
+    pub fn shutdown(&self) {
+        log::info!("ChatManager shutting down, saving all sessions...");
+
+        let session_ids: Vec<String> = {
+            self.sessions.read().keys().cloned().collect()
+        };
+
+        let count = session_ids.len();
+        for session_id in session_ids {
+            if let Err(e) = self.stop_session(&session_id) {
+                log::warn!("Failed to stop session {} during shutdown: {}", session_id, e);
+            }
+        }
+
+        log::info!("ChatManager shutdown complete, saved {} sessions", count);
+    }
+
     /// Save chat log to file (Ollama-compatible format)
     fn save_chat_log(&self, session: &ChatSession) -> Result<()> {
+        // Skip empty sessions
+        if session.messages.is_empty() {
+            return Ok(());
+        }
+
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
-        let filename = format!("cardputer_{}_{}.json", session.model.replace(":", "_"), timestamp);
+        let filename = format!("cardputer_{}_{}.json", session.model.replace(':', "_"), timestamp);
         let path = self.log_dir.join(&filename);
 
         #[derive(Serialize)]
@@ -237,61 +323,38 @@ impl ChatManager {
     }
 }
 
-/// Build a prompt string for Ollama from conversation history
-fn build_ollama_prompt(messages: &[ChatMessage]) -> String {
-    // For single-turn, just use the last user message
-    // For multi-turn, we need to format as conversation
-    let mut prompt = String::new();
-
-    for msg in messages {
-        match msg.role.as_str() {
-            "user" => {
-                prompt.push_str(&format!("User: {}\n", msg.content));
-            }
-            "assistant" => {
-                prompt.push_str(&format!("Assistant: {}\n", msg.content));
-            }
-            _ => {}
+impl Drop for ChatManager {
+    fn drop(&mut self) {
+        // Note: Can't call shutdown() here because it needs &self, not &mut self
+        // The graceful shutdown should be called explicitly via shutdown()
+        let count = self.sessions.read().len();
+        if count > 0 {
+            log::warn!("ChatManager dropped with {} active sessions - call shutdown() for graceful cleanup", count);
         }
     }
-
-    // Add prompt for assistant response
-    prompt.push_str("Assistant: ");
-    prompt
 }
 
-/// Call Ollama with a prompt and return the response
-async fn call_ollama(model: &str, prompt: &str) -> Result<String> {
-    // Use tokio::task::spawn_blocking for the synchronous Command execution
-    let model = model.to_string();
-    let prompt = prompt.to_string();
+/// Ollama API message format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OllamaMessage {
+    role: String,
+    content: String,
+}
 
-    let result = tokio::task::spawn_blocking(move || {
-        let mut child = Command::new("ollama")
-            .arg("run")
-            .arg(&model)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+/// Ollama chat API request
+#[derive(Debug, Serialize)]
+struct OllamaChatRequest {
+    model: String,
+    messages: Vec<OllamaMessage>,
+    stream: bool,
+}
 
-        // Write prompt to stdin
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(prompt.as_bytes())?;
-        }
-
-        let output = child.wait_with_output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Ollama error: {}", stderr));
-        }
-
-        let response = String::from_utf8_lossy(&output.stdout).to_string();
-        Ok(response.trim().to_string())
-    }).await??;
-
-    Ok(result)
+/// Ollama chat API response
+#[derive(Debug, Deserialize)]
+struct OllamaChatResponse {
+    message: OllamaMessage,
+    #[allow(dead_code)]
+    done: bool,
 }
 
 #[cfg(test)]
@@ -320,29 +383,19 @@ mod tests {
     }
 
     #[test]
-    fn test_build_prompt() {
-        let messages = vec![
-            ChatMessage {
-                role: "user".to_string(),
-                content: "Hello".to_string(),
-                timestamp: 0,
-            },
-            ChatMessage {
-                role: "assistant".to_string(),
-                content: "Hi there!".to_string(),
-                timestamp: 0,
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: "How are you?".to_string(),
-                timestamp: 0,
-            },
-        ];
+    fn test_graceful_shutdown() {
+        let manager = ChatManager::new(30);
 
-        let prompt = build_ollama_prompt(&messages);
-        assert!(prompt.contains("User: Hello"));
-        assert!(prompt.contains("Assistant: Hi there!"));
-        assert!(prompt.contains("User: How are you?"));
-        assert!(prompt.ends_with("Assistant: "));
+        // Start multiple sessions
+        manager.start_session("model1");
+        manager.start_session("model2");
+        manager.start_session("model3");
+
+        assert_eq!(manager.active_session_count(), 3);
+
+        // Shutdown
+        manager.shutdown();
+
+        assert_eq!(manager.active_session_count(), 0);
     }
 }
