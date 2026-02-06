@@ -123,6 +123,12 @@ static struct {
     char serverName[64];
     IPAddress serverIP;
 
+    // Mouse acceleration state
+    uint32_t mouseKeyPressTime[4];   // When each direction key was first pressed (0=up, 1=down, 2=left, 3=right)
+    bool mouseKeyHeld[4];            // Is each direction key currently held
+    uint32_t lastMouseSendTime;      // Rate limiting for network sends
+    uint8_t mouseAccelStep;          // Current acceleration step (0-7)
+
 } rdSession;
 
 // ============================================================================
@@ -136,6 +142,7 @@ static void rdDisconnect();
 static void rdLoop();
 static void rdDrawStatus(const char* line1, const char* line2 = nullptr);
 static void rdDrawFrame(const uint8_t* jpegData, size_t jpegLen);
+static void rdProcessMouseMovement();
 static void rdProcessInput();
 static RDError rdSendPacket(RDPacketType type, const uint8_t* payload, uint16_t len);
 static RDError rdSendEncrypted(RDPacketType type, const uint8_t* payload, uint16_t len);
@@ -1488,32 +1495,118 @@ static void rdClearKeyboard() {
 }
 
 // ============================================================================
+// Progressive mouse movement
+// ============================================================================
+
+// Acceleration table: pixels to move at each step (exponential with smoothing)
+// Step 0-7, then caps at step 7
+static const uint8_t RD_MOUSE_ACCEL_TABLE[] = {1, 1, 2, 3, 5, 8, 12, 18};
+static const uint32_t RD_MOUSE_ACCEL_DELAY_MS = 250;    // Time before acceleration starts
+static const uint32_t RD_MOUSE_SEND_INTERVAL_MS = 30;   // Min interval between network sends
+static const uint32_t RD_MOUSE_STEP_INTERVAL_MS = 80;   // Time between acceleration steps
+
+// Process mouse movement with progressive acceleration
+// Called every frame, handles continuous holding
+static void rdProcessMouseMovement() {
+    uint32_t now = millis();
+
+    // Check if FN is held
+    Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+    if (!status.fn) {
+        // Reset all mouse state when FN released
+        for (int i = 0; i < 4; i++) {
+            rdSession.mouseKeyHeld[i] = false;
+            rdSession.mouseKeyPressTime[i] = 0;
+        }
+        rdSession.mouseAccelStep = 0;
+        return;
+    }
+
+    // Check each direction key
+    // Index: 0=up(;), 1=down(.), 2=left(,), 3=right(/)
+    bool currentlyHeld[4] = {
+        M5Cardputer.Keyboard.isKeyPressed(';'),
+        M5Cardputer.Keyboard.isKeyPressed('.'),
+        M5Cardputer.Keyboard.isKeyPressed(','),
+        M5Cardputer.Keyboard.isKeyPressed('/')
+    };
+
+    // Update key state and track press times
+    bool anyDirectionHeld = false;
+    uint32_t oldestHoldTime = 0;
+
+    for (int i = 0; i < 4; i++) {
+        if (currentlyHeld[i]) {
+            anyDirectionHeld = true;
+            if (!rdSession.mouseKeyHeld[i]) {
+                // Key just pressed
+                rdSession.mouseKeyHeld[i] = true;
+                rdSession.mouseKeyPressTime[i] = now;
+            }
+            // Track oldest held key for acceleration
+            if (rdSession.mouseKeyPressTime[i] > 0) {
+                uint32_t holdTime = now - rdSession.mouseKeyPressTime[i];
+                if (holdTime > oldestHoldTime) {
+                    oldestHoldTime = holdTime;
+                }
+            }
+        } else {
+            // Key released
+            rdSession.mouseKeyHeld[i] = false;
+            rdSession.mouseKeyPressTime[i] = 0;
+        }
+    }
+
+    if (!anyDirectionHeld) {
+        rdSession.mouseAccelStep = 0;
+        return;
+    }
+
+    // Rate limiting: don't send too frequently
+    if (now - rdSession.lastMouseSendTime < RD_MOUSE_SEND_INTERVAL_MS) {
+        return;
+    }
+
+    // Calculate acceleration step based on hold time
+    uint8_t accelStep = 0;
+    if (oldestHoldTime >= RD_MOUSE_ACCEL_DELAY_MS) {
+        // Time since acceleration started
+        uint32_t accelTime = oldestHoldTime - RD_MOUSE_ACCEL_DELAY_MS;
+        // Step up every RD_MOUSE_STEP_INTERVAL_MS
+        accelStep = accelTime / RD_MOUSE_STEP_INTERVAL_MS;
+        if (accelStep > 7) accelStep = 7;
+    }
+    rdSession.mouseAccelStep = accelStep;
+
+    // Get movement amount from acceleration table
+    uint8_t moveAmount = RD_MOUSE_ACCEL_TABLE[accelStep];
+
+    // Calculate delta
+    int8_t dx = 0, dy = 0;
+    if (rdSession.mouseKeyHeld[0]) dy -= moveAmount;  // Up
+    if (rdSession.mouseKeyHeld[1]) dy += moveAmount;  // Down
+    if (rdSession.mouseKeyHeld[2]) dx -= moveAmount;  // Left
+    if (rdSession.mouseKeyHeld[3]) dx += moveAmount;  // Right
+
+    if (dx != 0 || dy != 0) {
+        uint8_t data[2] = {(uint8_t)dx, (uint8_t)dy};
+        rdSendEncrypted(RD_PKT_MOUSE_MOVE, data, 2);
+        rdSession.lastMouseSendTime = now;
+    }
+}
+
+// ============================================================================
 // Input processing
 // ============================================================================
 
 static void rdProcessInput() {
-    if (!M5Cardputer.Keyboard.isChange()) return;
-    if (!M5Cardputer.Keyboard.isPressed()) return;
-
     Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
 
-    // Handle FN combinations for mouse control
-    // Physical layout:  L  ↑(;)  '
-    //                   ←(,) ↓(.) →(/)
-    // FN + arrows = mouse move, FN + L = left click, FN + ' = right click
-    if (status.fn) {
-        int8_t dx = 0, dy = 0;
+    // Progressive mouse movement is handled separately (every frame)
+    // Here we only handle discrete events
 
-        if (M5Cardputer.Keyboard.isKeyPressed(';')) dy = -10;  // Up
-        if (M5Cardputer.Keyboard.isKeyPressed('.')) dy = 10;   // Down
-        if (M5Cardputer.Keyboard.isKeyPressed(',')) dx = -10;  // Left
-        if (M5Cardputer.Keyboard.isKeyPressed('/')) dx = 10;   // Right
-
-        if (dx != 0 || dy != 0) {
-            uint8_t data[2] = {(uint8_t)dx, (uint8_t)dy};
-            rdSendEncrypted(RD_PKT_MOUSE_MOVE, data, 2);
-        }
-
+    // Handle FN combinations for mouse clicks (only on key change)
+    if (status.fn && M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
         // Left mouse button: FN + L or FN + Enter
         if (M5Cardputer.Keyboard.isKeyPressed('l') || status.enter) {
             uint8_t data[2] = {0, 2};  // Left button, click action
@@ -1527,6 +1620,11 @@ static void rdProcessInput() {
         }
         return;
     }
+
+    // Keyboard input requires key change event
+    if (!M5Cardputer.Keyboard.isChange()) return;
+    if (!M5Cardputer.Keyboard.isPressed()) return;
+    if (status.fn) return;  // FN mode handled above
 
     // ── Keyboard mode ──
     // The M5Cardputer library resolves key matrix + Shift/Caps locally,
@@ -1611,6 +1709,9 @@ static void rdLoop() {
 
         // Process keyboard input
         rdProcessInput();
+
+        // Process progressive mouse movement (separate from discrete key events)
+        rdProcessMouseMovement();
 
         // Check for incoming data (need at least header)
         if (rdSession.client.available() >= RD_PACKET_HEADER_SIZE) {
@@ -1921,6 +2022,14 @@ void remoteDesktop() {
     rdSession.framesReceived = 0;
     rdSession.lastFrameTime = 0;
     rdSession.currentFps = 0.0f;
+
+    // Initialize mouse acceleration state
+    for (int i = 0; i < 4; i++) {
+        rdSession.mouseKeyPressTime[i] = 0;
+        rdSession.mouseKeyHeld[i] = false;
+    }
+    rdSession.lastMouseSendTime = 0;
+    rdSession.mouseAccelStep = 0;
 
     // === UI DEBOUNCE FIX ===
     // Clear keyboard state and wait to prevent immediate action

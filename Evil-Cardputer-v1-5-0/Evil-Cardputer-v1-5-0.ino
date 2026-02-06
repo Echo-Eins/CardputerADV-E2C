@@ -92,6 +92,12 @@ enum SearchKind {
 // LLM Gateway Client (ECDSA authenticated)
 #include "llm_gateway.h"
 
+// Enhanced File Editor
+#include "file_editor.h"
+
+// REPL Terminals (Calculator, Shell)
+#include "terminals.h"
+
 // Bluetooth HID Keyboard Module
 #include "bluetooth_keyboard.h"
 
@@ -260,7 +266,9 @@ static const char * const PROGMEM menuItems[] = {
   "IMSI Catcher",                  // 81
   "Open Wifi Checker",             // 82
   "LLM Gateway",                   // 83
-  "Settings",                      // 84
+  "File Editor",                   // 84
+  "Terminals",                     // 85
+  "Settings",                      // 86
 };
 
 
@@ -2029,7 +2037,9 @@ void executeMenuItem(int index) {
     case 81: imsiCatcher(); break;
     case 82: openWifiDashboardLoop(); break;
     case 83: llmGatewayChat(); break;
-    case 84: showSettingsMenu(); break;
+    case 84: fileEditorMain(); break;
+    case 85: terminalsMenu(); break;
+    case 86: showSettingsMenu(); break;
   }
   isOperationInProgress = false;
 }
