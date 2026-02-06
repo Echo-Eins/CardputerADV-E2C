@@ -10,7 +10,7 @@ private_key = "c50d7f9134f6b114dd2baa0203da9b94b308a5ffb8f23fcae1a2030697103c65"
 cardputer_public_key = "04a14d3edcc36ea7ef8ed6b4893106a9887087783a9b76dfd245aa0271a11aea17a7737673f5dd40fe1a07f8075b2963e0fd25f8a81fba1029a98f5abbb3779c3c"
 
 [network]
-mdns_service_type = "_cardputer-remote._tcp.local"
+mdns_service_type = "_cardputer-remote._tcp.local."
 device_name = "PC"
 bind_address = "0.0.0.0"
 
