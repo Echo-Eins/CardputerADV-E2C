@@ -136,6 +136,7 @@ static struct {
 // ============================================================================
 
 static RDError rdDiscover();
+static RDError rdNetworkScan();  // Fallback when mDNS fails
 static RDError rdConnect();
 static RDError rdHandshake();
 static void rdDisconnect();
@@ -1099,6 +1100,180 @@ static RDError rdSendDiscoveryRequest() {
 }
 
 // ============================================================================
+// Network Scan Fallback - Scan subnet when mDNS fails
+// ============================================================================
+
+static RDError rdNetworkScan() {
+    // Load cookie first - required for verification
+    if (!rdLoadCookie()) {
+        Serial.println("[RD] Network scan requires cookie");
+        return RD_ERR_NO_COOKIE;
+    }
+
+    rdDrawStatus("Scanning network...", "mDNS failed, trying subnet");
+
+    // Get local IP and calculate subnet
+    IPAddress localIP = WiFi.localIP();
+    IPAddress subnet = WiFi.subnetMask();
+
+    Serial.printf("[RD] Local IP: %s, Subnet: %s\n",
+                  localIP.toString().c_str(),
+                  subnet.toString().c_str());
+
+    // Calculate network address and scan range
+    // For /24 network (255.255.255.0), scan .1 to .254
+    uint32_t localAddr = (uint32_t)localIP;
+    uint32_t subnetMask = (uint32_t)subnet;
+    uint32_t networkAddr = localAddr & subnetMask;
+
+    // Determine scan range based on subnet
+    int startHost = 1;
+    int endHost = 254;
+
+    // For smaller subnets, adjust range
+    if ((subnetMask & 0xFF000000) != 0xFF000000) {
+        // /24 or larger, scan full range
+    } else if ((subnetMask & 0x00FF0000) != 0x00FF0000) {
+        // /16, too many hosts - limit scan
+        endHost = 50;
+    }
+
+    WiFiClient scanClient;
+    scanClient.setTimeout(500);  // Quick timeout for scanning
+
+    int scanned = 0;
+    int totalHosts = endHost - startHost + 1;
+
+    for (int host = startHost; host <= endHost; host++) {
+        // Check for user cancel
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            return RD_ERR_USER_CANCEL;
+        }
+
+        // Build target IP
+        uint32_t targetAddr = networkAddr | ((uint32_t)host << 24);  // Little-endian
+        IPAddress targetIP(targetAddr);
+
+        // Skip our own IP
+        if (targetIP == localIP) continue;
+
+        scanned++;
+
+        // Update status every 10 IPs
+        if (scanned % 10 == 0) {
+            char progress[32];
+            snprintf(progress, sizeof(progress), "Scanning %d/%d...", scanned, totalHosts);
+            rdDrawStatus("Network scan", progress);
+        }
+
+        // Try quick TCP connection
+        if (!scanClient.connect(targetIP, RD_DEFAULT_PORT, 300)) {  // 300ms connect timeout
+            continue;
+        }
+
+        Serial.printf("[RD] Scan: port open on %s\n", targetIP.toString().c_str());
+
+        // Build discovery request: header + cookie + device_name
+        uint8_t packet[RD_PACKET_HEADER_SIZE + RD_COOKIE_SIZE + 16];
+        const char* deviceName = "Cardputer";
+        size_t nameLen = strlen(deviceName);
+        uint16_t payloadLen = RD_COOKIE_SIZE + nameLen;
+
+        // Header
+        packet[0] = RD_PROTOCOL_VERSION;
+        packet[1] = RD_PKT_DISCOVERY_REQUEST;
+        packet[2] = (payloadLen >> 8) & 0xFF;
+        packet[3] = payloadLen & 0xFF;
+
+        // Payload: cookie + device_name
+        memcpy(packet + RD_PACKET_HEADER_SIZE, rdKeys.cookie, RD_COOKIE_SIZE);
+        memcpy(packet + RD_PACKET_HEADER_SIZE + RD_COOKIE_SIZE, deviceName, nameLen);
+
+        // Send request
+        size_t sent = scanClient.write(packet, RD_PACKET_HEADER_SIZE + payloadLen);
+        if (sent != RD_PACKET_HEADER_SIZE + payloadLen) {
+            Serial.printf("[RD] Scan: send failed on %s\n", targetIP.toString().c_str());
+            scanClient.stop();
+            continue;
+        }
+
+        // Wait for response (up to 500ms)
+        unsigned long start = millis();
+        while (scanClient.available() < RD_PACKET_HEADER_SIZE && millis() - start < 500) {
+            delay(10);
+        }
+
+        if (scanClient.available() < RD_PACKET_HEADER_SIZE) {
+            Serial.printf("[RD] Scan: no response from %s\n", targetIP.toString().c_str());
+            scanClient.stop();
+            continue;
+        }
+
+        // Read response header
+        uint8_t respHdr[RD_PACKET_HEADER_SIZE];
+        scanClient.readBytes(respHdr, RD_PACKET_HEADER_SIZE);
+
+        if (respHdr[0] != RD_PROTOCOL_VERSION) {
+            Serial.printf("[RD] Scan: wrong protocol on %s\n", targetIP.toString().c_str());
+            scanClient.stop();
+            continue;
+        }
+
+        if (respHdr[1] != RD_PKT_DISCOVERY_RESPONSE) {
+            Serial.printf("[RD] Scan: bad response type 0x%02X on %s\n", respHdr[1], targetIP.toString().c_str());
+            scanClient.stop();
+            continue;
+        }
+
+        uint16_t respLen = ((uint16_t)respHdr[2] << 8) | respHdr[3];
+        if (respLen < RD_COOKIE_SIZE) {
+            scanClient.stop();
+            continue;
+        }
+
+        // Read response payload
+        uint8_t respPayload[128];
+        size_t toRead = respLen > sizeof(respPayload) ? sizeof(respPayload) : respLen;
+
+        start = millis();
+        size_t totalRead = 0;
+        while (totalRead < toRead && millis() - start < 500) {
+            if (scanClient.available()) {
+                totalRead += scanClient.readBytes(respPayload + totalRead, toRead - totalRead);
+            } else {
+                delay(10);
+            }
+        }
+
+        scanClient.stop();
+
+        if (totalRead < RD_COOKIE_SIZE) {
+            continue;
+        }
+
+        // Verify cookie matches
+        if (memcmp(respPayload, rdKeys.cookie, RD_COOKIE_SIZE) == 0) {
+            // Found our server!
+            Serial.printf("[RD] Found server via network scan: %s\n", targetIP.toString().c_str());
+
+            rdSession.serverIP = targetIP;
+            snprintf(rdSession.serverName, sizeof(rdSession.serverName), "%s", targetIP.toString().c_str());
+
+            rdDrawStatus("Server found!", targetIP.toString().c_str());
+            delay(500);
+
+            return RD_OK;
+        }
+
+        Serial.printf("[RD] Scan: cookie mismatch on %s\n", targetIP.toString().c_str());
+    }
+
+    Serial.println("[RD] Network scan completed, no server found");
+    return RD_ERR_NO_SERVER;
+}
+
+// ============================================================================
 // mDNS Discovery with timeout
 // ============================================================================
 
@@ -1163,12 +1338,22 @@ static RDError rdDiscover() {
         Serial.println("[RD] No servers found via mDNS");
         MDNS.end();
 
-        // Try manual entry or saved config
+        // Try saved config first
         if (strlen(rdConfig.serverHost) > 0) {
             rdSession.serverIP.fromString(rdConfig.serverHost);
             strlcpy(rdSession.serverName, rdConfig.serverHost, sizeof(rdSession.serverName));
             return RD_OK;
         }
+
+        // Try network scan as fallback (uses cookie verification)
+        Serial.println("[RD] Trying network scan fallback...");
+        RDError scanResult = rdNetworkScan();
+        if (scanResult == RD_OK) {
+            return RD_OK;
+        } else if (scanResult == RD_ERR_USER_CANCEL) {
+            return RD_ERR_USER_CANCEL;
+        }
+
         return RD_ERR_NO_SERVER;
     }
 

@@ -153,8 +153,8 @@ impl DiscoveryService {
 
         // Re-announce loop: periodically re-register so the service stays visible.
         // Without this, only the initial announcement + reactive query responses exist.
-        // ESP32 MDNS.queryService() has a 7s timeout — 10s interval ensures at least
-        // one announcement falls within any query window.
+        // ESP32 scan timeout is 10s — 5s interval ensures at least 2 announcements
+        // fall within any query window, improving discovery reliability.
         let running_announce = self.running.clone();
         let daemon_clone = self.daemon.clone();
         let stype = self.service_type.clone();
@@ -162,8 +162,9 @@ impl DiscoveryService {
         let port = self.port;
         tokio::spawn(async move {
             let mut count: u64 = 0;
+            // Initial delay shorter to catch early queries
+            tokio::time::sleep(Duration::from_secs(2)).await;
             loop {
-                tokio::time::sleep(Duration::from_secs(10)).await;
                 if !running_announce.load(Ordering::Relaxed) {
                     break;
                 }
@@ -178,6 +179,8 @@ impl DiscoveryService {
                     }
                     Err(e) => warn!("mDNS: re-announce #{} ServiceInfo error: {}", count, e),
                 }
+                // 5 second interval ensures 2 announcements per 10s ESP32 scan window
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
             info!("mDNS: re-announce loop stopped");
         });

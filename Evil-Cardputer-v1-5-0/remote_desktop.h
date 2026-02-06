@@ -67,7 +67,7 @@ extern bool soundOn;
 #define RD_DISPLAY_HEIGHT       135
 
 // Timeouts
-#define RD_MDNS_TIMEOUT_MS      7000    // mDNS discovery timeout
+#define RD_MDNS_TIMEOUT_MS      10000   // mDNS discovery timeout (server re-announces every 5s)
 #define RD_HANDSHAKE_TIMEOUT_MS 10000   // Handshake timeout
 #define RD_RECEIVE_TIMEOUT_MS   5000    // General receive timeout
 
