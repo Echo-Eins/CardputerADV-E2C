@@ -110,6 +110,9 @@ enum SearchKind {
 // Configuration Manager
 #include "config_manager.h"
 
+// Menu Engine
+#include "menu_engine.h"
+
 #include <esp_task_wdt.h>
 
 #include <HTTPClient.h>
@@ -1369,6 +1372,9 @@ void setup() {
   // Initialize WiFi credentials manager
   wifiCredentialsInit();
 
+  // Initialize menu engine
+  MenuEngine::init(menuItems, menuSize, maxMenuDisplay);
+
   int textY = 30;
   int lineOffset = 10;
   int lineY1 = textY - lineOffset;
@@ -1889,138 +1895,10 @@ void loop() {
 
 
 
-//-----------------------------------------------------------------------------------------------------
-// --- Recherche dans le menu : version zéro-alloc ---
-enum MenuMode { MENU_NAVIGATION, MENU_SEARCH };
-MenuMode menuMode = MENU_NAVIGATION;
-
-// Requête bornée
-static char menuSearchQuery[17] = {0};  // 16 + '\0'
-static uint8_t menuSearchLen = 0;
-
-// Vue filtrée bornée
-static int16_t menuFilteredIdx[menuSize];
-static int16_t menuFilteredCount = 0;
-
-static bool menuFilterLocked = false;          // navigation sur vue filtrée
-static unsigned long searchLastKeyTime = 0;
-static const unsigned long searchKeyRepeatDelay = 200; // ms
-
-// Debounce pour S : on attend le relâchement après l'entrée en mode recherche
-static bool searchWaitForSRelease = false;
-// --- fin recherche zéro-alloc ---
-
-static inline char lc(char c) {
-  return (c >= 'A' && c <= 'Z') ? (c + 32) : c;
-}
-
-static bool icase_contains_flash(const char* hay, const char* needle, uint8_t nlen) {
-  if (nlen == 0) return true;
-  for (uint16_t i = 0; hay[i]; ++i) {
-    if (lc(hay[i]) == lc(needle[0])) {
-      uint8_t j = 1;
-      while (needle[j] && hay[i + j] && (lc(hay[i + j]) == lc(needle[j]))) ++j;
-      if (j == nlen) return true;
-    }
-  }
-  return false;
-}
-
-void rebuildMenuFilter() {
-  menuFilteredCount = 0;
-  if (menuSearchLen == 0) {
-    for (int i = 0; i < menuSize; ++i) menuFilteredIdx[menuFilteredCount++] = i;
-    Serial.printf("[SEARCH] query='(empty)' -> %d match(es)\n", (int)menuFilteredCount);
-    return;
-  }
-  for (int i = 0; i < menuSize; ++i) {
-    const char* it = (const char*)menuItems[i];
-    if (icase_contains_flash(it, menuSearchQuery, menuSearchLen)) {
-      menuFilteredIdx[menuFilteredCount++] = i;
-    }
-  }
-  Serial.printf("[SEARCH] query='%s' -> %d match(es)\n", menuSearchQuery, (int)menuFilteredCount);
-}
-
-int viewCount() {
-  return (menuMode == MENU_SEARCH || menuFilterLocked) ? (int)menuFilteredCount : menuSize;
-}
-
-int mapViewToRealIndex(int pos) {
-  if (menuMode == MENU_SEARCH || menuFilterLocked) {
-    if (pos < 0 || pos >= (int)menuFilteredCount) return 0;
-    return menuFilteredIdx[pos];
-  }
-  return pos;
-}
-
-void clampMenuSelection() {
-  int total = viewCount();
-  if (total <= 0) {
-    currentIndex = 0;
-    menuStartIndex = 0;
-    return;
-  }
-  if (currentIndex >= total) currentIndex = total - 1;
-  if (currentIndex < 0) currentIndex = 0;
-  menuStartIndex = std::max(0, std::min(currentIndex, total - maxMenuDisplay));
-}
-
-char getPrintableKey() {
-  for (int c = 32; c <= 126; ++c) {
-    if (M5Cardputer.Keyboard.isKeyPressed((char)c)) return (char)c;
-  }
-  return 0;
-}
-
-void drawSearchBar() {
-  const int barH = 12;
-  const int y = M5.Display.height() - barH;
-  M5.Display.fillRect(0, y, M5.Display.width(), barH, TFT_BLACK);
-  M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  M5.Display.setCursor(5, y + 1);
-  M5.Display.print("Search: ");
-  M5.Display.print(menuSearchQuery);
-}
-
-void enterSearchMode() {
-  if (menuMode != MENU_SEARCH) {
-    menuMode = MENU_SEARCH;
-    menuFilterLocked = false;
-    rebuildMenuFilter();
-    currentIndex = 0;
-    menuStartIndex = 0;
-    lastIndex = -1;
-    Serial.println("[SEARCH] enter");
-  }
-  drawMenu();
-  drawSearchBar();
-}
-
-// Quitte la recherche : si query vide => menu complet (pas de filtre verrouillé),
-// sinon on verrouille la vue filtrée
-void exitSearchModeAuto() {
-  menuMode = MENU_NAVIGATION;
-  menuFilterLocked = (menuSearchLen > 0);
-  clampMenuSelection();
-  lastIndex = -1;
-  Serial.printf("[SEARCH] exit -> %s\n", menuFilterLocked ? "keep filtered view" : "full menu");
-  drawMenu();
-}
-
-// BACKSPACE en mode recherche : effacer 1 caractère (si vide, on reste en recherche
-// avec liste complète)
-void clearSearchBackspaceOne() {
-  if (menuSearchLen > 0) {
-    menuSearchQuery[--menuSearchLen] = '\0';
-  }
-  rebuildMenuFilter();
-  currentIndex = 0;
-  menuStartIndex = 0;
-  lastIndex = -1;
-  drawMenu();
-  drawSearchBar();
-}
+// Search functions moved to menu_engine.cpp
+// Legacy wrappers: enterSearchMode(), exitSearchModeAuto(), rebuildMenuFilter(),
+// viewCount(), mapViewToRealIndex(), clampMenuSelection(), getPrintableKey(),
+// drawSearchBar(), clearSearchBackspaceOne()
 
 //-----------------------------------------------------------------------------------------------------
 void drawMenu() {
@@ -2051,7 +1929,7 @@ void drawMenu() {
     M5.Display.println((const char*)menuItems[menuIndex]);
   }
 
-  if (menuMode == MENU_SEARCH) drawSearchBar();
+  if (MenuEngine::getMode() == MENU_SEARCH) drawSearchBar();
   M5.Display.display();
 }
 
@@ -2187,30 +2065,34 @@ void handleMenuInput() {
   bool stateChanged = false;
 
   // ----- Ouverture recherche -----
-  if (menuMode == MENU_NAVIGATION) {
+  if (MenuEngine::getMode() == MENU_NAVIGATION) {
     if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('S')) {
-      searchWaitForSRelease = true;   // Empêche le 's' de s'ajouter à la requête
+      MenuEngine::setWaitingForSRelease(true);
       enterSearchMode();
       return;
     }
   }
 
   // ----- MODE RECHERCHE -----
-  if (menuMode == MENU_SEARCH) {
+  if (MenuEngine::getMode() == MENU_SEARCH) {
     // Tant que 's' est maintenu après l'entrée, on ne lit aucun caractère
-    if (searchWaitForSRelease) {
+    if (MenuEngine::isWaitingForSRelease()) {
       if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('S')) {
         return; // attendre le relâchement
       } else {
-        searchWaitForSRelease = false;
+        MenuEngine::clearSReleaseWait();
       }
     }
 
     // BACKSPACE -> effacer 1 char (si vide, liste complète visible)
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
-      if (millis() - searchLastKeyTime > searchKeyRepeatDelay) {
+      if (MenuEngine::checkSearchKeyRepeat()) {
         clearSearchBackspaceOne();
-        searchLastKeyTime = millis();
+        currentIndex = 0;
+        menuStartIndex = 0;
+        lastIndex = -1;
+        drawMenu();
+        drawSearchBar();
       }
       return;
     }
@@ -2224,19 +2106,11 @@ void handleMenuInput() {
     // Ajout caractère imprimable
     char typed = getPrintableKey();
     if (typed != 0) {
-      if (millis() - searchLastKeyTime > searchKeyRepeatDelay) {
+      if (MenuEngine::checkSearchKeyRepeat()) {
         if (typed != '\n' && typed != '\r') {
-          if (menuSearchLen < sizeof(menuSearchQuery) - 1) {
-            menuSearchQuery[menuSearchLen++] = typed;
-            menuSearchQuery[menuSearchLen] = '\0';
-            rebuildMenuFilter();
-            currentIndex = 0;
-            menuStartIndex = 0;
-            lastIndex = -1;
-            drawMenu();
-            drawSearchBar();
-          } // sinon: buffer plein -> ignore
-          searchLastKeyTime = millis();
+          MenuEngine::addSearchChar(typed);
+          drawMenu();
+          drawSearchBar();
         }
       }
       return;
@@ -2303,7 +2177,7 @@ void handleMenuInput() {
     keyHandled = true;
 
   } else if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('S')) {
-    searchWaitForSRelease = true;  // debounce pour éviter 's' dans la requête à l'ouverture
+    MenuEngine::setWaitingForSRelease(true);
     enterSearchMode();
     return;
 
