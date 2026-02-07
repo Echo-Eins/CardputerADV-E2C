@@ -72,13 +72,13 @@ enum LLMGWError : int8_t {
 };
 
 // ============================================================================
-// Key file paths on SD card
+// Key file paths on SD card - uses same keys as Remote Desktop
 // ============================================================================
 
-#define LLM_GW_KEYS_DIR             "/llm_keys"
-#define LLM_GW_PRIVKEY_PATH         "/llm_keys/client.key"      // 32 bytes binary
-#define LLM_GW_PUBKEY_PATH          "/llm_keys/client.pub"      // 65 bytes uncompressed
-#define LLM_GW_SERVER_PUBKEY_PATH   "/llm_keys/server.pub"      // 33 bytes compressed
+#define LLM_GW_KEYS_DIR             "/rd_keys"
+#define LLM_GW_PRIVKEY_PATH         "/rd_keys/client.key"       // 32 bytes binary
+#define LLM_GW_PUBKEY_PATH          "/rd_keys/client.pub"       // 65 bytes uncompressed
+#define LLM_GW_SERVER_PUBKEY_PATH   "/rd_keys/server.pub"       // 65 bytes uncompressed (same as RDP)
 #define LLM_GW_CONFIG_PATH          "/llm_gateway.json"
 
 // ============================================================================
@@ -123,8 +123,7 @@ struct LLMModel {
 // Main entry point - called from menu
 void llmGatewayChat();
 
-// Key Management
-bool llmGWGenerateKeyPair();
+// Key Management (uses RDP keys from /rd_keys/)
 bool llmGWLoadKeys();
 bool llmGWKeysExist();
 
