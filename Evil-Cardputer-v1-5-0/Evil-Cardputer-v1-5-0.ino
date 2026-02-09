@@ -67,7 +67,7 @@ enum SearchKind {
 #include <array>
 #include <set>
 #include <TinyGPSPlus.h>
-#include <Adafruit_NeoPixel.h> //led
+// Adafruit_NeoPixel is now included via hardware.h
 #include "M5Cardputer.h"
 #include <ArduinoJson.h>
 #include <esp_now.h>
@@ -112,6 +112,9 @@ enum SearchKind {
 
 // Menu Engine
 #include "menu_engine.h"
+
+// Hardware Abstraction Layer
+#include "hardware.h"
 
 #include <esp_task_wdt.h>
 
@@ -175,8 +178,7 @@ extern "C" {
 #include "esp_system.h"
 }
 
-bool ledOn = true;
-bool soundOn = true;
+// ledOn and soundOn are defined in hardware.cpp
 bool randomOn = false;
 
 static constexpr const gpio_num_t SDCARD_CSPIN = GPIO_NUM_4;
@@ -669,25 +671,8 @@ int menuTextUnFocusedColor      = TFT_WHITE; // Text color for items that are no
 bool Colorful                   = true;
 // THEME END
 
-//led part
-
-#define PIN 21
-//#define PIN 25 // for M5Stack Core AWS comment above and uncomment this line
-#define NUMPIXELS 1
-
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB);
-int delayval = 100;
-
-
-void setColorRange(int startPixel, int endPixel, uint32_t color) {
-  for (int i = startPixel; i <= endPixel; i++) {
-    pixels.setPixelColor(i, color);
-  }
-  pixels.show();
-  delay(30);
-}
-
-//led part end
+// LED is now managed by hardware.h/cpp module
+// pixels global and setColorRange() are defined in hardware.cpp
 
 bool isItSerialCommand = false;
 
@@ -799,89 +784,8 @@ USBHIDKeyboard Kb;
 bool kbChosen = false;
 //badusb end
 
-
-
-//mp3
-
-#include <AudioOutput.h>
-#include <AudioFileSourceSD.h>
-#include <AudioFileSourceID3.h>
-#include <AudioGeneratorMP3.h>
-
-// Classe AudioOutputM5Speaker spécifique à votre projet
-class AudioOutputM5Speaker : public AudioOutput {
-  public:
-    AudioOutputM5Speaker(m5::Speaker_Class* m5sound, uint8_t virtual_sound_channel = 0) {
-      _m5sound = m5sound;
-      _virtual_ch = virtual_sound_channel;
-    }
-    virtual ~AudioOutputM5Speaker(void) {};
-    virtual bool begin(void) override {
-      return true;
-    }
-    virtual bool ConsumeSample(int16_t sample[2]) override {
-      if (_tri_buffer_index < tri_buf_size) {
-        _tri_buffer[_tri_index][_tri_buffer_index  ] = sample[0];
-        _tri_buffer[_tri_index][_tri_buffer_index + 1] = sample[1];
-        _tri_buffer_index += 2;
-        return true;
-      }
-      flush();
-      return false;
-    }
-    virtual void flush(void) override {
-      if (_tri_buffer_index) {
-        _m5sound->playRaw(_tri_buffer[_tri_index], _tri_buffer_index, hertz, true, 1, _virtual_ch);
-        _tri_index = _tri_index < 2 ? _tri_index + 1 : 0;
-        _tri_buffer_index = 0;
-      }
-    }
-    virtual bool stop(void) override {
-      flush();
-      _m5sound->stop(_virtual_ch);
-      return true;
-    }
-
-  protected:
-    m5::Speaker_Class* _m5sound;
-    uint8_t _virtual_ch;
-    static constexpr size_t tri_buf_size = 128;
-    int16_t _tri_buffer[3][tri_buf_size];
-    size_t _tri_buffer_index = 0;
-    size_t _tri_index = 0;
-};
-
-// Initialisation des objets pour la lecture audio
-static AudioFileSourceSD file;
-static AudioOutputM5Speaker out(&M5.Speaker);
-static AudioGeneratorMP3 mp3;
-static AudioFileSourceID3* id3 = nullptr;
-
-// Fonction pour arrêter la lecture
-void stop(void) {
-  if (id3 == nullptr) return;
-  out.stop();
-  mp3.stop();
-  id3->close();
-  file.close();
-  delete id3;
-  id3 = nullptr;
-}
-
-// Fonction pour lire un fichier MP3
-void play(const char* fname) {
-  if (id3 != nullptr) {
-    stop();
-  }
-  file.open(fname);
-  id3 = new AudioFileSourceID3(&file);
-  id3->open(fname);
-  mp3.begin(id3, &out);
-}
-
-
-//mp3 end
-
+// MP3/Audio is now managed by hardware.h/cpp module
+// mp3, play(), stop() are defined in hardware.cpp
 
 bool wificonnected = false;
 String ipAddress = "";
@@ -914,24 +818,30 @@ static const char* const kCaptiveIPStr[2] = {
 void setup() {
   Serial.begin(115200);
   M5.begin();
+
+  // Initialize hardware abstraction layer
+  hwDetectBoard();
+  hwInit();
+
+  // Setup display
   M5.Lcd.setRotation(1);
   M5.Display.setTextSize(1.5);
   M5.Display.setTextColor(menuTextUnFocusedColor);
   M5.Display.setTextFont(1);
-  if (M5.getBoard() == m5::board_t::board_M5CardputerADV) {
+
+  // Setup GPS pins based on detected board (legacy variables for compatibility)
+  if (hwIsCardputerADV()) {
     gpsRxPin = 15;   // Adv
     gpsTxPin = 13;
+    // Enable GPS power on ADV
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
-    Serial.println("Detected: Cardputer-ADV");
-  } else if (M5.getBoard() == m5::board_t::board_M5Cardputer) {
+  } else if (hwGetBoardType() == BoardType::CARDPUTER) {
     gpsRxPin = 1;    // Normal Cardputer
     gpsTxPin = -1;
-    Serial.println("Detected: Cardputer");
   } else {
     gpsRxPin = -1;   // fallback
     gpsTxPin = -1;
-    Serial.println("Unknown board type");
   }
 
   static const char * const PROGMEM  startUpMessages[] = {
@@ -1603,9 +1513,9 @@ void setup() {
     Serial.println(F("----------------------"));
   }
 
-  pixels.begin(); // led init
+  // LED is initialized by hwInit() -> HardwareLED::init()
 
-  // GPS sur RX=gpsRxPin, pas de TX (-1), baudrate = 9600 (par ex.)
+  // GPS sur RX=gpsRxPin, pas de TX (-1), baudrate from config
   cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
 
   auto cfg = M5.config();
@@ -1614,15 +1524,7 @@ void setup() {
   drawMenu();
 }
 
-
-
-void drawImage(const char *filepath) {
-  fs::File file = SD.open(filepath);
-  M5.Display.drawJpgFile(SD, filepath);
-
-  file.close();
-}
-
+// drawImage() is now defined in hardware.cpp
 
 void firstScanWifiNetworks() {
   WiFi.mode(WIFI_STA);
@@ -5692,64 +5594,8 @@ String oldRamUsage = "";
 String oldBatteryLevel = "";
 String oldTemperature = "";
 
-#include <driver/adc.h>
-#include <esp_adc_cal.h>
-
-String getBatteryLevel() {
-  int percent = -1;
-
-  if (M5.getBoard() == m5::board_t::board_M5Cardputer) {
-    // Normal Cardputer → API standard
-    percent = M5.Power.getBatteryLevel();
-  } 
-  else if (M5.getBoard() == m5::board_t::board_M5CardputerADV) {
-    // ADV → lecture via ADC
-    const int BASE_VOLTAGE = 3600; // référence de calibration
-    static esp_adc_cal_characteristics_t *adc_chars = nullptr;
-
-    if (!adc_chars) {
-      adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-      adc1_config_width(ADC_WIDTH_BIT_12);
-      adc1_config_channel_atten(ADC1_CHANNEL_9, ADC_ATTEN_DB_11); // GPIO10
-      esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, BASE_VOLTAGE, adc_chars);
-    }
-
-    int raw = adc1_get_raw(ADC1_CHANNEL_9);
-    uint32_t mv = esp_adc_cal_raw_to_voltage(raw, adc_chars) * 2; // facteur 2 car diviseur interne
-
-    percent = (mv - 3300) * 100.0 / (4150 - 3350); // map tension → %
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-  }
-
-  // Retourne "error" si rien de valide
-  if (percent < 0) {
-    return String("error");
-  } else {
-    return String(percent);
-  }
-}
-
-
-
-String getTemperature() {
-  float temperature;
-  M5.Imu.getTemp(&temperature);
-  int roundedTemperature = round(temperature);
-  return String(roundedTemperature);
-}
-
-String getStack() {
-  UBaseType_t stackWordsRemaining = uxTaskGetStackHighWaterMark(NULL);
-  return String(stackWordsRemaining * 4 / 1024.0);
-}
-
-
-String getRamUsage() {
-  int heapSizeInKB = esp_get_free_heap_size() / 1024;
-  return String(heapSizeInKB);
-}
-
+// Battery/system functions (getBatteryLevel, getTemperature, getStack, getRamUsage)
+// are now defined in hardware.cpp
 
 unsigned long lastUpdateTime = 0;
 const long updateInterval = 1000;
