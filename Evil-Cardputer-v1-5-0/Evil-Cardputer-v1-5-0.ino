@@ -137,6 +137,11 @@ void setBootCountdown();
 #include "nvs_flash.h"
 #include <map>
 #include <algorithm>
+// Undefine FreeRTOS/ESP-IDF 'stack' macro before including <regex>
+// to avoid conflict with std::stack used internally by <regex>
+#ifdef stack
+#undef stack
+#endif
 #include <regex>
 //sniff and deauth client end
 
