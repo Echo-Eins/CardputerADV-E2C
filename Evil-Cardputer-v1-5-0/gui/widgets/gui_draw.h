@@ -12,9 +12,9 @@
 #ifndef GUI_WIDGET_DRAW_H
 #define GUI_WIDGET_DRAW_H
 
-#include "../gui.h"
 #include "../gui_types.h"
 #include "../gui_theme.h"
+#include "../core/gui_render_queue.h"
 
 namespace GUI {
 
@@ -243,9 +243,6 @@ inline Color dividerColor() {
 }
 
 } // namespace WidgetDraw
-
-// Alias for shorter access
-namespace Draw = WidgetDraw;
 
 } // namespace GUI
 

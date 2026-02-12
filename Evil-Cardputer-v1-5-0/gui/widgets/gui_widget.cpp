@@ -90,9 +90,11 @@ void Widget::setPosition(int16_t x, int16_t y) {
 void Widget::setSize(int16_t w, int16_t h) {
     w = m_sizeConstraint.clampWidth(w);
     h = m_sizeConstraint.clampHeight(h);
-    if (m_bounds.width != w || m_bounds.height != h) {
-        m_bounds.width = w;
-        m_bounds.height = h;
+    uint16_t uw = w > 0 ? static_cast<uint16_t>(w) : 0;
+    uint16_t uh = h > 0 ? static_cast<uint16_t>(h) : 0;
+    if (m_bounds.width != uw || m_bounds.height != uh) {
+        m_bounds.width = uw;
+        m_bounds.height = uh;
         m_dirty.setBounds(m_bounds);
         markDirty(DirtyFlag::Layout | DirtyFlag::Content);
     }
@@ -647,12 +649,16 @@ void Widget::renderChildren() {
 }
 
 Rect Widget::contentRect() const {
-    Rect content = m_bounds;
-    content.x += m_style.padding.left;
-    content.y += m_style.padding.top;
-    content.width -= m_style.padding.horizontal();
-    content.height -= m_style.padding.vertical();
-    return content;
+    int16_t padH = m_style.padding.horizontal();
+    int16_t padV = m_style.padding.vertical();
+    int16_t w = static_cast<int16_t>(m_bounds.width) - padH;
+    int16_t h = static_cast<int16_t>(m_bounds.height) - padV;
+    return Rect(
+        m_bounds.x + m_style.padding.left,
+        m_bounds.y + m_style.padding.top,
+        w > 0 ? w : 0,
+        h > 0 ? h : 0
+    );
 }
 
 //=============================================================================
@@ -701,8 +707,8 @@ void Widget::adaptToDisplay(int16_t displayWidth, int16_t displayHeight,
     if (scaleFactor != 1.0f) {
         m_bounds.x = static_cast<int16_t>(m_bounds.x * scaleFactor);
         m_bounds.y = static_cast<int16_t>(m_bounds.y * scaleFactor);
-        m_bounds.width = static_cast<int16_t>(m_bounds.width * scaleFactor);
-        m_bounds.height = static_cast<int16_t>(m_bounds.height * scaleFactor);
+        m_bounds.width = static_cast<uint16_t>(m_bounds.width * scaleFactor);
+        m_bounds.height = static_cast<uint16_t>(m_bounds.height * scaleFactor);
     }
 
     // Adapt children

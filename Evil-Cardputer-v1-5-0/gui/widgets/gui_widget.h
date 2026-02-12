@@ -98,59 +98,8 @@ inline WidgetState operator~(WidgetState a) {
 }
 
 //=============================================================================
-// Geometry Structures
+// Geometry Structures (Rect defined in gui_types.h)
 //=============================================================================
-
-/**
- * @brief Rectangle structure
- */
-struct Rect {
-    int16_t x;
-    int16_t y;
-    int16_t width;
-    int16_t height;
-
-    Rect() : x(0), y(0), width(0), height(0) {}
-    Rect(int16_t x_, int16_t y_, int16_t w_, int16_t h_)
-        : x(x_), y(y_), width(w_), height(h_) {}
-
-    bool contains(int16_t px, int16_t py) const {
-        return px >= x && px < x + width && py >= y && py < y + height;
-    }
-
-    bool intersects(const Rect& other) const {
-        return !(x + width <= other.x || other.x + other.width <= x ||
-                 y + height <= other.y || other.y + other.height <= y);
-    }
-
-    Rect intersection(const Rect& other) const {
-        int16_t nx = max(x, other.x);
-        int16_t ny = max(y, other.y);
-        int16_t nx2 = min(x + width, other.x + other.width);
-        int16_t ny2 = min(y + height, other.y + other.height);
-        if (nx2 > nx && ny2 > ny) {
-            return Rect(nx, ny, nx2 - nx, ny2 - ny);
-        }
-        return Rect();
-    }
-
-    Rect united(const Rect& other) const {
-        if (width == 0 || height == 0) return other;
-        if (other.width == 0 || other.height == 0) return *this;
-        int16_t nx = min(x, other.x);
-        int16_t ny = min(y, other.y);
-        int16_t nx2 = max(x + width, other.x + other.width);
-        int16_t ny2 = max(y + height, other.y + other.height);
-        return Rect(nx, ny, nx2 - nx, ny2 - ny);
-    }
-
-    bool isEmpty() const { return width <= 0 || height <= 0; }
-
-    int16_t right() const { return x + width; }
-    int16_t bottom() const { return y + height; }
-    int16_t centerX() const { return x + width / 2; }
-    int16_t centerY() const { return y + height / 2; }
-};
 
 /**
  * @brief Padding/Margin structure

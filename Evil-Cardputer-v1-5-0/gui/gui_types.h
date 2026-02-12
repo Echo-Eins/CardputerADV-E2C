@@ -134,15 +134,29 @@ struct Size {
     }
 };
 
-// Rect structure (8 bytes) - POD type
+// Rect structure (8 bytes) - POD type with constructors
 struct Rect {
     int16_t x;
     int16_t y;
     uint16_t width;
     uint16_t height;
 
+    // Default constructor (zero-initialized)
+    Rect() : x(0), y(0), width(0), height(0) {}
+
+    // Parameterized constructor (accepts signed for compatibility)
+    Rect(int16_t _x, int16_t _y, int16_t w, int16_t h)
+        : x(_x), y(_y)
+        , width(w > 0 ? static_cast<uint16_t>(w) : 0)
+        , height(h > 0 ? static_cast<uint16_t>(h) : 0) {}
+
+    // Static factory method (POD-style initialization)
     static Rect make(int16_t _x, int16_t _y, uint16_t w, uint16_t h) {
-        Rect r = {_x, _y, w, h};
+        Rect r;
+        r.x = _x;
+        r.y = _y;
+        r.width = w;
+        r.height = h;
         return r;
     }
 
@@ -151,6 +165,10 @@ struct Rect {
 
     // Bottom edge (exclusive)
     int16_t bottom() const { return y + static_cast<int16_t>(height); }
+
+    // Center coordinates
+    int16_t centerX() const { return x + static_cast<int16_t>(width / 2); }
+    int16_t centerY() const { return y + static_cast<int16_t>(height / 2); }
 
     // Check if point coordinates are inside rectangle
     bool contains(int16_t px, int16_t py) const {
@@ -172,11 +190,20 @@ struct Rect {
         int16_t ib = std::min(bottom(), other.bottom());
 
         if (ir <= ix || ib <= iy) {
-            return Rect::make(0, 0, 0, 0);  // No intersection
+            return Rect();  // No intersection
         }
-        return Rect::make(ix, iy,
-                    static_cast<uint16_t>(ir - ix),
-                    static_cast<uint16_t>(ib - iy));
+        return Rect(ix, iy, ir - ix, ib - iy);
+    }
+
+    // Get union of two rectangles (bounding box)
+    Rect united(const Rect& other) const {
+        if (isEmpty()) return other;
+        if (other.isEmpty()) return *this;
+        int16_t nx = std::min(x, other.x);
+        int16_t ny = std::min(y, other.y);
+        int16_t nx2 = std::max(right(), other.right());
+        int16_t ny2 = std::max(bottom(), other.bottom());
+        return Rect(nx, ny, nx2 - nx, ny2 - ny);
     }
 
     // Check if rectangle has valid dimensions

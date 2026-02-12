@@ -85,6 +85,12 @@
 #include "core/gui_dirty_region.h"
 #include "core/gui_renderer.h"
 
+// Widget system
+#include "widgets/gui_widgets.h"
+
+// Screen widgets (menu, settings)
+#include "screens/gui_screens.h"
+
 // ============================================================================
 // Version Information
 // ============================================================================
