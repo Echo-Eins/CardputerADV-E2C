@@ -327,6 +327,31 @@ void Renderer::executeCommand(const RenderOp& op) {
             handleDrawPixel(op);
             break;
 
+        // Extended primitives
+        case RenderOpType::DrawCircle:
+            handleDrawCircle(op);
+            break;
+
+        case RenderOpType::FillCircle:
+            handleFillCircle(op);
+            break;
+
+        case RenderOpType::DrawRoundRect:
+            handleDrawRoundRect(op);
+            break;
+
+        case RenderOpType::FillRoundRect:
+            handleFillRoundRect(op);
+            break;
+
+        case RenderOpType::DrawTriangle:
+            handleDrawTriangle(op);
+            break;
+
+        case RenderOpType::FillTriangle:
+            handleFillTriangle(op);
+            break;
+
         case RenderOpType::DrawText:
             handleDrawText(op);
             break;
@@ -361,6 +386,10 @@ void Renderer::executeCommand(const RenderOp& op) {
 
         case RenderOpType::SetBrightness:
             handleSetBrightness(op);
+            break;
+
+        case RenderOpType::Scroll:
+            handleScroll(op);
             break;
 
         case RenderOpType::Sync:
@@ -511,6 +540,47 @@ void Renderer::handleEndFrame(const RenderOp& op) {
 }
 
 // ============================================================================
+// Extended Primitive Handlers
+// ============================================================================
+
+void Renderer::handleDrawCircle(const RenderOp& op) {
+    const auto& c = op.data.circle;
+    M5.Display.drawCircle(c.center.x, c.center.y, c.radius, c.color);
+}
+
+void Renderer::handleFillCircle(const RenderOp& op) {
+    const auto& c = op.data.circle;
+    M5.Display.fillCircle(c.center.x, c.center.y, c.radius, c.color);
+}
+
+void Renderer::handleDrawRoundRect(const RenderOp& op) {
+    const auto& r = op.data.roundRect;
+    M5.Display.drawRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+                             r.radius, r.color);
+}
+
+void Renderer::handleFillRoundRect(const RenderOp& op) {
+    const auto& r = op.data.roundRect;
+    M5.Display.fillRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+                             r.radius, r.color);
+}
+
+void Renderer::handleDrawTriangle(const RenderOp& op) {
+    const auto& t = op.data.triangle;
+    M5.Display.drawTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
+}
+
+void Renderer::handleFillTriangle(const RenderOp& op) {
+    const auto& t = op.data.triangle;
+    M5.Display.fillTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
+}
+
+void Renderer::handleScroll(const RenderOp& op) {
+    const auto& s = op.data.scroll;
+    M5.Display.scroll(s.dx, s.dy);
+}
+
+// ============================================================================
 // Display Flush
 // ============================================================================
 
@@ -577,6 +647,31 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
             handleDrawPixelFB(op);
             break;
 
+        // Extended primitives - fallback to M5GFX for complex shapes
+        case RenderOpType::DrawCircle:
+            handleDrawCircle(op);
+            break;
+
+        case RenderOpType::FillCircle:
+            handleFillCircle(op);
+            break;
+
+        case RenderOpType::DrawRoundRect:
+            handleDrawRoundRect(op);
+            break;
+
+        case RenderOpType::FillRoundRect:
+            handleFillRoundRect(op);
+            break;
+
+        case RenderOpType::DrawTriangle:
+            handleDrawTriangle(op);
+            break;
+
+        case RenderOpType::FillTriangle:
+            handleFillTriangle(op);
+            break;
+
         case RenderOpType::DrawText:
             // Text rendering still uses M5GFX (complex font handling)
             // We render to M5.Display which acts as a sprite pointing to our buffer
@@ -632,6 +727,11 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
         case RenderOpType::SetBrightness:
             // Brightness control goes directly to display
             handleSetBrightness(op);
+            break;
+
+        case RenderOpType::Scroll:
+            // Scroll uses direct M5.Display call
+            handleScroll(op);
             break;
 
         case RenderOpType::Sync:

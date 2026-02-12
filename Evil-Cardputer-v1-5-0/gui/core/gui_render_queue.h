@@ -42,6 +42,14 @@ enum class RenderOpType : uint8_t {
     DrawLine,           // Draw line
     DrawPixel,          // Draw single pixel
 
+    // Extended drawing primitives (added for Legacy Bridge support)
+    DrawCircle,         // Draw circle outline
+    FillCircle,         // Fill circle with solid color
+    DrawRoundRect,      // Draw rounded rectangle outline
+    FillRoundRect,      // Fill rounded rectangle
+    DrawTriangle,       // Draw triangle outline
+    FillTriangle,       // Fill triangle
+
     // Text rendering
     DrawText,           // Draw text string
     DrawChar,           // Draw single character
@@ -58,6 +66,9 @@ enum class RenderOpType : uint8_t {
     Clear,              // Clear entire screen
     FillScreen,         // Fill screen with color
     SetBrightness,      // Adjust backlight
+
+    // Advanced operations
+    Scroll,             // Scroll display content
 
     // Synchronization
     Sync,               // Wait for queue to drain
@@ -160,6 +171,40 @@ struct RenderOpBrightness {
     uint8_t _pad[3];        // 3 bytes
 };
 
+// DrawCircle, FillCircle data (10 bytes)
+struct RenderOpCircle {
+    Point center;           // 4 bytes
+    int16_t radius;         // 2 bytes
+    Color color;            // 2 bytes
+    uint8_t filled;         // 1 byte (0=outline, 1=filled)
+    uint8_t _pad;           // 1 byte
+};
+
+// DrawRoundRect, FillRoundRect data (14 bytes)
+struct RenderOpRoundRect {
+    Rect rect;              // 8 bytes
+    int16_t radius;         // 2 bytes
+    Color color;            // 2 bytes
+    uint8_t filled;         // 1 byte (0=outline, 1=filled)
+    uint8_t _pad;           // 1 byte
+};
+
+// DrawTriangle, FillTriangle data (16 bytes)
+struct RenderOpTriangle {
+    Point p1;               // 4 bytes
+    Point p2;               // 4 bytes
+    Point p3;               // 4 bytes
+    Color color;            // 2 bytes
+    uint8_t filled;         // 1 byte (0=outline, 1=filled)
+    uint8_t _pad;           // 1 byte
+};
+
+// Scroll data (4 bytes)
+struct RenderOpScroll {
+    int16_t dx;             // 2 bytes
+    int16_t dy;             // 2 bytes
+};
+
 // ============================================================================
 // Render Operation Structure
 // ============================================================================
@@ -182,6 +227,10 @@ struct RenderOp {
         RenderOpClip clip;
         RenderOpFill fill;
         RenderOpBrightness brightness;
+        RenderOpCircle circle;
+        RenderOpRoundRect roundRect;
+        RenderOpTriangle triangle;
+        RenderOpScroll scroll;
         uint8_t raw[28];        // For memset
     } data;
 };
@@ -465,6 +514,119 @@ namespace RenderOps {
         memset(&op, 0, sizeof(op));
         op.type = RenderOpType::EndFrame;
         op.target = DisplayTarget::Internal;
+        return op;
+    }
+
+    // ========================================================================
+    // Extended Drawing Primitives (for Legacy Bridge support)
+    // ========================================================================
+
+    // Create DrawCircle operation
+    inline RenderOp drawCircle(int16_t x, int16_t y, int16_t r, Color color,
+                               RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::DrawCircle;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.circle.center = Point::make(x, y);
+        op.data.circle.radius = r;
+        op.data.circle.color = color;
+        op.data.circle.filled = 0;
+        return op;
+    }
+
+    // Create FillCircle operation
+    inline RenderOp fillCircle(int16_t x, int16_t y, int16_t r, Color color,
+                               RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::FillCircle;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.circle.center = Point::make(x, y);
+        op.data.circle.radius = r;
+        op.data.circle.color = color;
+        op.data.circle.filled = 1;
+        return op;
+    }
+
+    // Create DrawRoundRect operation
+    inline RenderOp drawRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h,
+                                  int16_t r, Color color,
+                                  RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::DrawRoundRect;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.roundRect.rect = Rect::make(x, y, w, h);
+        op.data.roundRect.radius = r;
+        op.data.roundRect.color = color;
+        op.data.roundRect.filled = 0;
+        return op;
+    }
+
+    // Create FillRoundRect operation
+    inline RenderOp fillRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h,
+                                  int16_t r, Color color,
+                                  RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::FillRoundRect;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.roundRect.rect = Rect::make(x, y, w, h);
+        op.data.roundRect.radius = r;
+        op.data.roundRect.color = color;
+        op.data.roundRect.filled = 1;
+        return op;
+    }
+
+    // Create DrawTriangle operation
+    inline RenderOp drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                                 int16_t x2, int16_t y2, Color color,
+                                 RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::DrawTriangle;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.triangle.p1 = Point::make(x0, y0);
+        op.data.triangle.p2 = Point::make(x1, y1);
+        op.data.triangle.p3 = Point::make(x2, y2);
+        op.data.triangle.color = color;
+        op.data.triangle.filled = 0;
+        return op;
+    }
+
+    // Create FillTriangle operation
+    inline RenderOp fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                                 int16_t x2, int16_t y2, Color color,
+                                 RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::FillTriangle;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.triangle.p1 = Point::make(x0, y0);
+        op.data.triangle.p2 = Point::make(x1, y1);
+        op.data.triangle.p3 = Point::make(x2, y2);
+        op.data.triangle.color = color;
+        op.data.triangle.filled = 1;
+        return op;
+    }
+
+    // Create Scroll operation
+    inline RenderOp scroll(int16_t dx, int16_t dy,
+                           RenderPriority priority = RenderPriority::Normal) {
+        RenderOp op;
+        memset(&op, 0, sizeof(op));
+        op.type = RenderOpType::Scroll;
+        op.priority = priority;
+        op.target = DisplayTarget::Internal;
+        op.data.scroll.dx = dx;
+        op.data.scroll.dy = dy;
         return op;
     }
 

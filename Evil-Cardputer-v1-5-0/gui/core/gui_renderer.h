@@ -187,20 +187,35 @@ private:
     // Process a single render command
     void executeCommand(const RenderOp& op);
 
-    // Command handlers
+    // Command handlers - Basic primitives
     void handleFillRect(const RenderOp& op);
     void handleDrawRect(const RenderOp& op);
     void handleDrawLine(const RenderOp& op);
     void handleDrawPixel(const RenderOp& op);
+
+    // Command handlers - Extended primitives
+    void handleDrawCircle(const RenderOp& op);
+    void handleFillCircle(const RenderOp& op);
+    void handleDrawRoundRect(const RenderOp& op);
+    void handleFillRoundRect(const RenderOp& op);
+    void handleDrawTriangle(const RenderOp& op);
+    void handleFillTriangle(const RenderOp& op);
+
+    // Command handlers - Text
     void handleDrawText(const RenderOp& op);
     void handleDrawChar(const RenderOp& op);
+
+    // Command handlers - Images
     void handleDrawBitmap(const RenderOp& op);
     void handleDrawJpeg(const RenderOp& op);
+
+    // Command handlers - Display control
     void handleSetClip(const RenderOp& op);
     void handleClearClip(const RenderOp& op);
     void handleClear(const RenderOp& op);
     void handleFillScreen(const RenderOp& op);
     void handleSetBrightness(const RenderOp& op);
+    void handleScroll(const RenderOp& op);
     void handleSync(const RenderOp& op);
     void handleEndFrame(const RenderOp& op);
 
@@ -324,6 +339,45 @@ namespace Draw {
     // Synchronize (wait for all commands to complete)
     inline void sync() {
         renderQueue().sync();
+    }
+
+    // ========================================================================
+    // Extended Drawing Primitives
+    // ========================================================================
+
+    // Draw circle outline
+    inline bool drawCircle(int16_t x, int16_t y, int16_t r, Color color) {
+        return renderQueue().push(RenderOps::drawCircle(x, y, r, color));
+    }
+
+    // Fill circle
+    inline bool fillCircle(int16_t x, int16_t y, int16_t r, Color color) {
+        return renderQueue().push(RenderOps::fillCircle(x, y, r, color));
+    }
+
+    // Draw rounded rectangle outline
+    inline bool drawRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h, int16_t r, Color color) {
+        return renderQueue().push(RenderOps::drawRoundRect(x, y, w, h, r, color));
+    }
+
+    // Fill rounded rectangle
+    inline bool fillRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h, int16_t r, Color color) {
+        return renderQueue().push(RenderOps::fillRoundRect(x, y, w, h, r, color));
+    }
+
+    // Draw triangle outline
+    inline bool drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, Color color) {
+        return renderQueue().push(RenderOps::drawTriangle(x0, y0, x1, y1, x2, y2, color));
+    }
+
+    // Fill triangle
+    inline bool fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, Color color) {
+        return renderQueue().push(RenderOps::fillTriangle(x0, y0, x1, y1, x2, y2, color));
+    }
+
+    // Scroll display content
+    inline bool scroll(int16_t dx, int16_t dy) {
+        return renderQueue().push(RenderOps::scroll(dx, dy));
     }
 
 } // namespace Draw

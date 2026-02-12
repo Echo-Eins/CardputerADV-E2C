@@ -87,9 +87,37 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 100;
 // Feature Flags
 // ============================================================================
 
-// Enable legacy M5.Display compatibility bridge
+// Enable legacy M5.Display compatibility bridge (deprecated, use GUI_LEGACY_BRIDGE_MODE)
 #ifndef GUI_LEGACY_COMPAT
 #define GUI_LEGACY_COMPAT 0
+#endif
+
+// ============================================================================
+// Legacy Bridge Configuration
+// ============================================================================
+//
+// The Legacy Bridge provides a compatibility layer for gradual migration from
+// direct M5.Display calls to the new async RenderQueue system.
+//
+// Modes:
+//   0 = DISABLED:    Bridge completely disabled, all calls go to M5.Display directly
+//   1 = PASSTHROUGH: Bridge active but routes all calls to M5.Display (for debugging)
+//   2 = QUEUED:      All calls routed through RenderQueue (full async rendering)
+//   3 = HYBRID:      Urgent calls go direct, others through queue
+//
+// To fully migrate and remove the bridge:
+//   1. Set GUI_LEGACY_BRIDGE_MODE to 0
+//   2. Remove LegacyBridge includes and calls from migrated files
+//   3. Use GUI::Draw:: namespace for new code
+//
+#ifndef GUI_LEGACY_BRIDGE_MODE
+#define GUI_LEGACY_BRIDGE_MODE 2  // Default: QUEUED for async rendering
+#endif
+
+// Enable Legacy Bridge debug macros for easier migration
+// When enabled, you can use M5_Display_* macros as drop-in replacements
+#ifndef GUI_LEGACY_BRIDGE_MACROS
+#define GUI_LEGACY_BRIDGE_MACROS 0
 #endif
 
 // Enable dirty region tracking (Phase 2)
