@@ -87,6 +87,17 @@ void LegacyBridge::resetStats() {
     s_state.droppedCalls = 0;
 }
 
+void LegacyBridge::syncWithTheme() {
+    s_state.syncWithTheme();
+
+    // Also update M5.Display if not in queued mode
+    if (!shouldQueueCall()) {
+        M5.Display.setTextColor(s_state.textFgColor, s_state.textBgColor);
+        M5.Display.setTextSize(s_state.font.getSize());
+        M5.Display.setTextFont(s_state.font.font);
+    }
+}
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================

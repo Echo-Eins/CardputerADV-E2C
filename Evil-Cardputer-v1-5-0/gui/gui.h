@@ -73,6 +73,9 @@
 // Basic types
 #include "gui_types.h"
 
+// Theme system
+#include "gui_theme.h"
+
 // Core components
 #include "core/gui_render_queue.h"
 #include "core/gui_framebuffer.h"
@@ -193,6 +196,40 @@ inline bool isDoubleBuffered() {
 }
 
 #endif // GUI_DOUBLE_BUFFER
+
+// ============================================================================
+// Theme System Accessors
+// ============================================================================
+
+/**
+ * Get ThemeManager instance
+ */
+inline ThemeManager& themeManager() { return ThemeManager::instance(); }
+
+/**
+ * Set theme by ID
+ */
+inline void setTheme(ThemeId id) { themeManager().setTheme(id); }
+
+/**
+ * Get current theme
+ */
+inline const Theme& currentTheme() { return themeManager().current(); }
+
+/**
+ * Get current theme colors (with overrides)
+ */
+inline const ThemeColors& currentColors() { return themeManager().effectiveColors(); }
+
+/**
+ * Get current theme fonts
+ */
+inline const ThemeFonts& currentFonts() { return themeManager().fonts(); }
+
+/**
+ * Get current theme spacing
+ */
+inline const ThemeSpacing& currentSpacing() { return themeManager().spacing(); }
 
 } // namespace GUI
 

@@ -23,6 +23,7 @@
 
 #include "../gui_config.h"
 #include "../gui_types.h"
+#include "../gui_theme.h"
 
 // Legacy bridge mode configuration
 #ifndef GUI_LEGACY_BRIDGE_MODE
@@ -75,13 +76,21 @@ struct LegacyBridgeState {
     void reset() {
         cursorX = 0;
         cursorY = 0;
-        textFgColor = Colors::Green;
-        textBgColor = Colors::Black;
-        font = FontConfig::make(1, 1.0f);
+        // Use theme colors as defaults
+        textFgColor = themeColors().foreground;
+        textBgColor = themeColors().background;
+        font = themeFonts().normal;
         clipEnabled = false;
         directCalls = 0;
         queuedCalls = 0;
         droppedCalls = 0;
+    }
+
+    // Sync with current theme
+    void syncWithTheme() {
+        textFgColor = themeColors().foreground;
+        textBgColor = themeColors().background;
+        font = themeFonts().normal;
     }
 };
 
@@ -115,6 +124,22 @@ public:
 
     // Reset statistics
     static void resetStats();
+
+    // Sync state with current theme (call after theme change)
+    static void syncWithTheme();
+
+    // Theme-aware color getters (for use when colors need to adapt to theme)
+    static Color getMenuBackground() { return themeColors().background; }
+    static Color getMenuSelectedBackground() { return themeColors().highlight; }
+    static Color getMenuTextFocused() { return themeColors().foreground; }
+    static Color getMenuTextUnfocused() { return themeColors().disabled; }
+    static Color getTaskbarBackground() { return themeColors().taskbarBg; }
+    static Color getTaskbarText() { return themeColors().taskbarText; }
+    static Color getTaskbarDivider() { return themeColors().border; }
+    static Color getSuccess() { return themeColors().success; }
+    static Color getWarning() { return themeColors().warning; }
+    static Color getError() { return themeColors().error; }
+    static Color getInfo() { return themeColors().info; }
 
     // ========================================================================
     // Screen Operations

@@ -52,11 +52,41 @@ namespace Colors {
     constexpr Color LightGrey   = 0xC618;
     constexpr Color DarkGrey    = 0x7BEF;
 
-    // Cardputer theme colors (current defaults)
+    // Cardputer theme colors (static fallback defaults)
+    // For dynamic theming, use GUI::themeColors() from gui_theme.h
     constexpr Color Background  = Navy;      // 0x000F
     constexpr Color Foreground  = Green;     // 0x07E0
     constexpr Color Highlight   = Yellow;    // 0xFFE0
     constexpr Color Error       = Red;       // 0xF800
+    constexpr Color Success     = Green;     // 0x07E0
+    constexpr Color Warning     = Yellow;    // 0xFFE0
+    constexpr Color Info        = Cyan;      // 0x07FF
+    constexpr Color Disabled    = DarkGrey;  // 0x7BEF
+
+    // Extract RGB components from RGB565 color
+    inline uint8_t getRed(Color c)   { return (c >> 8) & 0xF8; }
+    inline uint8_t getGreen(Color c) { return (c >> 3) & 0xFC; }
+    inline uint8_t getBlue(Color c)  { return (c << 3) & 0xF8; }
+
+    // Blend two colors (alpha 0-255, 0=c1, 255=c2)
+    inline Color blend(Color c1, Color c2, uint8_t alpha) {
+        uint8_t r1 = getRed(c1), g1 = getGreen(c1), b1 = getBlue(c1);
+        uint8_t r2 = getRed(c2), g2 = getGreen(c2), b2 = getBlue(c2);
+        uint8_t r = r1 + (((r2 - r1) * alpha) >> 8);
+        uint8_t g = g1 + (((g2 - g1) * alpha) >> 8);
+        uint8_t b = b1 + (((b2 - b1) * alpha) >> 8);
+        return fromRGB(r, g, b);
+    }
+
+    // Darken color by factor (0-255, 0=black, 255=unchanged)
+    inline Color darken(Color c, uint8_t factor) {
+        return blend(Black, c, factor);
+    }
+
+    // Lighten color by factor (0-255, 0=unchanged, 255=white)
+    inline Color lighten(Color c, uint8_t factor) {
+        return blend(c, White, factor);
+    }
 }
 
 // ============================================================================
