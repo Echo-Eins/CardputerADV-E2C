@@ -35,6 +35,11 @@ Renderer::Renderer()
     , m_batchSize(16)           // Process 16 commands before flush
     , m_autoFlush(true)         // Auto-flush after batch
     , m_taskPriority(Config::RENDER_TASK_PRIORITY)
+#if GUI_DOUBLE_BUFFER
+    , m_renderMode(RenderMode::DoubleBuffered)
+#else
+    , m_renderMode(RenderMode::Direct)
+#endif
     , m_displayWidth(Config::DISPLAY_WIDTH)
     , m_displayHeight(Config::DISPLAY_HEIGHT)
     , m_clipRect(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT))
@@ -72,8 +77,31 @@ bool Renderer::init() {
     m_clipRect = Rect::make(0, 0, m_displayWidth, m_displayHeight);
     m_clipEnabled = false;
 
+#if GUI_DOUBLE_BUFFER
+    // Initialize framebuffer (Phase 2)
+    if (!Framebuffer::instance().init()) {
+        GUI_LOG_ERROR("Failed to initialize Framebuffer");
+        return false;
+    }
+
+    // Initialize DMA transfer (Phase 2)
+    if (!DmaTransfer::instance().init()) {
+        GUI_LOG_ERROR("Failed to initialize DmaTransfer");
+        return false;
+    }
+
+    // Initialize DisplayUpdater (Phase 2)
+    if (!DisplayUpdater::instance().init()) {
+        GUI_LOG_ERROR("Failed to initialize DisplayUpdater");
+        return false;
+    }
+
+    GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA]", m_displayWidth, m_displayHeight);
+#else
+    GUI_LOG("Renderer initialized (%dx%d) [Direct]", m_displayWidth, m_displayHeight);
+#endif
+
     m_state = RendererState::Stopped;
-    GUI_LOG("Renderer initialized (%dx%d)", m_displayWidth, m_displayHeight);
     return true;
 }
 
@@ -156,6 +184,13 @@ void Renderer::shutdown() {
     stop();
 
     RenderQueue::instance().shutdown();
+
+#if GUI_DOUBLE_BUFFER
+    // Shutdown Phase 2 components
+    DisplayUpdater::instance().shutdown();
+    DmaTransfer::instance().shutdown();
+    Framebuffer::instance().shutdown();
+#endif
 
     m_state = RendererState::Uninitialized;
     GUI_LOG("Renderer shutdown complete");
@@ -266,6 +301,15 @@ void Renderer::renderLoop() {
 // ============================================================================
 
 void Renderer::executeCommand(const RenderOp& op) {
+#if GUI_DOUBLE_BUFFER
+    // Phase 2: Route certain operations to framebuffer
+    if (m_renderMode == RenderMode::DoubleBuffered) {
+        executeCommandToFramebuffer(op);
+        return;
+    }
+#endif
+
+    // Phase 1: Direct M5GFX rendering
     switch (op.type) {
         case RenderOpType::FillRect:
             handleFillRect(op);
@@ -471,11 +515,177 @@ void Renderer::handleEndFrame(const RenderOp& op) {
 // ============================================================================
 
 void Renderer::flushDisplay() {
-    // In Phase 1, we just call display() which blocks until SPI transfer completes
-    // In Phase 2, this will initiate DMA transfer and swap buffers
+#if GUI_DOUBLE_BUFFER
+    if (m_renderMode == RenderMode::DoubleBuffered) {
+        // Phase 2: Swap buffers and initiate DMA transfer
+        Framebuffer& fb = Framebuffer::instance();
+
+        // Swap front/back buffers
+        fb.swap();
+
+        // Push front buffer to display via DMA
+        DisplayUpdater::instance().pushFramebuffer();
+
+        m_stats.displayFlushCount++;
+        return;
+    }
+#endif
+
+    // Phase 1: Direct M5GFX display() call (blocking)
     M5.Display.display();
     m_stats.displayFlushCount++;
 }
+
+// ============================================================================
+// Phase 2: Framebuffer Rendering
+// ============================================================================
+
+#if GUI_DOUBLE_BUFFER
+
+void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
+    switch (op.type) {
+        case RenderOpType::FillRect:
+            handleFillRectFB(op);
+            break;
+
+        case RenderOpType::DrawRect:
+            // DrawRect uses multiple fillRects
+            {
+                const auto& r = op.data.rect;
+                Framebuffer& fb = Framebuffer::instance();
+                if (r.thickness <= 1) {
+                    // Draw outline with single-pixel lines
+                    fb.drawHLine(r.rect.x, r.rect.y, r.rect.width, r.color);
+                    fb.drawHLine(r.rect.x, r.rect.y + r.rect.height - 1, r.rect.width, r.color);
+                    fb.drawVLine(r.rect.x, r.rect.y, r.rect.height, r.color);
+                    fb.drawVLine(r.rect.x + r.rect.width - 1, r.rect.y, r.rect.height, r.color);
+                } else {
+                    int16_t t = r.thickness;
+                    fb.fillRect(r.rect.x, r.rect.y, r.rect.width, t, r.color);
+                    fb.fillRect(r.rect.x, r.rect.y + r.rect.height - t, r.rect.width, t, r.color);
+                    fb.fillRect(r.rect.x, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
+                    fb.fillRect(r.rect.x + r.rect.width - t, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
+                }
+            }
+            break;
+
+        case RenderOpType::DrawLine:
+            handleDrawLineFB(op);
+            break;
+
+        case RenderOpType::DrawPixel:
+            handleDrawPixelFB(op);
+            break;
+
+        case RenderOpType::DrawText:
+            // Text rendering still uses M5GFX (complex font handling)
+            // We render to M5.Display which acts as a sprite pointing to our buffer
+            handleDrawText(op);
+            break;
+
+        case RenderOpType::DrawChar:
+            handleDrawChar(op);
+            break;
+
+        case RenderOpType::DrawBitmap:
+            // Bitmap: copy directly to framebuffer
+            {
+                const auto& b = op.data.bitmap;
+                if (b.data != nullptr) {
+                    Framebuffer::instance().copyRect(
+                        b.rect.x, b.rect.y,
+                        b.data, b.rect.width, b.rect.height
+                    );
+                }
+            }
+            break;
+
+        case RenderOpType::DrawJpeg:
+            // JPEG: still uses M5GFX decoder
+            handleDrawJpeg(op);
+            break;
+
+        case RenderOpType::SetClip:
+            {
+                Framebuffer::instance().setClipRect(op.data.clip.clipRect);
+                m_clipRect = op.data.clip.clipRect;
+                m_clipEnabled = true;
+            }
+            break;
+
+        case RenderOpType::ClearClip:
+            {
+                Framebuffer::instance().clearClipRect();
+                m_clipEnabled = false;
+                m_clipRect = Rect::make(0, 0, m_displayWidth, m_displayHeight);
+            }
+            break;
+
+        case RenderOpType::Clear:
+            handleClearFB(op);
+            break;
+
+        case RenderOpType::FillScreen:
+            handleClearFB(op);
+            break;
+
+        case RenderOpType::SetBrightness:
+            // Brightness control goes directly to display
+            handleSetBrightness(op);
+            break;
+
+        case RenderOpType::Sync:
+            handleSync(op);
+            break;
+
+        case RenderOpType::EndFrame:
+            handleEndFrame(op);
+            break;
+
+        case RenderOpType::Nop:
+        default:
+            break;
+    }
+}
+
+void Renderer::handleFillRectFB(const RenderOp& op) {
+    const auto& r = op.data.rect;
+    Framebuffer::instance().fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
+}
+
+void Renderer::handleDrawLineFB(const RenderOp& op) {
+    const auto& l = op.data.line;
+    Framebuffer& fb = Framebuffer::instance();
+
+    // Bresenham's line algorithm for framebuffer
+    int16_t x0 = l.p1.x, y0 = l.p1.y;
+    int16_t x1 = l.p2.x, y1 = l.p2.y;
+
+    int16_t dx = abs(x1 - x0);
+    int16_t dy = -abs(y1 - y0);
+    int16_t sx = x0 < x1 ? 1 : -1;
+    int16_t sy = y0 < y1 ? 1 : -1;
+    int16_t err = dx + dy;
+
+    while (true) {
+        fb.setPixel(x0, y0, l.color);
+        if (x0 == x1 && y0 == y1) break;
+        int16_t e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+void Renderer::handleDrawPixelFB(const RenderOp& op) {
+    const auto& p = op.data.pixel;
+    Framebuffer::instance().setPixel(p.pos.x, p.pos.y, p.color);
+}
+
+void Renderer::handleClearFB(const RenderOp& op) {
+    Framebuffer::instance().clear(op.data.fill.color);
+}
+
+#endif // GUI_DOUBLE_BUFFER
 
 // ============================================================================
 // Convenience Functions

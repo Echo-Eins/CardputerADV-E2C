@@ -47,10 +47,14 @@
  * - Command types: FillRect, DrawRect, DrawLine, DrawPixel, DrawText, etc.
  * - Statistics and monitoring
  *
- * Planned (Phase 2):
- * - Double buffering with PSRAM
- * - DMA transfers
+ * Features (Phase 2):
+ * - Double buffering with PSRAM (~130KB for two buffers)
+ * - DMA transfers for async display updates
+ * - Framebuffer rendering for tear-free display
+ *
+ * Planned (Phase 3):
  * - Dirty region tracking
+ * - Partial update optimization
  *
  * Memory Usage:
  * - SRAM: ~8KB (queue) + ~4KB (task stack) = ~12KB
@@ -71,16 +75,18 @@
 
 // Core components
 #include "core/gui_render_queue.h"
+#include "core/gui_framebuffer.h"
+#include "core/gui_dma.h"
 #include "core/gui_renderer.h"
 
 // ============================================================================
 // Version Information
 // ============================================================================
 
-#define GUI_VERSION_MAJOR 1
+#define GUI_VERSION_MAJOR 2
 #define GUI_VERSION_MINOR 0
 #define GUI_VERSION_PATCH 0
-#define GUI_VERSION_STRING "1.0.0-phase1"
+#define GUI_VERSION_STRING "2.0.0-phase2"
 
 namespace GUI {
 
@@ -147,7 +153,46 @@ inline void printStatus() {
     Serial.printf("  Avg render: %lu us\n", stats.avgRenderTimeUs());
     Serial.printf("  Max render: %lu us\n", stats.maxRenderTimeUs);
     Serial.printf("  FPS: %.1f\n", stats.fps());
+
+#if GUI_DOUBLE_BUFFER
+    const FramebufferStats& fbStats = Framebuffer::instance().getStats();
+    Serial.printf("  Buffer swaps: %lu\n", fbStats.swapCount);
+    Serial.printf("  DMA transfers: %lu\n", fbStats.dmaTransferCount);
+
+    const DmaStats& dmaStats = DmaTransfer::instance().getStats();
+    Serial.printf("  DMA avg time: %lu us\n", dmaStats.avgTransferTimeUs());
+#endif
 }
+
+// ============================================================================
+// Phase 2 Accessors
+// ============================================================================
+
+#if GUI_DOUBLE_BUFFER
+
+/**
+ * Get framebuffer instance
+ */
+inline Framebuffer& framebuffer() { return Framebuffer::instance(); }
+
+/**
+ * Get DMA transfer instance
+ */
+inline DmaTransfer& dmaTransfer() { return DmaTransfer::instance(); }
+
+/**
+ * Get display updater instance
+ */
+inline DisplayUpdater& displayUpdater() { return DisplayUpdater::instance(); }
+
+/**
+ * Check if double buffering is active
+ */
+inline bool isDoubleBuffered() {
+    return renderer().getRenderMode() == RenderMode::DoubleBuffered;
+}
+
+#endif // GUI_DOUBLE_BUFFER
 
 } // namespace GUI
 

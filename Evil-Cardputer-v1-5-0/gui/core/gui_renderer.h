@@ -15,16 +15,18 @@
  * - Direct M5.Display rendering
  * - Synchronous display() calls after batch processing
  *
- * Phase 2 (future):
+ * Phase 2 features:
  * - Double buffering with PSRAM framebuffers
- * - DMA transfers
- * - Dirty region optimization
+ * - DMA transfers for async display updates
+ * - Dirty region optimization (future)
  */
 
 #ifndef GUI_RENDERER_H
 #define GUI_RENDERER_H
 
 #include "gui_render_queue.h"
+#include "gui_framebuffer.h"
+#include "gui_dma.h"
 #include <M5Unified.h>
 
 // FreeRTOS
@@ -43,6 +45,12 @@ enum class RendererState : uint8_t {
     Starting,
     Running,
     Stopping
+};
+
+// Rendering mode
+enum class RenderMode : uint8_t {
+    Direct = 0,         // Phase 1: Direct M5GFX calls
+    DoubleBuffered      // Phase 2: Double buffer + DMA
 };
 
 // ============================================================================
@@ -133,6 +141,13 @@ public:
     void setTaskPriority(int priority) { m_taskPriority = priority; }
     int getTaskPriority() const { return m_taskPriority; }
 
+    // Set rendering mode (Phase 1: Direct, Phase 2: DoubleBuffered)
+    void setRenderMode(RenderMode mode) { m_renderMode = mode; }
+    RenderMode getRenderMode() const { return m_renderMode; }
+
+    // Check if using double buffering
+    bool isDoubleBuffered() const { return m_renderMode == RenderMode::DoubleBuffered; }
+
     // ========================================================================
     // Statistics
     // ========================================================================
@@ -192,6 +207,13 @@ private:
     // Flush display to screen
     void flushDisplay();
 
+    // Phase 2: Framebuffer rendering
+    void executeCommandToFramebuffer(const RenderOp& op);
+    void handleFillRectFB(const RenderOp& op);
+    void handleDrawLineFB(const RenderOp& op);
+    void handleDrawPixelFB(const RenderOp& op);
+    void handleClearFB(const RenderOp& op);
+
     // Static task entry point
     static void taskEntry(void* param);
 
@@ -206,6 +228,7 @@ private:
     size_t m_batchSize;
     bool m_autoFlush;
     int m_taskPriority;
+    RenderMode m_renderMode;
 
     // Display info
     uint16_t m_displayWidth;

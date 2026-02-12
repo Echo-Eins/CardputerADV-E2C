@@ -73,14 +73,14 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 100;
 #define GUI_USE_PSRAM 1
 #endif
 
-// Enable double buffering (Phase 2, disabled for Phase 1)
+// Enable double buffering (Phase 2)
 #ifndef GUI_DOUBLE_BUFFER
-#define GUI_DOUBLE_BUFFER 0
+#define GUI_DOUBLE_BUFFER 1
 #endif
 
-// Enable DMA transfers (Phase 2, disabled for Phase 1)
+// Enable DMA transfers (Phase 2)
 #ifndef GUI_USE_DMA
-#define GUI_USE_DMA 0
+#define GUI_USE_DMA 1
 #endif
 
 // ============================================================================
