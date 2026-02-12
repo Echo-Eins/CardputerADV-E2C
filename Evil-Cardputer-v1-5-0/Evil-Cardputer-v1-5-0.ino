@@ -23749,8 +23749,8 @@ Crack NTLMv2
 // Crypto functions moved to crypto_utils.cpp/h
 // (MD4, MD5, HMAC-MD5, ntlmHash, hexToBytes, toUTF16LE, dumpHex)
 
-// Local wrapper for toUpperCase (uses toUpperCaseStr from crypto_utils)
-static inline String toUpperCase(const String &s) { return toUpperCaseStr(s); }
+// NOTE: Use toUpperCaseStr() from crypto_utils.h for uppercase conversion
+// (Function name 'toUpperCase' conflicts with Arduino String::toUpperCase method)
 
 // =======================
 // Feedback NTLM structuré
@@ -23942,7 +23942,7 @@ void crackNTLMv2() {
     memcpy(msg+8, blob, blobLen);
 
     // Pré-construire UTF16LE(UPPER(user)+domain) — garder le '$' s’il existe
-    String upUser = toUpperCase(user);
+    String upUser = toUpperCaseStr(user);
     uint8_t *u16, *d16; size_t u16len, d16len;
     toUTF16LE(upUser, &u16, &u16len);
     toUTF16LE(domain, &d16, &d16len);

@@ -228,13 +228,47 @@ void HardwareDisplay::fillCircle(int16_t x, int16_t y, int16_t r, uint16_t color
 }
 
 void HardwareDisplay::drawJpgFile(fs::FS& fs, const char* path, int16_t x, int16_t y) {
-    M5.Display.drawJpgFile(fs, path, x, y);
+    // Read file into buffer to avoid abstract type issue with DataWrapperT
+    fs::File file = fs.open(path, FILE_READ);
+    if (!file) {
+        return;
+    }
+    size_t fileSize = file.size();
+    if (fileSize == 0) {
+        file.close();
+        return;
+    }
+    uint8_t* buffer = (uint8_t*)malloc(fileSize);
+    if (!buffer) {
+        file.close();
+        return;
+    }
+    file.read(buffer, fileSize);
+    file.close();
+    M5.Display.drawJpg(buffer, fileSize, x, y);
+    free(buffer);
 }
 
 void HardwareDisplay::drawImage(const char* filepath) {
-    fs::File file = SD.open(filepath);
-    M5.Display.drawJpgFile(SD, filepath);
+    // Read file into buffer to avoid abstract type issue with DataWrapperT
+    fs::File file = SD.open(filepath, FILE_READ);
+    if (!file) {
+        return;
+    }
+    size_t fileSize = file.size();
+    if (fileSize == 0) {
+        file.close();
+        return;
+    }
+    uint8_t* buffer = (uint8_t*)malloc(fileSize);
+    if (!buffer) {
+        file.close();
+        return;
+    }
+    file.read(buffer, fileSize);
     file.close();
+    M5.Display.drawJpg(buffer, fileSize);
+    free(buffer);
 }
 
 uint8_t HardwareDisplay::getBrightness() {
