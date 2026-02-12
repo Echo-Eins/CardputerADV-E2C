@@ -27,6 +27,11 @@
 // ESP32 PSRAM allocation
 #include "esp_heap_caps.h"
 
+// Phase 3: Dirty region tracking
+#if GUI_DIRTY_TRACKING
+#include "gui_dirty_region.h"
+#endif
+
 namespace GUI {
 
 // ============================================================================
@@ -238,6 +243,9 @@ inline void Framebuffer::setPixel(int16_t x, int16_t y, Color color) {
     if (x >= m_clipRect.x && x < m_clipRect.right() &&
         y >= m_clipRect.y && y < m_clipRect.bottom()) {
         m_backBuffer[y * m_config.width + x] = color;
+#if GUI_DIRTY_TRACKING
+        DirtyRegionTracker::instance().markDirty(x, y);
+#endif
     }
 }
 

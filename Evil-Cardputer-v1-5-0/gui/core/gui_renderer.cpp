@@ -11,6 +11,9 @@
  */
 
 #include "gui_renderer.h"
+#if GUI_DIRTY_TRACKING
+#include "gui_dirty_region.h"
+#endif
 #include <Arduino.h>
 #include <esp_timer.h>
 
@@ -96,7 +99,16 @@ bool Renderer::init() {
         return false;
     }
 
+#if GUI_DIRTY_TRACKING
+    // Initialize DirtyRegionTracker (Phase 3)
+    if (!DirtyRegionTracker::instance().init()) {
+        GUI_LOG_ERROR("Failed to initialize DirtyRegionTracker");
+        return false;
+    }
+    GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA + DirtyTracking]", m_displayWidth, m_displayHeight);
+#else
     GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA]", m_displayWidth, m_displayHeight);
+#endif
 #else
     GUI_LOG("Renderer initialized (%dx%d) [Direct]", m_displayWidth, m_displayHeight);
 #endif
@@ -186,6 +198,10 @@ void Renderer::shutdown() {
     RenderQueue::instance().shutdown();
 
 #if GUI_DOUBLE_BUFFER
+    // Shutdown Phase 3 components
+#if GUI_DIRTY_TRACKING
+    DirtyRegionTracker::instance().shutdown();
+#endif
     // Shutdown Phase 2 components
     DisplayUpdater::instance().shutdown();
     DmaTransfer::instance().shutdown();
@@ -587,14 +603,47 @@ void Renderer::handleScroll(const RenderOp& op) {
 void Renderer::flushDisplay() {
 #if GUI_DOUBLE_BUFFER
     if (m_renderMode == RenderMode::DoubleBuffered) {
-        // Phase 2: Swap buffers and initiate DMA transfer
         Framebuffer& fb = Framebuffer::instance();
+
+#if GUI_DIRTY_TRACKING && GUI_PARTIAL_UPDATE
+        // Phase 3: Use dirty region tracking for partial updates
+        DirtyRegionTracker& dirty = DirtyRegionTracker::instance();
+
+        if (!dirty.isDirty()) {
+            // Nothing changed, skip update
+            return;
+        }
 
         // Swap front/back buffers
         fb.swap();
 
-        // Push front buffer to display via DMA
+        if (dirty.shouldFullRefresh()) {
+            // Too much changed - do full refresh
+            DisplayUpdater::instance().pushFramebuffer();
+            dirty.incrementFullRefresh();
+        } else {
+            // Partial update: only transfer dirty region
+            Rect dirtyRect = dirty.getOptimalDirtyRect();
+            if (!dirtyRect.isEmpty()) {
+                DisplayUpdater::instance().pushRegion(dirtyRect);
+                dirty.incrementPartialRefresh();
+
+                // Calculate saved pixels
+                uint32_t fullArea = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
+                uint32_t partialArea = dirtyRect.area();
+                if (partialArea < fullArea) {
+                    dirty.addSavedPixels(fullArea - partialArea);
+                }
+            }
+        }
+
+        // Clear dirty state after transfer
+        dirty.markAllClean();
+#else
+        // Phase 2: Full buffer transfer
+        fb.swap();
         DisplayUpdater::instance().pushFramebuffer();
+#endif
 
         m_stats.displayFlushCount++;
         return;

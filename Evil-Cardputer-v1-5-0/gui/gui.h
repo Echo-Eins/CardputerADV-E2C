@@ -52,9 +52,11 @@
  * - DMA transfers for async display updates
  * - Framebuffer rendering for tear-free display
  *
- * Planned (Phase 3):
- * - Dirty region tracking
+ * Features (Phase 3):
+ * - Dirty region tracking (grid-based, 16x16 tiles)
  * - Partial update optimization
+ * - Automatic full-refresh when dirty area exceeds threshold
+ * - Statistics for optimization monitoring
  *
  * Memory Usage:
  * - SRAM: ~8KB (queue) + ~4KB (task stack) = ~12KB
@@ -80,16 +82,17 @@
 #include "core/gui_render_queue.h"
 #include "core/gui_framebuffer.h"
 #include "core/gui_dma.h"
+#include "core/gui_dirty_region.h"
 #include "core/gui_renderer.h"
 
 // ============================================================================
 // Version Information
 // ============================================================================
 
-#define GUI_VERSION_MAJOR 2
+#define GUI_VERSION_MAJOR 3
 #define GUI_VERSION_MINOR 0
 #define GUI_VERSION_PATCH 0
-#define GUI_VERSION_STRING "2.0.0-phase2"
+#define GUI_VERSION_STRING "3.0.0-phase3"
 
 namespace GUI {
 
@@ -165,6 +168,15 @@ inline void printStatus() {
     const DmaStats& dmaStats = DmaTransfer::instance().getStats();
     Serial.printf("  DMA avg time: %lu us\n", dmaStats.avgTransferTimeUs());
 #endif
+
+#if GUI_DIRTY_TRACKING
+    const DirtyRegionStats& dirtyStats = DirtyRegionTracker::instance().getStats();
+    Serial.printf("  [Phase 3] Dirty tracking:\n");
+    Serial.printf("    Full refresh: %lu\n", dirtyStats.fullRefreshCount);
+    Serial.printf("    Partial refresh: %lu\n", dirtyStats.partialRefreshCount);
+    Serial.printf("    Efficiency: %.1f%%\n", dirtyStats.efficiency());
+    Serial.printf("    Current dirty: %d%%\n", DirtyRegionTracker::instance().dirtyPercentage());
+#endif
 }
 
 // ============================================================================
@@ -196,6 +208,47 @@ inline bool isDoubleBuffered() {
 }
 
 #endif // GUI_DOUBLE_BUFFER
+
+// ============================================================================
+// Phase 3 Accessors (Dirty Region Tracking)
+// ============================================================================
+
+#if GUI_DIRTY_TRACKING
+
+/**
+ * Get DirtyRegionTracker instance
+ */
+inline DirtyRegionTracker& dirtyRegionTracker() { return DirtyRegionTracker::instance(); }
+
+/**
+ * Check if any region needs update
+ */
+inline bool hasDirtyRegions() {
+    return dirtyRegionTracker().isDirty();
+}
+
+/**
+ * Get dirty area percentage (0-100)
+ */
+inline uint8_t dirtyPercentage() {
+    return dirtyRegionTracker().dirtyPercentage();
+}
+
+/**
+ * Mark region as dirty
+ */
+inline void markDirty(const Rect& rect) {
+    dirtyRegionTracker().markDirty(rect);
+}
+
+/**
+ * Mark region as dirty (convenience)
+ */
+inline void markDirty(int16_t x, int16_t y, uint16_t w, uint16_t h) {
+    dirtyRegionTracker().markDirty(x, y, w, h);
+}
+
+#endif // GUI_DIRTY_TRACKING
 
 // ============================================================================
 // Theme System Accessors

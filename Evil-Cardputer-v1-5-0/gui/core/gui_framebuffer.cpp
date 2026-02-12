@@ -12,6 +12,9 @@
  */
 
 #include "gui_framebuffer.h"
+#if GUI_DIRTY_TRACKING
+#include "gui_dirty_region.h"
+#endif
 #include <cstring>
 #include <algorithm>
 #include <Arduino.h>
@@ -243,6 +246,11 @@ void Framebuffer::clear(Color color) {
             m_backBuffer[i] = color;
         }
     }
+
+#if GUI_DIRTY_TRACKING
+    // Mark entire screen dirty
+    DirtyRegionTracker::instance().markAllDirty();
+#endif
 }
 
 void Framebuffer::fillRect(int16_t x, int16_t y, uint16_t w, uint16_t h, Color color) {
@@ -262,6 +270,11 @@ void Framebuffer::fillRect(int16_t x, int16_t y, uint16_t w, uint16_t h, Color c
         }
         dst += stride;
     }
+
+#if GUI_DIRTY_TRACKING
+    // Mark affected region dirty
+    DirtyRegionTracker::instance().markDirty(x, y, w, h);
+#endif
 }
 
 void Framebuffer::drawHLine(int16_t x, int16_t y, uint16_t w, Color color) {
@@ -283,6 +296,10 @@ void Framebuffer::drawHLine(int16_t x, int16_t y, uint16_t w, Color color) {
     for (uint16_t i = 0; i < w; i++) {
         dst[i] = color;
     }
+
+#if GUI_DIRTY_TRACKING
+    DirtyRegionTracker::instance().markDirty(x, y, w, 1);
+#endif
 }
 
 void Framebuffer::drawVLine(int16_t x, int16_t y, uint16_t h, Color color) {
@@ -306,6 +323,10 @@ void Framebuffer::drawVLine(int16_t x, int16_t y, uint16_t h, Color color) {
         *dst = color;
         dst += stride;
     }
+
+#if GUI_DIRTY_TRACKING
+    DirtyRegionTracker::instance().markDirty(x, y, 1, h);
+#endif
 }
 
 void Framebuffer::copyRect(int16_t destX, int16_t destY,
@@ -348,6 +369,10 @@ void Framebuffer::copyRect(int16_t destX, int16_t destY,
         srcPtr += srcW;
         dstPtr += m_config.width;
     }
+
+#if GUI_DIRTY_TRACKING
+    DirtyRegionTracker::instance().markDirty(destX, destY, copyW, copyH);
+#endif
 }
 
 // ============================================================================

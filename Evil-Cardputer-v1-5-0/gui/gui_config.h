@@ -120,9 +120,15 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 100;
 #define GUI_LEGACY_BRIDGE_MACROS 0
 #endif
 
-// Enable dirty region tracking (Phase 2)
+// Enable dirty region tracking (Phase 3)
 #ifndef GUI_DIRTY_TRACKING
-#define GUI_DIRTY_TRACKING 0
+#define GUI_DIRTY_TRACKING 1
+#endif
+
+// Enable partial display updates (Phase 3)
+// When enabled, only dirty regions are transferred to display
+#ifndef GUI_PARTIAL_UPDATE
+#define GUI_PARTIAL_UPDATE 1
 #endif
 
 // Enable debug logging
