@@ -101,7 +101,7 @@ struct DisplayProfile {
 // Display Config Manager
 // ============================================================================
 
-class DisplayConfig {
+class DisplayProfileManager {
 public:
     // Initialize and load config from SD
     static bool init();

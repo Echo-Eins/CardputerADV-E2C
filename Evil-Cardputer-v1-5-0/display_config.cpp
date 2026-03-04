@@ -9,77 +9,77 @@
 // Static member initialization
 // ============================================================================
 
-bool DisplayConfig::_initialized = false;
-DisplayProfile DisplayConfig::_profiles[DISPLAY_MAX_PROFILES];
-uint8_t DisplayConfig::_profileCount = 0;
-int8_t DisplayConfig::_activeIndex = 0;
-char DisplayConfig::_activeName[DISPLAY_NAME_MAX_LEN] = "Internal";
+bool DisplayProfileManager::_initialized = false;
+DisplayProfile DisplayProfileManager::_profiles[DISPLAY_MAX_PROFILES];
+uint8_t DisplayProfileManager::_profileCount = 0;
+int8_t DisplayProfileManager::_activeIndex = 0;
+char DisplayProfileManager::_activeName[DISPLAY_NAME_MAX_LEN] = "Internal";
 
 // ============================================================================
 // Lifecycle
 // ============================================================================
 
-bool DisplayConfig::init() {
+bool DisplayProfileManager::init() {
     if (_initialized) return true;
 
     if (!load()) {
-        Serial.println(F("[DisplayConfig] No config found, creating default"));
+        Serial.println(F("[DisplayProfileManager] No config found, creating default"));
         createDefault();
         save();
     }
 
     _initialized = true;
-    Serial.printf("[DisplayConfig] Loaded %d profile(s), active: %s\n",
+    Serial.printf("[DisplayProfileManager] Loaded %d profile(s), active: %s\n",
                   _profileCount, _activeName);
     return true;
 }
 
-bool DisplayConfig::isInitialized() { return _initialized; }
+bool DisplayProfileManager::isInitialized() { return _initialized; }
 
 // ============================================================================
 // Profile access
 // ============================================================================
 
-uint8_t DisplayConfig::getProfileCount() { return _profileCount; }
+uint8_t DisplayProfileManager::getProfileCount() { return _profileCount; }
 
-const DisplayProfile* DisplayConfig::getProfile(uint8_t index) {
+const DisplayProfile* DisplayProfileManager::getProfile(uint8_t index) {
     if (index >= _profileCount) return nullptr;
     return &_profiles[index];
 }
 
-const DisplayProfile* DisplayConfig::getProfileByName(const char* name) {
+const DisplayProfile* DisplayProfileManager::getProfileByName(const char* name) {
     for (uint8_t i = 0; i < _profileCount; i++) {
         if (strcmp(_profiles[i].name, name) == 0) return &_profiles[i];
     }
     return nullptr;
 }
 
-const DisplayProfile* DisplayConfig::getActiveProfile() {
+const DisplayProfile* DisplayProfileManager::getActiveProfile() {
     if (_activeIndex >= 0 && _activeIndex < _profileCount) {
         return &_profiles[_activeIndex];
     }
     return (_profileCount > 0) ? &_profiles[0] : nullptr;
 }
 
-int8_t DisplayConfig::getActiveIndex() { return _activeIndex; }
+int8_t DisplayProfileManager::getActiveIndex() { return _activeIndex; }
 
-const char* DisplayConfig::getActiveName() { return _activeName; }
+const char* DisplayProfileManager::getActiveName() { return _activeName; }
 
 // ============================================================================
 // Selection
 // ============================================================================
 
-bool DisplayConfig::setActive(uint8_t index) {
+bool DisplayProfileManager::setActive(uint8_t index) {
     if (index >= _profileCount) return false;
     _activeIndex = index;
     strncpy(_activeName, _profiles[index].name, DISPLAY_NAME_MAX_LEN - 1);
     _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
     save();
-    Serial.printf("[DisplayConfig] Active display: %s\n", _activeName);
+    Serial.printf("[DisplayProfileManager] Active display: %s\n", _activeName);
     return true;
 }
 
-bool DisplayConfig::setActiveByName(const char* name) {
+bool DisplayProfileManager::setActiveByName(const char* name) {
     for (uint8_t i = 0; i < _profileCount; i++) {
         if (strcmp(_profiles[i].name, name) == 0) {
             return setActive(i);
@@ -92,7 +92,7 @@ bool DisplayConfig::setActiveByName(const char* name) {
 // Persistence
 // ============================================================================
 
-bool DisplayConfig::load() {
+bool DisplayProfileManager::load() {
     if (!SD.exists(DISPLAY_CONFIG_PATH)) return false;
 
     File f = SD.open(DISPLAY_CONFIG_PATH, FILE_READ);
@@ -103,7 +103,7 @@ bool DisplayConfig::load() {
     f.close();
 
     if (err) {
-        Serial.printf("[DisplayConfig] JSON parse error: %s\n", err.c_str());
+        Serial.printf("[DisplayProfileManager] JSON parse error: %s\n", err.c_str());
         return false;
     }
 
@@ -153,7 +153,7 @@ bool DisplayConfig::load() {
     return (_profileCount > 0);
 }
 
-bool DisplayConfig::save() {
+bool DisplayProfileManager::save() {
     // Ensure config folder exists
     if (!SD.exists("/evil")) SD.mkdir("/evil");
     if (!SD.exists("/evil/config")) SD.mkdir("/evil/config");
@@ -189,7 +189,7 @@ bool DisplayConfig::save() {
 
     File f = SD.open(DISPLAY_CONFIG_PATH, FILE_WRITE);
     if (!f) {
-        Serial.println(F("[DisplayConfig] Failed to write config"));
+        Serial.println(F("[DisplayProfileManager] Failed to write config"));
         return false;
     }
 
@@ -198,7 +198,7 @@ bool DisplayConfig::save() {
     return true;
 }
 
-bool DisplayConfig::createDefault() {
+bool DisplayProfileManager::createDefault() {
     _profileCount = 0;
 
     // Profile 0: Internal display (Cardputer ADV built-in ST7789V)
@@ -219,7 +219,7 @@ bool DisplayConfig::createDefault() {
 // Default profiles
 // ============================================================================
 
-void DisplayConfig::populateInternalProfile(DisplayProfile& p) {
+void DisplayProfileManager::populateInternalProfile(DisplayProfile& p) {
     memset(&p, 0, sizeof(DisplayProfile));
     p.pins = DisplayPins();
     strncpy(p.name, "Internal", DISPLAY_NAME_MAX_LEN - 1);
@@ -231,7 +231,7 @@ void DisplayConfig::populateInternalProfile(DisplayProfile& p) {
     p.builtin = true;
 }
 
-void DisplayConfig::populateExternalDefault(DisplayProfile& p) {
+void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     memset(&p, 0, sizeof(DisplayProfile));
     p.pins = DisplayPins();
     strncpy(p.name, "External TFT", DISPLAY_NAME_MAX_LEN - 1);
@@ -248,7 +248,7 @@ void DisplayConfig::populateExternalDefault(DisplayProfile& p) {
 // Utility
 // ============================================================================
 
-String DisplayConfig::getDisplayListFormatted() {
+String DisplayProfileManager::getDisplayListFormatted() {
     String result;
     if (_profileCount == 0) {
         result = "No displays configured";

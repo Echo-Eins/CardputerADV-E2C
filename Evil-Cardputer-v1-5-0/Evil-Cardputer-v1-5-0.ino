@@ -1286,7 +1286,7 @@ void setup() {
 
   // Initialize I2C bus manager, display config, and peripherals
   I2CManager::init();
-  DisplayConfig::init();
+  DisplayProfileManager::init();
 
   // If I2C is enabled, auto-detect and initialize Scroll Unit
   if (I2CManager::isEnabled()) {
@@ -6131,7 +6131,7 @@ void showI2CDevices() {
 void showDisplaySelection() {
     enterDebounce();
 
-    uint8_t count = DisplayConfig::getProfileCount();
+    uint8_t count = DisplayProfileManager::getProfileCount();
     if (count == 0) {
         M5.Display.fillScreen(TFT_BLACK);
         M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
@@ -6143,21 +6143,21 @@ void showDisplaySelection() {
 
     std::vector<std::pair<String, std::function<void()>>> dispOptions;
     for (uint8_t i = 0; i < count; i++) {
-        const DisplayProfile* p = DisplayConfig::getProfile(i);
+        const DisplayProfile* p = DisplayProfileManager::getProfile(i);
         if (!p) continue;
 
         String label = p->toString();
-        if (i == DisplayConfig::getActiveIndex()) {
+        if (i == DisplayProfileManager::getActiveIndex()) {
             label = "> " + label;
         }
 
         uint8_t idx = i;
         dispOptions.push_back({label, [idx]() {
-            DisplayConfig::setActive(idx);
+            DisplayProfileManager::setActive(idx);
             M5.Display.fillScreen(TFT_BLACK);
             M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
             M5.Display.setTextColor(TFT_GREEN);
-            const DisplayProfile* sel = DisplayConfig::getProfile(idx);
+            const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
             if (sel) {
                 M5.Display.print("Active: ");
                 M5.Display.print(sel->name);

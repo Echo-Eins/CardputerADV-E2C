@@ -20,9 +20,9 @@
 // ============================================================================
 
 // Default I2C pins for M5Stack Cardputer ADV
-#define I2C_DEFAULT_SDA     2
-#define I2C_DEFAULT_SCL     1
-#define I2C_DEFAULT_FREQ    100000  // 100kHz standard mode
+#define I2C_MGR_DEFAULT_SDA     2
+#define I2C_MGR_DEFAULT_SCL     1
+#define I2C_MGR_DEFAULT_FREQ    100000  // 100kHz standard mode
 
 // PaHub v2.1 (PCA9548AP) constants
 #define PAHUB_BASE_ADDR     0x70    // Base I2C address (A0=A1=A2=0)
@@ -88,8 +88,8 @@ struct PaHubState {
 class I2CManager {
 public:
     // Lifecycle
-    static bool init(int sdaPin = I2C_DEFAULT_SDA, int sclPin = I2C_DEFAULT_SCL,
-                     uint32_t freq = I2C_DEFAULT_FREQ);
+    static bool init(int sdaPin = I2C_MGR_DEFAULT_SDA, int sclPin = I2C_MGR_DEFAULT_SCL,
+                     uint32_t freq = I2C_MGR_DEFAULT_FREQ);
     static void shutdown();
     static bool isInitialized();
 
