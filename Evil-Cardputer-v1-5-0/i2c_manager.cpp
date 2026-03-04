@@ -13,9 +13,9 @@
 bool I2CManager::_initialized = false;
 bool I2CManager::_enabled = false;
 bool I2CManager::_busActive = false;
-int I2CManager::_sdaPin = I2C_DEFAULT_SDA;
-int I2CManager::_sclPin = I2C_DEFAULT_SCL;
-uint32_t I2CManager::_freq = I2C_DEFAULT_FREQ;
+int I2CManager::_sdaPin = I2C_MGR_DEFAULT_SDA;
+int I2CManager::_sclPin = I2C_MGR_DEFAULT_SCL;
+uint32_t I2CManager::_freq = I2C_MGR_DEFAULT_FREQ;
 
 I2CDeviceInfo I2CManager::_devices[32];
 uint8_t I2CManager::_deviceCount = 0;
