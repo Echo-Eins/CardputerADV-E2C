@@ -20,6 +20,8 @@
  */
 
 #include "remote_desktop.h"
+#include "scroll_input.h"
+#include "i2c_manager.h"
 #include <M5Cardputer.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -1854,6 +1856,30 @@ static void rdProcessInput() {
 }
 
 // ============================================================================
+// Scroll Unit input for Remote Desktop (Intent 2: mouse wheel + middle click)
+// ============================================================================
+
+static void rdProcessScrollInput() {
+    if (!ScrollInput::isConnected() || !I2CManager::isEnabled()) return;
+
+    ScrollInput::poll();
+
+    // Mouse scroll: encoder delta → vertical scroll
+    int8_t scrollDelta = ScrollInput::getScrollDelta();
+    if (scrollDelta != 0) {
+        // Payload: [dx: i8, dy: i8] — dx=0 (no horizontal), dy=scrollDelta
+        uint8_t data[2] = {0, (uint8_t)scrollDelta};
+        rdSendEncrypted(RD_PKT_MOUSE_SCROLL, data, 2);
+    }
+
+    // Middle mouse button: Scroll Unit button press
+    if (ScrollInput::wasButtonClicked()) {
+        uint8_t data[2] = {2, 2};  // Middle button (2), Click action (2)
+        rdSendEncrypted(RD_PKT_MOUSE_CLICK, data, 2);
+    }
+}
+
+// ============================================================================
 // Main session loop
 // ============================================================================
 
@@ -1894,6 +1920,9 @@ static void rdLoop() {
 
         // Process keyboard input
         rdProcessInput();
+
+        // Process Scroll Unit input (mouse wheel + middle click)
+        rdProcessScrollInput();
 
         // Process progressive mouse movement (separate from discrete key events)
         rdProcessMouseMovement();

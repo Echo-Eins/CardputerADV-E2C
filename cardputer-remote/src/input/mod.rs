@@ -2,9 +2,9 @@
 //!
 //! Maps Cardputer input commands to Windows input events
 
-use crate::protocol::{ClickAction, InputMode, KeyEvent, MouseButton, MouseClick, MouseMove};
+use crate::protocol::{ClickAction, InputMode, KeyEvent, MouseButton, MouseClick, MouseMove, MouseScrollEvent};
 use enigo::{
-    Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings,
+    Axis, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings,
     Button as EnigoButton,
 };
 use std::collections::HashMap;
@@ -143,6 +143,22 @@ impl InputController {
         let dx = movement.dx as i32 * self.mouse_speed;
         let dy = movement.dy as i32 * self.mouse_speed;
         let _ = self.enigo.move_mouse(dx, dy, Coordinate::Rel);
+    }
+
+    /// Handle mouse scroll (wheel)
+    pub fn mouse_scroll(&mut self, scroll: MouseScrollEvent) {
+        // enigo scroll: positive = scroll up, negative = scroll down
+        // Cardputer sends: positive delta = clockwise = scroll down
+        // So we negate dy for natural scroll direction
+        let vertical = -(scroll.dy as i32) * self.mouse_speed;
+        let horizontal = scroll.dx as i32 * self.mouse_speed;
+
+        if vertical != 0 {
+            let _ = self.enigo.scroll(vertical, Axis::Vertical);
+        }
+        if horizontal != 0 {
+            let _ = self.enigo.scroll(horizontal, Axis::Horizontal);
+        }
     }
 
     /// Handle mouse click

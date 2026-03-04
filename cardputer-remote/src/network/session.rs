@@ -7,7 +7,7 @@ use crate::input::InputController;
 use crate::network::{Connection, NetworkError};
 use crate::protocol::{
     ClickAction, KeyEvent, ModeSwitch, MouseButton, MouseClick, MouseMove,
-    PacketType, ScreenFrame,
+    MouseScrollEvent, PacketType, ScreenFrame,
 };
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -291,6 +291,18 @@ impl Session {
                     let click = MouseClick { button, action };
                     info!("Mouse click: {:?} {:?}", click.button, click.action);
                     input.mouse_click(click);
+                }
+            }
+
+            PacketType::MouseScroll => {
+                // Client sends raw bytes: [dx, dy] (2 bytes, signed)
+                if payload.len() >= 2 {
+                    let scroll = MouseScrollEvent {
+                        dx: payload[0] as i8,
+                        dy: payload[1] as i8,
+                    };
+                    debug!("Mouse scroll: dx={} dy={}", scroll.dx, scroll.dy);
+                    input.mouse_scroll(scroll);
                 }
             }
 

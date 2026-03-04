@@ -106,6 +106,11 @@ enum SearchKind {
 // Hardware Abstraction Layer
 #include "hardware.h"
 
+// I2C Bus Manager & Peripherals
+#include "i2c_manager.h"
+#include "scroll_input.h"
+#include "display_config.h"
+
 // Crypto Utilities
 #include "crypto_utils.h"
 
@@ -1279,6 +1284,25 @@ void setup() {
   // Initialize WiFi credentials manager
   wifiCredentialsInit();
 
+  // Initialize I2C bus manager, display config, and peripherals
+  I2CManager::init();
+  DisplayConfig::init();
+
+  // If I2C is enabled, auto-detect and initialize Scroll Unit
+  if (I2CManager::isEnabled()) {
+    const I2CDeviceInfo* scrollDev = I2CManager::findDevice(I2CDeviceType::ScrollUnit);
+    if (scrollDev) {
+      if (scrollDev->paHubIndex != 0xFF) {
+        ScrollInput::setPaHubRoute(scrollDev->paHubAddr, scrollDev->paHubIndex);
+      }
+      ScrollInput::init(scrollDev->address);
+      if (ScrollInput::isConnected()) {
+        ScrollInput::setLED(0, 32, 0);  // Green LED = connected
+        Serial.println(F("[Setup] Scroll Unit connected"));
+      }
+    }
+  }
+
   // Initialize menu engine
   MenuEngine::init(menuItems, menuSize, maxMenuDisplay);
 
@@ -2081,6 +2105,25 @@ void handleMenuInput() {
 
   } else {
     keyHandled = false;
+  }
+
+  // Scroll Unit navigation in main menu (Intent 1)
+  if (ScrollInput::isConnected()) {
+    ScrollInput::poll();
+    ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
+    if (scrollEvt == ScrollEvent::ScrollUp) {
+      currentIndex--;
+      if (currentIndex < 0) currentIndex = total - 1;
+      stateChanged = true;
+    } else if (scrollEvt == ScrollEvent::ScrollDown) {
+      currentIndex++;
+      if (currentIndex >= total) currentIndex = 0;
+      stateChanged = true;
+    } else if (scrollEvt == ScrollEvent::ButtonClick) {
+      int realIndex = mapViewToRealIndex(currentIndex);
+      executeMenuItem(realIndex);
+      stateChanged = true;
+    }
   }
 
   if (!keyHandled) lastKeyPressTime = 0;
@@ -5814,6 +5857,26 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
             waitAndReturnToMenu("Back to menu");
         }
 
+        // Scroll Unit input (Intent 1: menu navigation)
+        if (ScrollInput::isConnected()) {
+            ScrollInput::poll();
+            ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
+            if (scrollEvt == ScrollEvent::ScrollUp) {
+                currentIndex = (currentIndex - 1 + options.size()) % options.size();
+                menuStartIndex = max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
+                screenNeedsUpdate = true;
+            } else if (scrollEvt == ScrollEvent::ScrollDown) {
+                currentIndex = (currentIndex + 1) % options.size();
+                menuStartIndex = max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
+                screenNeedsUpdate = true;
+            } else if (scrollEvt == ScrollEvent::ButtonClick) {
+                options[currentIndex].second();
+                if (!loop) {
+                    selectionMade = true;
+                }
+            }
+        }
+
         if (screenNeedsUpdate) {
             M5.Display.clear();
 
@@ -5971,6 +6034,141 @@ void showWifiPasswordsMenu() {
   }
 }
 
+// ============================================================================
+// I2C Settings Functions
+// ============================================================================
+
+void toggleI2C() {
+    enterDebounce();
+    I2CManager::toggleEnabled();
+
+    // If just enabled, try to detect and init Scroll Unit
+    if (I2CManager::isEnabled()) {
+        I2CDeviceInfo scanBuf[32];
+        I2CManager::fullScan(scanBuf, 32);
+        const I2CDeviceInfo* scrollDev = I2CManager::findDevice(I2CDeviceType::ScrollUnit);
+        if (scrollDev) {
+            if (scrollDev->paHubIndex != 0xFF) {
+                ScrollInput::setPaHubRoute(scrollDev->paHubAddr, scrollDev->paHubIndex);
+            }
+            ScrollInput::init(scrollDev->address);
+            if (ScrollInput::isConnected()) {
+                ScrollInput::setLED(0, 32, 0);
+            }
+        }
+    } else {
+        ScrollInput::shutdown();
+    }
+
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
+    M5.Display.setTextColor(I2CManager::isEnabled() ? TFT_GREEN : TFT_RED);
+    M5.Display.print(I2CManager::isEnabled() ? "I2C Enabled" : "I2C Disabled");
+    delay(1000);
+}
+
+void showI2CDevices() {
+    enterDebounce();
+
+    if (!I2CManager::isEnabled()) {
+        M5.Display.fillScreen(TFT_BLACK);
+        M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
+        M5.Display.setTextColor(TFT_YELLOW);
+        M5.Display.print("I2C is disabled");
+        delay(1500);
+        return;
+    }
+
+    // Rescan
+    I2CDeviceInfo scanResults[32];
+    uint8_t count = I2CManager::fullScan(scanResults, 32);
+
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setCursor(5, 2);
+    M5.Display.setTextSize(1.5);
+    M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
+    M5.Display.println("I2C Device Scan");
+    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    if (count == 0) {
+        M5.Display.println("No devices found");
+    } else {
+        M5.Display.printf("%d device(s):\n", count);
+        for (uint8_t i = 0; i < count && i < 9; i++) {
+            if (scanResults[i].paHubIndex != 0xFF) {
+                M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
+            } else {
+                M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
+            }
+            M5.Display.println(scanResults[i].toString());
+        }
+        if (count > 9) {
+            M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            M5.Display.printf("... +%d more\n", count - 9);
+        }
+    }
+
+    M5.Display.display();
+
+    // Wait for any key to exit
+    enterDebounce();
+    while (true) {
+        M5.update();
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+            M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+            break;
+        }
+        // Also accept Scroll button click
+        if (ScrollInput::isConnected()) {
+            ScrollInput::poll();
+            if (ScrollInput::wasButtonClicked()) break;
+        }
+        delay(50);
+    }
+}
+
+void showDisplaySelection() {
+    enterDebounce();
+
+    uint8_t count = DisplayConfig::getProfileCount();
+    if (count == 0) {
+        M5.Display.fillScreen(TFT_BLACK);
+        M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
+        M5.Display.setTextColor(TFT_YELLOW);
+        M5.Display.print("No displays configured");
+        delay(1500);
+        return;
+    }
+
+    std::vector<std::pair<String, std::function<void()>>> dispOptions;
+    for (uint8_t i = 0; i < count; i++) {
+        const DisplayProfile* p = DisplayConfig::getProfile(i);
+        if (!p) continue;
+
+        String label = p->toString();
+        if (i == DisplayConfig::getActiveIndex()) {
+            label = "> " + label;
+        }
+
+        uint8_t idx = i;
+        dispOptions.push_back({label, [idx]() {
+            DisplayConfig::setActive(idx);
+            M5.Display.fillScreen(TFT_BLACK);
+            M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
+            M5.Display.setTextColor(TFT_GREEN);
+            const DisplayProfile* sel = DisplayConfig::getProfile(idx);
+            if (sel) {
+                M5.Display.print("Active: ");
+                M5.Display.print(sel->name);
+            }
+            delay(1000);
+        }});
+    }
+
+    loopOptions(dispOptions, false, true, "Display");
+}
+
 void showSettingsMenu() {
     std::vector<std::pair<String, std::function<void()>>> options;
 
@@ -5994,6 +6192,9 @@ void showSettingsMenu() {
         options.push_back({"Set CPU Frequency", setCPUFrequency});
         options.push_back({"Change Portal IP", setCaptivePortalIP});
         options.push_back({"Manage WiFi Passwords", showWifiPasswordsMenu});
+        options.push_back({I2CManager::isEnabled() ? "Disable I2C" : "Enable I2C", []() { toggleI2C(); }});
+        options.push_back({"I2C Devices", showI2CDevices});
+        options.push_back({"Select Display", showDisplaySelection});
 
         loopOptions(options, false, true, "Settings");
         // Vérifie si BACKSPACE a été pressé pour quitter le menu

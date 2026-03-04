@@ -103,6 +103,7 @@ enum RDPacketType : uint8_t {
     RD_PKT_KEY_PRESS            = 0x32,
     RD_PKT_KEY_RELEASE          = 0x33,
     RD_PKT_KEY_TYPE             = 0x34,
+    RD_PKT_MOUSE_SCROLL        = 0x35,
 
     // Mode
     RD_PKT_MODE_SWITCH          = 0x40,

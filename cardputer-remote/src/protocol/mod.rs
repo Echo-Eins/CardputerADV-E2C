@@ -35,6 +35,7 @@ pub enum PacketType {
     KeyPress = 0x32,
     KeyRelease = 0x33,
     KeyType = 0x34,
+    MouseScroll = 0x35,
     ModeSwitch = 0x40,
     ModeAck = 0x41,
     ErrorPacket = 0xF0,
@@ -63,6 +64,7 @@ impl TryFrom<u8> for PacketType {
             0x32 => Ok(PacketType::KeyPress),
             0x33 => Ok(PacketType::KeyRelease),
             0x34 => Ok(PacketType::KeyType),
+            0x35 => Ok(PacketType::MouseScroll),
             0x40 => Ok(PacketType::ModeSwitch),
             0x41 => Ok(PacketType::ModeAck),
             0xF0 => Ok(PacketType::ErrorPacket),
@@ -272,6 +274,12 @@ pub struct MouseMove {
 pub struct MouseClick {
     pub button: MouseButton,
     pub action: ClickAction,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct MouseScrollEvent {
+    pub dx: i8,
+    pub dy: i8,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
