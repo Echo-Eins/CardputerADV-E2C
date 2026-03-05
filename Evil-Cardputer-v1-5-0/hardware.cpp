@@ -12,6 +12,9 @@
 #include <AudioFileSourceID3.h>
 #include <AudioGeneratorMP3.h>
 #include <stdarg.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Board Detection - Static Storage
@@ -138,53 +141,22 @@ DisplayConfig HardwareDisplay::getConfig() {
     return _config;
 }
 
-void HardwareDisplay::clear() {
-    M5.Display.clear();
-}
+// ---------------------------------------------------------------------------
+// HardwareDisplay drawing methods — delegated to GUI::LegacyBridge
+// ---------------------------------------------------------------------------
 
-void HardwareDisplay::fillScreen(uint16_t color) {
-    M5.Display.fillScreen(color);
-}
-
-void HardwareDisplay::display() {
-    M5.Display.display();
-}
-
-void HardwareDisplay::setCursor(int16_t x, int16_t y) {
-    M5.Display.setCursor(x, y);
-}
-
-void HardwareDisplay::setTextColor(uint16_t color) {
-    M5.Display.setTextColor(color);
-}
-
-void HardwareDisplay::setTextColor(uint16_t fg, uint16_t bg) {
-    M5.Display.setTextColor(fg, bg);
-}
-
-void HardwareDisplay::setTextSize(float size) {
-    M5.Display.setTextSize(size);
-}
-
-void HardwareDisplay::setTextFont(uint8_t font) {
-    M5.Display.setTextFont(font);
-}
-
-void HardwareDisplay::print(const char* text) {
-    M5.Display.print(text);
-}
-
-void HardwareDisplay::print(const String& text) {
-    M5.Display.print(text);
-}
-
-void HardwareDisplay::println(const char* text) {
-    M5.Display.println(text);
-}
-
-void HardwareDisplay::println(const String& text) {
-    M5.Display.println(text);
-}
+void HardwareDisplay::clear()                              { LB::clear(); }
+void HardwareDisplay::fillScreen(uint16_t c)               { LB::fillScreen(c); }
+void HardwareDisplay::display()                            { LB::display(); }
+void HardwareDisplay::setCursor(int16_t x, int16_t y)     { LB::setCursor(x, y); }
+void HardwareDisplay::setTextColor(uint16_t c)             { LB::setTextColor(c); }
+void HardwareDisplay::setTextColor(uint16_t fg, uint16_t bg) { LB::setTextColor(fg, bg); }
+void HardwareDisplay::setTextSize(float s)                 { LB::setTextSize(s); }
+void HardwareDisplay::setTextFont(uint8_t f)               { LB::setTextFont(f); }
+void HardwareDisplay::print(const char* t)                 { LB::print(t); }
+void HardwareDisplay::print(const String& t)               { LB::print(t); }
+void HardwareDisplay::println(const char* t)               { LB::println(t); }
+void HardwareDisplay::println(const String& t)             { LB::println(t); }
 
 void HardwareDisplay::printf(const char* format, ...) {
     char buf[256];
@@ -192,109 +164,56 @@ void HardwareDisplay::printf(const char* format, ...) {
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
-    M5.Display.print(buf);
+    LB::print(buf);
 }
 
-int HardwareDisplay::textWidth(const char* text) {
-    return M5.Display.textWidth(text);
-}
+int  HardwareDisplay::textWidth(const char* t)             { return LB::textWidth(t); }
+int  HardwareDisplay::textWidth(const String& t)           { return LB::textWidth(t); }
 
-int HardwareDisplay::textWidth(const String& text) {
-    return M5.Display.textWidth(text);
-}
-
-void HardwareDisplay::drawPixel(int16_t x, int16_t y, uint16_t color) {
-    M5.Display.drawPixel(x, y, color);
-}
-
-void HardwareDisplay::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) {
-    M5.Display.drawLine(x0, y0, x1, y1, color);
-}
-
-void HardwareDisplay::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-    M5.Display.drawRect(x, y, w, h, color);
-}
-
-void HardwareDisplay::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-    M5.Display.fillRect(x, y, w, h, color);
-}
-
-void HardwareDisplay::drawCircle(int16_t x, int16_t y, int16_t r, uint16_t color) {
-    M5.Display.drawCircle(x, y, r, color);
-}
-
-void HardwareDisplay::fillCircle(int16_t x, int16_t y, int16_t r, uint16_t color) {
-    M5.Display.fillCircle(x, y, r, color);
-}
+void HardwareDisplay::drawPixel(int16_t x, int16_t y, uint16_t c) { LB::drawPixel(x, y, c); }
+void HardwareDisplay::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t c) { LB::drawLine(x0, y0, x1, y1, c); }
+void HardwareDisplay::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { LB::drawRect(x, y, w, h, c); }
+void HardwareDisplay::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { LB::fillRect(x, y, w, h, c); }
+void HardwareDisplay::drawCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { LB::drawCircle(x, y, r, c); }
+void HardwareDisplay::fillCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { LB::fillCircle(x, y, r, c); }
 
 void HardwareDisplay::drawJpgFile(fs::FS& fs, const char* path, int16_t x, int16_t y) {
-    // Read file into buffer to avoid abstract type issue with DataWrapperT
     fs::File file = fs.open(path, FILE_READ);
-    if (!file) {
-        return;
-    }
+    if (!file) return;
     size_t fileSize = file.size();
-    if (fileSize == 0) {
-        file.close();
-        return;
-    }
+    if (fileSize == 0) { file.close(); return; }
     uint8_t* buffer = (uint8_t*)malloc(fileSize);
-    if (!buffer) {
-        file.close();
-        return;
-    }
+    if (!buffer) { file.close(); return; }
     file.read(buffer, fileSize);
     file.close();
-    M5.Display.drawJpg(buffer, fileSize, x, y);
+    LB::drawJpg(buffer, fileSize, x, y);
     free(buffer);
 }
 
 void HardwareDisplay::drawImage(const char* filepath) {
-    // Read file into buffer to avoid abstract type issue with DataWrapperT
     fs::File file = SD.open(filepath, FILE_READ);
-    if (!file) {
-        return;
-    }
+    if (!file) return;
     size_t fileSize = file.size();
-    if (fileSize == 0) {
-        file.close();
-        return;
-    }
+    if (fileSize == 0) { file.close(); return; }
     uint8_t* buffer = (uint8_t*)malloc(fileSize);
-    if (!buffer) {
-        file.close();
-        return;
-    }
+    if (!buffer) { file.close(); return; }
     file.read(buffer, fileSize);
     file.close();
-    M5.Display.drawJpg(buffer, fileSize);
+    LB::drawJpg(buffer, fileSize);
     free(buffer);
 }
 
-uint8_t HardwareDisplay::getBrightness() {
-    return M5.Display.getBrightness();
-}
-
-void HardwareDisplay::setBrightness(uint8_t brightness) {
-    M5.Display.setBrightness(brightness);
-}
-
-int16_t HardwareDisplay::width() {
-    return M5.Display.width();
-}
-
-int16_t HardwareDisplay::height() {
-    return M5.Display.height();
-}
+uint8_t HardwareDisplay::getBrightness()                   { return LB::getBrightness(); }
+void    HardwareDisplay::setBrightness(uint8_t b)          { LB::setBrightness(b); }
+int16_t HardwareDisplay::width()                           { return LB::width(); }
+int16_t HardwareDisplay::height()                          { return LB::height(); }
 
 void HardwareDisplay::setRotation(uint8_t rotation) {
-    M5.Display.setRotation(rotation);
+    LB::setRotation(rotation);
     _config.rotation = rotation;
 }
 
-uint8_t HardwareDisplay::getRotation() {
-    return M5.Display.getRotation();
-}
+uint8_t HardwareDisplay::getRotation()                     { return LB::getRotation(); }
 
 // ============================================================================
 // LED Implementation

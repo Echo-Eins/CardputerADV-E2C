@@ -6,6 +6,9 @@
 
 #include "bluetooth_keyboard.h"
 #include <M5Cardputer.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Global Variables
@@ -117,10 +120,10 @@ void initBluetoothKeyboard() {
     }
     Serial.println();
 
-    M5Cardputer.Display.clear();
-    M5Cardputer.Display.setTextColor(menuTextUnFocusedColor);
-    M5Cardputer.Display.setCursor(0, 10);
-    M5Cardputer.Display.println("Bluetooth device name :");
+    LB::clear();
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::setCursor(0, 10);
+    LB::println("Bluetooth device name :");
 
     String deviceName = getUserInput(false);
     Serial.println("Bluetooth device name selected: " + deviceName);
@@ -184,51 +187,38 @@ void cleanupBluetooth() {
 // Display Functions
 // ============================================================================
 
-void displayWaitingForConnection(String deviceName) {
-    M5Cardputer.Display.clear();
-    M5Cardputer.Display.setTextColor(TFT_BLUE);
-    M5Cardputer.Display.setCursor(0, 10);
-    M5Cardputer.Display.println("Waiting on: " + deviceName);
+// Draw centered text inside a rounded rectangle badge
+static void drawCenteredBadge(const char* text, uint16_t color) {
+    LB::setTextSize(3);
+    int16_t tw = LB::textWidth(text);
+    int16_t th = LB::fontHeight();
+    int rw = tw + 20, rh = th + 20;
+    int rx = (LB::width() - rw) / 2;
+    int ry = (LB::height() - rh) / 2;
 
-    M5Cardputer.Display.setTextSize(3);
-    const char* text = "Waiting";
-    int16_t textWidth = M5Cardputer.Display.textWidth(text);
-    int16_t textHeight = M5Cardputer.Display.fontHeight();
-    int rectWidth = textWidth + 20;
-    int rectHeight = textHeight + 20;
-    int rectX = (240 - rectWidth) / 2;
-    int rectY = (135 - rectHeight) / 2;
-    M5Cardputer.Display.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 10, TFT_BLUE);
-    M5Cardputer.Display.setTextColor(TFT_BLUE);
-    int textX = rectX + (rectWidth - textWidth) / 2;
-    int textY = rectY + (rectHeight - textHeight) / 2;
-    M5Cardputer.Display.setCursor(textX, textY);
-    M5Cardputer.Display.print(text);
+    LB::drawRoundRect(rx, ry, rw, rh, 10, color);
+    LB::setTextColor(color);
+    LB::setCursor(rx + (rw - tw) / 2, ry + (rh - th) / 2);
+    LB::print(text);
+}
+
+void displayWaitingForConnection(String deviceName) {
+    LB::clear();
+    LB::setTextColor(TFT_BLUE);
+    LB::setCursor(0, 10);
+    LB::println(("Waiting on: " + deviceName).c_str());
+    drawCenteredBadge("Waiting", TFT_BLUE);
 }
 
 void updateBluetoothStatus(bool status) {
-    M5Cardputer.Display.fillScreen(menuBackgroundColor);
-    M5Cardputer.Display.setTextSize(3);
-    const char* text = "Connected";
-    int16_t textWidth = M5Cardputer.Display.textWidth(text);
-    int16_t textHeight = M5Cardputer.Display.fontHeight();
-    int rectWidth = textWidth + 20;
-    int rectHeight = textHeight + 20;
-    int rectX = (240 - rectWidth) / 2;
-    int rectY = (135 - rectHeight) / 2;
-
+    LB::fillScreen(menuBackgroundColor);
     if (status) {
-        M5Cardputer.Display.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 10, TFT_GREEN);
-        M5Cardputer.Display.setTextColor(TFT_GREEN);
+        drawCenteredBadge("Connected", TFT_GREEN);
         Serial.println(F("Bluetooth status: Connected."));
     } else {
         isBluetoothKeyboardActive = false;
+        drawCenteredBadge("Connected", menuBackgroundColor);
     }
-
-    int textX = rectX + (rectWidth - textWidth) / 2;
-    int textY = rectY + (rectHeight - textHeight) / 2;
-    M5Cardputer.Display.setCursor(textX, textY);
-    M5Cardputer.Display.print(text);
 }
 
 // ============================================================================

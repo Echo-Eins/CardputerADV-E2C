@@ -12,6 +12,9 @@
 #include <map>
 #include <cmath>
 #include <deque>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Variables Storage
@@ -339,34 +342,34 @@ static void termPrint(const String& text, uint16_t color = TFT_WHITE) {
 }
 
 static void termRender(const String& prompt, const String& currentInput = "") {
-    M5.Display.fillScreen(TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
 
-    // Output area (lines 0-9)
+    // Output area
     int maxLines = 9;
     int startLine = max(0, (int)outputLines.size() - maxLines + outputScroll);
 
-    M5.Display.setTextColor(TFT_WHITE);
-    for (int i = 0; i < maxLines - 1 && (startLine + i) < outputLines.size(); i++) {
-        M5.Display.setCursor(2, 2 + i * TERM_LINE_HEIGHT);
+    LB::setTextColor(TFT_WHITE);
+    for (int i = 0; i < maxLines - 1 && (startLine + i) < (int)outputLines.size(); i++) {
+        LB::setCursor(2, 2 + i * TERM_LINE_HEIGHT);
         String line = outputLines[startLine + i];
         if (line.length() > 38) line = line.substring(0, 38);
-        M5.Display.print(line);
+        LB::print(line.c_str());
     }
 
     // Input line at bottom
-    M5.Display.fillRect(0, TERM_SCREEN_HEIGHT - TERM_LINE_HEIGHT - 2, TERM_SCREEN_WIDTH, TERM_LINE_HEIGHT + 2, TFT_DARKGREY);
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.setCursor(2, TERM_SCREEN_HEIGHT - TERM_LINE_HEIGHT);
-    M5.Display.print(prompt);
-    M5.Display.setTextColor(TFT_WHITE);
+    LB::fillRect(0, TERM_SCREEN_HEIGHT - TERM_LINE_HEIGHT - 2, TERM_SCREEN_WIDTH, TERM_LINE_HEIGHT + 2, TFT_DARKGREY);
+    LB::setTextColor(TFT_GREEN);
+    LB::setCursor(2, TERM_SCREEN_HEIGHT - TERM_LINE_HEIGHT);
+    LB::print(prompt.c_str());
+    LB::setTextColor(TFT_WHITE);
 
     String visible = currentInput;
     int maxInputLen = 38 - prompt.length();
-    if (visible.length() > maxInputLen) {
+    if ((int)visible.length() > maxInputLen) {
         visible = visible.substring(visible.length() - maxInputLen);
     }
-    M5.Display.print(visible);
-    M5.Display.print("_");
+    LB::print(visible.c_str());
+    LB::print("_");
 }
 
 // ============================================================================
@@ -737,29 +740,27 @@ void terminalsMenu() {
     int selected = 0;
 
     while (true) {
-        M5.Display.fillScreen(TFT_BLACK);
-        M5.Display.setTextColor(TFT_CYAN);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("=== Terminals ===");
-        M5.Display.setTextColor(TFT_DARKGREY);
-        M5.Display.println("Select with ;/. Enter");
-        M5.Display.println();
+        // Header
+        LB::fillScreen(TFT_BLACK);
+        LB::setTextColor(TFT_CYAN);
+        LB::setCursor(5, 5);
+        LB::println("=== Terminals ===");
+        LB::setTextColor(TFT_DARKGREY);
+        LB::println("Select with ;/. Enter");
+        LB::println("");
 
+        // Menu items
         for (int i = 0; i < numOptions; i++) {
-            M5.Display.setCursor(10, 40 + i * 15);
-            if (i == selected) {
-                M5.Display.setTextColor(TFT_GREEN);
-                M5.Display.print("> ");
-            } else {
-                M5.Display.setTextColor(TFT_WHITE);
-                M5.Display.print("  ");
-            }
-            M5.Display.println(options[i]);
+            LB::setCursor(10, 40 + i * 15);
+            LB::setTextColor(i == selected ? TFT_GREEN : TFT_WHITE);
+            LB::print(i == selected ? "> " : "  ");
+            LB::println(options[i]);
         }
 
-        M5.Display.setTextColor(TFT_DARKGREY);
-        M5.Display.setCursor(5, TERM_SCREEN_HEIGHT - 12);
-        M5.Display.print("Backspace to exit");
+        // Footer hint
+        LB::setTextColor(TFT_DARKGREY);
+        LB::setCursor(5, TERM_SCREEN_HEIGHT - 12);
+        LB::print("Backspace to exit");
 
         // Wait for input
         while (true) {

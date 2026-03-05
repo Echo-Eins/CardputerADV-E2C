@@ -8,6 +8,9 @@
 #include <M5Cardputer.h>
 #include <ArduinoJson.h>
 #include <vector>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // LLM Configuration
@@ -72,6 +75,27 @@ String encodeBase64(const String& input) {
 // LLM Chat Stream
 // ============================================================================
 
+// Render a page of lines from a scrollable buffer
+static void renderPage(const std::vector<String>& lines, int scrollOffset,
+                       int linesPerPage, int lineHeight,
+                       const String& trailingLine = "") {
+    LB::clear();
+    for (int i = 0; i < linesPerPage; i++) {
+      int idx = scrollOffset + i;
+      if (idx >= 0 && idx < (int)lines.size()) {
+        LB::setCursor(5, 10 + i * lineHeight);
+        LB::println(lines[idx].c_str());
+      }
+    }
+    if (trailingLine.length() > 0) {
+      int visibleCount = (int)lines.size() - scrollOffset;
+      if (visibleCount >= 0 && visibleCount < linesPerPage) {
+        LB::setCursor(5, 10 + visibleCount * lineHeight);
+        LB::println(trailingLine.c_str());
+      }
+    }
+}
+
 void evilLLMChatStream() {
   if (WiFi.localIP().toString() == "0.0.0.0") {
     Serial.println(F("[INFO] Not connected to a network."));
@@ -86,9 +110,9 @@ void evilLLMChatStream() {
   const int screenWidth = 208;
   const int linesPerPage = 9;
 
-  M5.Display.clear();
-  M5.Display.setCursor(5, 5);
-  M5.Display.println("Prompt >");
+  LB::clear();
+  LB::setCursor(5, 5);
+  LB::println("Prompt >");
 
   while (true) {
     String userPrompt = getUserInput("Prompt > ");
@@ -120,10 +144,10 @@ void evilLLMChatStream() {
       "Connection: close\r\n\r\n" +
       requestBody;
 
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Send.");
-    M5.Display.println("Waiting answer...");
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::println("Send.");
+    LB::println("Waiting answer...");
 
     client.print(request);
 
@@ -138,7 +162,7 @@ void evilLLMChatStream() {
     bool gotFirstToken = false;
     unsigned long streamStart = millis();
 
-    M5.Display.clear();
+    LB::clear();
 
     while (client.connected()) {
       M5.update();
@@ -158,29 +182,15 @@ void evilLLMChatStream() {
         return;
       }
 
-      // Scroll up
+      // Scroll navigation
       if (M5Cardputer.Keyboard.isKeyPressed(';') && scrollOffset > 0) {
         scrollOffset--;
-        M5.Display.clear();
-        for (int i = 0; i < linesPerPage; i++) {
-          int idx = scrollOffset + i;
-          if (idx < lines.size()) {
-            M5.Display.setCursor(5, 10 + i * lineHeight);
-            M5.Display.println(lines[idx]);
-          }
-        }
+        renderPage(lines, scrollOffset, linesPerPage, lineHeight);
         delay(150);
         continue;
-      } else if (M5Cardputer.Keyboard.isKeyPressed('.') && scrollOffset < lines.size()) {
+      } else if (M5Cardputer.Keyboard.isKeyPressed('.') && scrollOffset < (int)lines.size()) {
         scrollOffset++;
-        M5.Display.clear();
-        for (int i = 0; i < linesPerPage; i++) {
-          int idx = scrollOffset + i;
-          if (idx < lines.size()) {
-            M5.Display.setCursor(5, 10 + i * lineHeight);
-            M5.Display.println(lines[idx]);
-          }
-        }
+        renderPage(lines, scrollOffset, linesPerPage, lineHeight);
         delay(150);
         continue;
       }
@@ -200,9 +210,9 @@ void evilLLMChatStream() {
         token.replace("\\n", "\n");
 
         String word = "";
-        for (int i = 0; i <= token.length(); i++) {
+        for (int i = 0; i <= (int)token.length(); i++) {
           char c = token[i];
-          bool isEnd = (i == token.length());
+          bool isEnd = (i == (int)token.length());
           bool isSpace = (c == ' ' || c == '\n' || isEnd);
 
           if (!isEnd && !isSpace) {
@@ -220,9 +230,9 @@ void evilLLMChatStream() {
           }
 
           if (wordPixelLength > screenWidth) {
-            for (int j = 0; j < word.length(); j++) {
+            for (int j = 0; j < (int)word.length(); j++) {
               currentLine += word[j];
-              if ((currentLine.length() * charWidth) >= screenWidth) {
+              if ((int)(currentLine.length() * charWidth) >= screenWidth) {
                 lines.push_back(currentLine);
                 currentLine = "";
               }
@@ -240,20 +250,8 @@ void evilLLMChatStream() {
           word = "";
         }
 
-        if ((lines.size() - scrollOffset) < linesPerPage) {
-          M5.Display.clear();
-          for (int i = 0; i < linesPerPage; i++) {
-            int idx = scrollOffset + i;
-            if (idx < lines.size()) {
-              M5.Display.setCursor(5, 10 + i * lineHeight);
-              M5.Display.println(lines[idx]);
-            }
-          }
-
-          if (currentLine.length() > 0) {
-            M5.Display.setCursor(5, 10 + (lines.size() - scrollOffset) * lineHeight);
-            M5.Display.println(currentLine);
-          }
+        if (((int)lines.size() - scrollOffset) < linesPerPage) {
+          renderPage(lines, scrollOffset, linesPerPage, lineHeight, currentLine);
         }
       }
     }
@@ -269,26 +267,19 @@ void evilLLMChatStream() {
         waitAndReturnToMenu("evilChatStream Stopped");
         return;
       } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Prompt >");
+        LB::clear();
+        LB::setCursor(5, 5);
+        LB::println("Prompt >");
         break;
       } else if (M5Cardputer.Keyboard.isKeyPressed(';') && scrollOffset > 0) {
         scrollOffset--;
-        M5.Display.clear();
-      } else if (M5Cardputer.Keyboard.isKeyPressed('.') && scrollOffset < lines.size()) {
+        LB::clear();
+      } else if (M5Cardputer.Keyboard.isKeyPressed('.') && scrollOffset < (int)lines.size()) {
         scrollOffset++;
-        M5.Display.clear();
+        LB::clear();
       }
 
-      for (int i = 0; i < linesPerPage; i++) {
-        int idx = scrollOffset + i;
-        if (idx < lines.size()) {
-          M5.Display.setCursor(5, 10 + i * lineHeight);
-          M5.Display.println(lines[idx]);
-        }
-      }
-
+      renderPage(lines, scrollOffset, linesPerPage, lineHeight);
       delay(100);
     }
   }

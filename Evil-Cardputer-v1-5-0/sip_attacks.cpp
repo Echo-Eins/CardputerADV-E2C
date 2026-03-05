@@ -11,6 +11,9 @@
 
 #include "sip_attacks.h"
 #include <M5Cardputer.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Static Variables
@@ -75,10 +78,12 @@ String readSIPResp(unsigned long tout = 500) {
 
 String promptInput(const char *prompt) {
   String input = "";
-  M5.Display.clear(); M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-  M5.Display.setCursor(5, 5); M5.Display.println(prompt);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_GREEN, TFT_BLACK);
+  LB::setCursor(5, 5);
+  LB::println(prompt);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
 
   while (true) {
     M5Cardputer.update();
@@ -88,8 +93,10 @@ String promptInput(const char *prompt) {
       if (k.del && input.length()) input.remove(input.length() - 1);
       if (k.enter && input.length()) return input;
 
-      M5.Display.fillRect(0, 30, 240, 16, TFT_BLACK);
-      M5.Display.setCursor(5, 30); M5.Display.print(input); M5.Display.display();
+      LB::fillRect(0, 30, 240, 16, TFT_BLACK);
+      LB::setCursor(5, 30);
+      LB::print(input.c_str());
+      LB::display();
     }
     delay(20);
   }
@@ -180,9 +187,10 @@ void sipScan() {
     (resp.startsWith("SIP/2.0 200") ? ok : ko)++;
 
     Serial.printf("[SIP-RX] %s - %s\n", dst.toString().c_str(), resp.c_str());
-    M5.Display.fillRect(0, 100, 240, 12, menuBackgroundColor);
-    M5.Display.setCursor(5, 100);
-    M5.Display.printf("OK:%u  KO:%u", ok, ko); M5.Display.display();
+    LB::fillRect(0, 100, 240, 12, menuBackgroundColor);
+    LB::setCursor(5, 100);
+    LB::printf("OK:%u  KO:%u", ok, ko);
+    LB::display();
   }
   sipUdp.stop();
   waitAndReturnToMenu("Scan done  OK:" + String(ok) + "  KO:" + String(ko));
@@ -203,28 +211,29 @@ void sipEnumExtensions() {
   /* ---------- préparation affichage ---------- */
   constexpr int  lineH   = 14;
   constexpr int  yStart  = 16;
-  const     int  yMax    = M5.Display.height() - lineH;
+  const     int  yMax    = LB::height() - lineH;
   int yCursor           = yStart;
 
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-  M5.Display.setCursor(5, 5);  M5.Display.println("Enum running…");
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_GREEN, TFT_BLACK);
+  LB::setCursor(5, 5);
+  LB::println("Enum running...");
 
-  M5.Display.startWrite();                       // évite le scintillement
+  LB::startWrite();
 
   uint16_t found = 0;
 
   auto printLine = [&](const String& txt)
   {
-    if (yCursor > yMax) {                        // scroll doux d'une ligne
-      M5.Display.scroll(0, -lineH);
+    if (yCursor > yMax) {
+      LB::scroll(0, -lineH);
       yCursor = yMax;
-      M5.Display.fillRect(0, yCursor, M5.Display.width(), lineH, TFT_BLACK);
+      LB::fillRect(0, yCursor, LB::width(), lineH, TFT_BLACK);
     }
-    M5.Display.setCursor(5, yCursor);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println(txt);
+    LB::setCursor(5, yCursor);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::println(txt.c_str());
     yCursor += lineH;
   };
 
@@ -277,13 +286,13 @@ void sipEnumExtensions() {
     for (uint8_t i = 0; extList[i]; ++i) { sendInviteAndCheck(extList[i]); delay(40); }
 
   } else {
-    M5.Display.endWrite();
+    LB::endWrite();
     waitAndReturnToMenu("Invalid mode");
     return;
   }
 
   /* ---------- fin ---------- */
-  M5.Display.endWrite();
+  LB::endWrite();
   waitAndReturnToMenu(String("Enum done – ") + found + " valid");
 }
 
@@ -328,8 +337,9 @@ void sipFlood() {
   sipUdp.begin(LOCAL_SIP_EP);
   uint32_t tot = 0;
 
-  M5.Display.clear();
-  M5.Display.println("FLOOD - BACKSPACE to stop"); M5.Display.display();
+  LB::clear();
+  LB::println("FLOOD - BACKSPACE to stop");
+  LB::display();
 
   for (uint32_t h = first; h <= last && !sipFloodStop; ++h) {
     IPAddress dst = ipFrom32(h);
@@ -350,9 +360,10 @@ void sipFlood() {
       M5Cardputer.update();
       if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) sipFloodStop = true;
     }
-    M5.Display.fillRect(0, 90, 240, 12, menuBackgroundColor);
-    M5.Display.setCursor(5, 90);
-    M5.Display.printf("%s tot:%u", dst.toString().c_str(), tot); M5.Display.display();
+    LB::fillRect(0, 90, 240, 12, menuBackgroundColor);
+    LB::setCursor(5, 90);
+    LB::printf("%s tot:%u", dst.toString().c_str(), tot);
+    LB::display();
   }
   sipUdp.stop();
   waitAndReturnToMenu(sipFloodStop ? "Flood aborted" : "Sent " + String(tot));

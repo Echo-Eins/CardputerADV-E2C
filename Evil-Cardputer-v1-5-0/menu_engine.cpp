@@ -5,6 +5,9 @@
  */
 
 #include "menu_engine.h"
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Static member initialization
@@ -245,12 +248,12 @@ bool MenuEngine::checkSearchKeyRepeat() {
 
 void MenuEngine::drawSearchBar(uint16_t bgColor, uint16_t textColor) {
     const int barH = 12;
-    const int y = M5.Display.height() - barH;
-    M5.Display.fillRect(0, y, M5.Display.width(), barH, bgColor);
-    M5.Display.setTextColor(textColor, bgColor);
-    M5.Display.setCursor(5, y + 1);
-    M5.Display.print("Search: ");
-    M5.Display.print(_searchQuery);
+    const int y = LB::height() - barH;
+    LB::fillRect(0, y, LB::width(), barH, bgColor);
+    LB::setTextColor(textColor, bgColor);
+    LB::setCursor(5, y + 1);
+    LB::print("Search: ");
+    LB::print(_searchQuery);
 }
 
 // ============================================================================
