@@ -91,6 +91,9 @@
 // Screen widgets (menu, settings)
 #include "screens/gui_screens.h"
 
+// Legacy Bridge (M5.Display compatibility layer)
+#include "legacy/gui_legacy_bridge.h"
+
 // ============================================================================
 // Version Information
 // ============================================================================

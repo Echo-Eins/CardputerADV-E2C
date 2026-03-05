@@ -111,6 +111,9 @@ enum SearchKind {
 #include "scroll_input.h"
 #include "display_config.h"
 
+// GUI Framework - Async rendering system
+#include "gui/gui.h"
+
 // Crypto Utilities
 #include "crypto_utils.h"
 
@@ -831,6 +834,14 @@ void setup() {
   M5.Display.setTextSize(1.5);
   M5.Display.setTextColor(menuTextUnFocusedColor);
   M5.Display.setTextFont(1);
+
+  // Initialize GUI Framework (async renderer on Core 0 + LegacyBridge)
+  if (GUI::begin()) {
+    GUI::LegacyBridge::init();
+    Serial.println("[GUI] Framework initialized successfully");
+  } else {
+    Serial.println("[GUI] Framework initialization failed - continuing with direct M5.Display");
+  }
 
   // Setup GPS pins based on detected board (legacy variables for compatibility)
   if (hwIsCardputerADV()) {
