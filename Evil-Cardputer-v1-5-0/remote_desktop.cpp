@@ -23,6 +23,9 @@
 #include "scroll_input.h"
 #include "i2c_manager.h"
 #include <M5Cardputer.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <ESPmDNS.h>
@@ -983,30 +986,30 @@ static RDError rdReceivePacket(RDPacketType* type, uint8_t* payload, uint16_t* l
 // ============================================================================
 
 static bool rdConfirmConnection(const char* serverName, const char* serverIP) {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_YELLOW);
-    M5.Display.setTextSize(1.5);
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextColor(TFT_YELLOW);
+    LB::setTextSize(1.5);
 
-    M5.Display.setCursor(10, 20);
-    M5.Display.println("Connection Request");
+    LB::setCursor(10, 20);
+    LB::println("Connection Request");
 
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(10, 45);
-    M5.Display.printf("Server: %s", serverName);
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(10, 45);
+    LB::printf("Server: %s", serverName);
 
-    M5.Display.setCursor(10, 65);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.printf("IP: %s", serverIP);
+    LB::setCursor(10, 65);
+    LB::setTextColor(TFT_CYAN);
+    LB::printf("IP: %s", serverIP);
 
-    M5.Display.setCursor(10, 90);
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.println("ENTER = Accept");
+    LB::setCursor(10, 90);
+    LB::setTextColor(TFT_GREEN);
+    LB::println("ENTER = Accept");
 
-    M5.Display.setCursor(10, 105);
-    M5.Display.setTextColor(TFT_RED);
-    M5.Display.println("BACKSPACE = Reject");
+    LB::setCursor(10, 105);
+    LB::setTextColor(TFT_RED);
+    LB::println("BACKSPACE = Reject");
 
-    M5.Display.display();
+    LB::display();
 
     // Wait for user input
     unsigned long start = millis();
@@ -1622,30 +1625,41 @@ static void rdDisconnect() {
 }
 
 // ============================================================================
+// UI Helpers
+// ============================================================================
+
+// Simple input prompt screen (clear + label at top)
+static void rdPromptScreen(const char* label) {
+    LB::fillScreen(TFT_BLACK);
+    LB::setCursor(10, 10);
+    LB::println(label);
+}
+
+// ============================================================================
 // Status display
 // ============================================================================
 
 static void rdDrawStatus(const char* line1, const char* line2) {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setTextSize(1.5);
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextColor(TFT_WHITE);
+    LB::setTextSize(1.5);
 
     int y = 50;
-    M5.Display.setCursor(10, y);
-    M5.Display.println(line1);
+    LB::setCursor(10, y);
+    LB::println(line1);
 
     if (line2) {
-        M5.Display.setCursor(10, y + 20);
-        M5.Display.setTextColor(TFT_CYAN);
-        M5.Display.println(line2);
+        LB::setCursor(10, y + 20);
+        LB::setTextColor(TFT_CYAN);
+        LB::println(line2);
     }
 
-    M5.Display.setCursor(10, 115);
-    M5.Display.setTextColor(TFT_DARKGREY);
-    M5.Display.setTextSize(1);
-    M5.Display.println("BACKSPACE to cancel");
+    LB::setCursor(10, 115);
+    LB::setTextColor(TFT_DARKGREY);
+    LB::setTextSize(1);
+    LB::println("BACKSPACE to cancel");
 
-    M5.Display.display();
+    LB::display();
 }
 
 // ============================================================================
@@ -1654,7 +1668,7 @@ static void rdDrawStatus(const char* line1, const char* line2) {
 
 static void rdDrawFrame(const uint8_t* jpegData, size_t jpegLen) {
     // M5GFX has built-in JPEG support
-    M5.Display.drawJpg(jpegData, jpegLen, 0, 0, RD_DISPLAY_WIDTH, RD_DISPLAY_HEIGHT);
+    LB::drawJpg(jpegData, jpegLen, 0, 0, RD_DISPLAY_WIDTH, RD_DISPLAY_HEIGHT);
 
     rdSession.framesReceived++;
 
@@ -1886,15 +1900,15 @@ static void rdProcessScrollInput() {
 // Show disconnect reason on screen
 static void rdShowDisconnectReason(const char* reason) {
     // Draw semi-transparent overlay at bottom of screen
-    M5.Display.fillRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_BLACK);
-    M5.Display.drawRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_RED);
+    LB::fillRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_BLACK);
+    LB::drawRect(0, RD_DISPLAY_HEIGHT - 30, RD_DISPLAY_WIDTH, 30, TFT_RED);
 
-    M5.Display.setTextColor(TFT_RED);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, RD_DISPLAY_HEIGHT - 22);
-    M5.Display.print(reason);
+    LB::setTextColor(TFT_RED);
+    LB::setTextSize(1.5);
+    LB::setCursor(5, RD_DISPLAY_HEIGHT - 22);
+    LB::print(reason);
 
-    M5.Display.display();
+    LB::display();
 }
 
 static char rdServerErrorMsg[128];  // Static buffer for server error message
@@ -2085,14 +2099,14 @@ static int rdSettingsIndex = 0;
 // Build dynamic settings items list
 // Returns item count. Items are rendered on-the-fly to show current config values.
 static void rdDrawSettings() {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextFont(1);
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextSize(1.5);
+    LB::setTextFont(1);
 
     // Title bar
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(5, 2);
-    M5.Display.print("Remote Desktop Settings");
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(5, 2);
+    LB::print("Remote Desktop Settings");
 
     // Dynamic settings items
     struct SettingsLine {
@@ -2179,9 +2193,9 @@ static void rdDrawSettings() {
         if (idx >= total) break;
 
         int y = startY + i * RD_SETTINGS_LINE_H;
-        M5.Display.setTextColor(lines[idx].color);
-        M5.Display.setCursor(5, y);
-        M5.Display.print(lines[idx].text);
+        LB::setTextColor(lines[idx].color);
+        LB::setCursor(5, y);
+        LB::print(lines[idx].text);
     }
 
     // Scrollbar (if content overflows)
@@ -2191,11 +2205,11 @@ static void rdDrawSettings() {
         int thumbH = std::max(8, (trackH * RD_SETTINGS_MAX_VISIBLE) / total);
         int maxStart = std::max(1, total - RD_SETTINGS_MAX_VISIBLE);
         int thumbY = startY + (trackH - thumbH) * rdSettingsScroll / maxStart;
-        M5.Display.fillRect(scrollX, startY, 3, trackH, TFT_BLACK);
-        M5.Display.fillRect(scrollX, thumbY, 2, thumbH, TFT_DARKGREY);
+        LB::fillRect(scrollX, startY, 3, trackH, TFT_BLACK);
+        LB::fillRect(scrollX, thumbY, 2, thumbH, TFT_DARKGREY);
     }
 
-    M5.Display.display();
+    LB::display();
 }
 
 // ============================================================================
@@ -2287,9 +2301,7 @@ void remoteDesktop() {
         // Set server manually
         if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('S')) {
             delay(200);
-            M5.Display.fillScreen(TFT_BLACK);
-            M5.Display.setCursor(10, 10);
-            M5.Display.println("Enter server IP:");
+            rdPromptScreen("Enter server IP:");
             String host = getUserInput(false);
             if (host.length() > 0) {
                 strlcpy(rdConfig.serverHost, host.c_str(), sizeof(rdConfig.serverHost));
@@ -2313,9 +2325,7 @@ void remoteDesktop() {
         // Set quality
         if (M5Cardputer.Keyboard.isKeyPressed('q') || M5Cardputer.Keyboard.isKeyPressed('Q')) {
             delay(200);
-            M5.Display.fillScreen(TFT_BLACK);
-            M5.Display.setCursor(10, 10);
-            M5.Display.println("Enter quality (1-100):");
+            rdPromptScreen("Enter quality (1-100):");
             String q = getUserInput(false);
             int qval = q.toInt();
             if (qval >= 1 && qval <= 100) {

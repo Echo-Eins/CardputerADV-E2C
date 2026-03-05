@@ -12,6 +12,9 @@
 
 #include "llm_gateway.h"
 #include <M5Cardputer.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 #include <WiFiClient.h>
 #include <SD.h>
 #include <ArduinoJson.h>
@@ -554,27 +557,45 @@ static LLMGWError llmGWStopChat() {
 // UI Helpers
 // ============================================================================
 
+// Simple input prompt screen (clear + label + cursor)
+static void llmGWPromptScreen(const char* label) {
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::println(label);
+    LB::setCursor(5, 20);
+    LB::print("> ");
+}
+
+// Draw bottom prompt/status line in chat view (y=120, h=15)
+static void llmGWDrawChatPrompt(const char* text, uint16_t color) {
+    LB::fillRect(0, 120, 240, 15, TFT_BLACK);
+    LB::setCursor(2, 122);
+    LB::setTextColor(color);
+    LB::print(text);
+    LB::setTextColor(TFT_WHITE);
+}
+
 static void llmGWDrawStatus(const char* line1, const char* line2) {
-    M5.Display.clear();
-    M5.Display.setTextSize(1);
-    M5.Display.setCursor(5, 50);
-    M5.Display.println(line1);
+    LB::clear();
+    LB::setTextSize(1);
+    LB::setCursor(5, 50);
+    LB::println(line1);
     if (line2) {
-        M5.Display.setCursor(5, 65);
-        M5.Display.println(line2);
+        LB::setCursor(5, 65);
+        LB::println(line2);
     }
 }
 
 static void llmGWShowError(LLMGWError err) {
-    M5.Display.clear();
-    M5.Display.setTextSize(1);
-    M5.Display.setCursor(5, 50);
-    M5.Display.setTextColor(TFT_RED);
-    M5.Display.print("Error: ");
-    M5.Display.println(llmGWErrorToString(err));
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(5, 75);
-    M5.Display.println("Press any key...");
+    LB::clear();
+    LB::setTextSize(1);
+    LB::setCursor(5, 50);
+    LB::setTextColor(TFT_RED);
+    LB::print("Error: ");
+    LB::println(llmGWErrorToString(err));
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(5, 75);
+    LB::println("Press any key...");
 
     while (true) {
         M5.update();
@@ -595,37 +616,32 @@ static int llmGWSelectModel() {
     const int maxVisible = 8;
 
     while (true) {
-        M5.Display.clear();
-        M5.Display.setTextSize(1);
-        M5.Display.setCursor(5, 5);
-        M5.Display.setTextColor(TFT_CYAN);
-        M5.Display.println("Select Model (;/. to scroll)");
-        M5.Display.setTextColor(TFT_WHITE);
+        LB::clear();
+        LB::setTextSize(1);
+        LB::setCursor(5, 5);
+        LB::setTextColor(TFT_CYAN);
+        LB::println("Select Model (;/. to scroll)");
+        LB::setTextColor(TFT_WHITE);
 
         for (int i = 0; i < maxVisible && (offset + i) < llmGWSession.models.size(); i++) {
             int idx = offset + i;
-            M5.Display.setCursor(5, 20 + i * 13);
+            LB::setCursor(5, 20 + i * 13);
 
-            if (idx == selected) {
-                M5.Display.setTextColor(TFT_GREEN);
-                M5.Display.print("> ");
-            } else {
-                M5.Display.setTextColor(TFT_WHITE);
-                M5.Display.print("  ");
-            }
+            LB::setTextColor(idx == selected ? TFT_GREEN : TFT_WHITE);
+            LB::print(idx == selected ? "> " : "  ");
 
             String modelName = llmGWSession.models[idx];
             if (modelName.length() > 32) {
                 modelName = modelName.substring(0, 29) + "...";
             }
-            M5.Display.println(modelName);
+            LB::println(modelName);
         }
 
-        M5.Display.setTextColor(TFT_DARKGREY);
-        M5.Display.setCursor(5, 125);
-        M5.Display.printf("%d/%d  [Enter]=Select [Esc]=Back",
+        LB::setTextColor(TFT_DARKGREY);
+        LB::setCursor(5, 125);
+        LB::printf("%d/%d  [Enter]=Select [Esc]=Back",
                           selected + 1, llmGWSession.models.size());
-        M5.Display.setTextColor(TFT_WHITE);
+        LB::setTextColor(TFT_WHITE);
 
         // Wait for input
         while (true) {
@@ -723,26 +739,22 @@ static void llmGWChatLoop() {
     while (true) {
         // Draw chat history
         if (needRedraw) {
-            M5.Display.clear();
+            LB::clear();
 
             int startLine = max(0, (int)chatLines.size() - LLM_GW_LINES_PER_PAGE + scrollOffset);
             for (int i = 0; i < LLM_GW_LINES_PER_PAGE && (startLine + i) < chatLines.size(); i++) {
-                M5.Display.setCursor(2, 2 + i * LLM_GW_LINE_HEIGHT);
+                LB::setCursor(2, 2 + i * LLM_GW_LINE_HEIGHT);
                 String line = chatLines[startLine + i];
                 if (line.length() > LLM_GW_CHARS_PER_LINE) {
                     line = line.substring(0, LLM_GW_CHARS_PER_LINE);
                 }
-                M5.Display.print(line);
+                LB::print(line);
             }
             needRedraw = false;
         }
 
         // Show prompt
-        M5.Display.fillRect(0, 120, 240, 15, TFT_BLACK);
-        M5.Display.setCursor(2, 122);
-        M5.Display.setTextColor(TFT_GREEN);
-        M5.Display.print("> ");
-        M5.Display.setTextColor(TFT_WHITE);
+        llmGWDrawChatPrompt("> ", TFT_GREEN);
 
         // Handle keyboard input first
         M5.update();
@@ -784,11 +796,7 @@ static void llmGWChatLoop() {
         needRedraw = true;
 
         // Draw status
-        M5.Display.fillRect(0, 120, 240, 15, TFT_BLACK);
-        M5.Display.setCursor(2, 122);
-        M5.Display.setTextColor(TFT_YELLOW);
-        M5.Display.print("Thinking...");
-        M5.Display.setTextColor(TFT_WHITE);
+        llmGWDrawChatPrompt("Thinking...", TFT_YELLOW);
 
         // Send message
         String response;
@@ -915,11 +923,7 @@ void llmGatewayChat() {
 
     // Get server address if not configured
     if (strlen(llmGWConfig.serverHost) == 0) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Enter Gateway IP:");
-        M5.Display.setCursor(5, 20);
-        M5.Display.print("> ");
+        llmGWPromptScreen("Enter Gateway IP:");
         String host = getUserInput(false);
         if (host.length() == 0) {
             waitAndReturnToMenu("Cancelled");

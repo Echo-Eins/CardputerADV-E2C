@@ -10,6 +10,9 @@
 
 #include "ldap_dump.h"
 #include <M5Cardputer.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // Forward declarations for functions defined in main .ino
 // Declared here to avoid C/C++ linkage conflicts with Arduino preprocessor
@@ -52,35 +55,44 @@ static uint8_t ldapRespBuf[LDAP_BUF_SIZE];
 // UI Functions
 // ============================================================================
 
+// Common prompt screen for credential/text input
+static void ldapUiPromptScreen(const char* label) {
+    LB::clear();
+    LB::setCursor(5, 0);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::println(label);
+}
+
 void ldapUiDrawHeader()
 {
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
 
-  M5.Display.setCursor(5, 0);
-  M5.Display.println("[ LDAP ENUM / LOG ]");
+  LB::setCursor(5, 0);
+  LB::println("[ LDAP ENUM / LOG ]");
 
-  M5.Display.setCursor(5, 10);
+  LB::setCursor(5, 10);
   String dcLine = "DC: " + ldapUiDcIP.toString() + "  Phase: " + ldapUiPhase;
-  M5.Display.println(dcLine);
+  LB::println(dcLine);
 
-  M5.Display.setCursor(5, 20);
+  LB::setCursor(5, 20);
   String dnLine = "BaseDN: " + ldapUiBaseDN;
   if (dnLine.length() > 36) {
     dnLine = dnLine.substring(0, 36);
   }
-  M5.Display.println(dnLine);
+  LB::println(dnLine);
 
-  M5.Display.setCursor(5, 30);
-  M5.Display.println("---------------------------");
+  LB::setCursor(5, 30);
+  LB::println("---------------------------");
 }
 
 void ldapUiDrawLogs()
 {
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(5, 40);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(5, 40);
 
   int total = ldapLogCount;
   if (total < 0) total = 0;
@@ -93,14 +105,14 @@ void ldapUiDrawLogs()
   if (last > total) last = total;
 
   for (int i = first; i < last; ++i) {
-    M5.Display.println(ldapLogLines[i]);
+    LB::println(ldapLogLines[i]);
   }
 
   for (int i = last; i < first + LDAP_LOG_PAGE_LINES; ++i) {
-    M5.Display.println("");
+    LB::println("");
   }
 
-  M5.Display.println("---------------------------");
+  LB::println("---------------------------");
 
   char info[40];
   int page = (LDAP_LOG_PAGE_LINES > 0)
@@ -109,9 +121,9 @@ void ldapUiDrawLogs()
   snprintf(info, sizeof(info),
            "--- %d/%d lines (Pg %d) ---",
            last, total, page);
-  M5.Display.println(info);
+  LB::println(info);
 
-  M5.Display.println("[;] UP  [.] DOWN  [ESC] BACK");
+  LB::println("[;] UP  [.] DOWN  [ESC] BACK");
 }
 
 void ldapUiRedraw()
@@ -1294,14 +1306,10 @@ bool detectAndBindToDC(IPAddress &dcIP)
     Serial.println("[LDAP] START detectAndBindToDC()");
     Serial.println("----------------------------------------");
 
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println("Enter /24 or IP:");
+    ldapUiPromptScreen("Enter /24 or IP:");
     IPAddress local = WiFi.localIP();
-    M5.Display.print("Current : ");
-    M5.Display.println(local.toString());
+    LB::print("Current : ");
+    LB::println(local.toString());
     enterDebounce();
 
     String netInput = getUserInput("NET or IP:");
@@ -1363,20 +1371,12 @@ bool detectAndBindToDC(IPAddress &dcIP)
         }
 
         enterDebounce();
-        M5.Display.clear();
-        M5.Display.setCursor(5, 0);
-        M5.Display.setTextSize(1.5);
-        M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-        M5.Display.println("AD Login:");
+        ldapUiPromptScreen("AD Login:");
         String rawUser = getUserInput("AD Login:");
         ldapUsername = ldapNormalizeUsername(rawUser);
         ldapUiLogLine("[AUTH] Login: " + ldapUsername);
         enterDebounce();
-        M5.Display.clear();
-        M5.Display.setCursor(5, 0);
-        M5.Display.setTextSize(1.5);
-        M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-        M5.Display.println("AD Password:");
+        ldapUiPromptScreen("AD Password:");
         ldapPassword = getUserInput("AD Password:");
 
         ldapUiLogLine("[AUTH] Trying authenticated bind...");
@@ -1469,21 +1469,13 @@ bool detectAndBindToDC(IPAddress &dcIP)
     }
 
     enterDebounce();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println("AD Login:");
+    ldapUiPromptScreen("AD Login:");
     String rawUser = getUserInput("AD Login:");
     ldapUsername = ldapNormalizeUsername(rawUser);
     ldapUiLogLine("[AUTH] Login: " + ldapUsername);
 
     enterDebounce();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println("AD Password:");
+    ldapUiPromptScreen("AD Password:");
     ldapPassword = getUserInput("AD Password:");
 
     WiFiClient cli;

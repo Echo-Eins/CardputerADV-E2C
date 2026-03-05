@@ -6,6 +6,9 @@
 #include <M5Cardputer.h>
 #include <SD.h>
 #include <vector>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
 
 // ============================================================================
 // Editor State
@@ -43,6 +46,42 @@ static void showHelp();
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+// Brief flash feedback in the header bar (e.g. "Saved!", "Save failed!")
+static void feFlashHeader(const char* text, uint16_t bgColor, uint16_t fgColor, int ms) {
+    LB::fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, bgColor);
+    LB::setTextColor(fgColor);
+    LB::setCursor(5, 2);
+    LB::print(text);
+    delay(ms);
+}
+
+// Input prompt screen: clear + cyan label + white "> " cursor
+static void fePromptScreen(const char* label) {
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextColor(TFT_CYAN);
+    LB::setCursor(5, 5);
+    LB::println(label);
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(5, 20);
+    LB::print("> ");
+}
+
+// Draw header bar with colored text
+static void feDrawHeader(const String& text, uint16_t color) {
+    LB::fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, TFT_DARKGREY);
+    LB::setTextColor(color);
+    LB::setCursor(2, 2);
+    LB::print(text);
+}
+
+// Draw footer bar with shortcut hints
+static void feDrawFooter(const char* text) {
+    LB::fillRect(0, FE_SCREEN_HEIGHT - 10, FE_SCREEN_WIDTH, 10, TFT_DARKGREY);
+    LB::setTextColor(TFT_CYAN);
+    LB::setCursor(2, FE_SCREEN_HEIGHT - 9);
+    LB::print(text);
+}
 
 static String getFileName(const String& path) {
     int lastSlash = path.lastIndexOf('/');
@@ -117,18 +156,9 @@ bool textEditorOpen(const char* path) {
             // FN + S = Save
             if (M5Cardputer.Keyboard.isKeyPressed('s')) {
                 if (editorSave()) {
-                    // Show save confirmation briefly
-                    M5.Display.fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, TFT_GREEN);
-                    M5.Display.setTextColor(TFT_BLACK);
-                    M5.Display.setCursor(5, 2);
-                    M5.Display.print("Saved!");
-                    delay(500);
+                    feFlashHeader("Saved!", TFT_GREEN, TFT_BLACK, 500);
                 } else {
-                    M5.Display.fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, TFT_RED);
-                    M5.Display.setTextColor(TFT_WHITE);
-                    M5.Display.setCursor(5, 2);
-                    M5.Display.print("Save failed!");
-                    delay(1000);
+                    feFlashHeader("Save failed!", TFT_RED, TFT_WHITE, 1000);
                 }
                 needRender = true;
                 delay(100);
@@ -310,21 +340,17 @@ bool textEditorOpen(const char* path) {
 }
 
 static void editorRender() {
-    M5.Display.fillScreen(TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
 
     // Header
-    M5.Display.fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, TFT_DARKGREY);
-    M5.Display.setTextColor(editor.modified ? TFT_YELLOW : TFT_WHITE);
-    M5.Display.setCursor(2, 2);
-
     String header = editor.fileName;
     if (editor.modified) header += "*";
     header += " L" + String(editor.cursorLine + 1) + ":" + String(editor.cursorCol + 1);
     if (header.length() > 38) header = header.substring(0, 35) + "...";
-    M5.Display.print(header);
+    feDrawHeader(header, editor.modified ? TFT_YELLOW : TFT_WHITE);
 
     // Content
-    M5.Display.setTextColor(TFT_WHITE);
+    LB::setTextColor(TFT_WHITE);
     for (int i = 0; i < FE_MAX_VISIBLE_LINES; i++) {
         int lineIdx = editor.viewTopLine + i;
         if (lineIdx >= editor.lines.size()) break;
@@ -343,26 +369,23 @@ static void editorRender() {
 
         // Draw cursor line highlight
         if (lineIdx == editor.cursorLine) {
-            M5.Display.fillRect(0, y - 1, FE_SCREEN_WIDTH, FE_LINE_HEIGHT, TFT_NAVY);
+            LB::fillRect(0, y - 1, FE_SCREEN_WIDTH, FE_LINE_HEIGHT, TFT_NAVY);
         }
 
-        M5.Display.setCursor(2, y);
-        M5.Display.print(visible);
+        LB::setCursor(2, y);
+        LB::print(visible);
 
         // Draw cursor
         if (lineIdx == editor.cursorLine) {
             int cursorX = 2 + (editor.cursorCol - editor.viewLeftCol) * FE_CHAR_WIDTH;
             if (cursorX >= 0 && cursorX < FE_SCREEN_WIDTH) {
-                M5.Display.fillRect(cursorX, y - 1, 2, FE_LINE_HEIGHT, TFT_GREEN);
+                LB::fillRect(cursorX, y - 1, 2, FE_LINE_HEIGHT, TFT_GREEN);
             }
         }
     }
 
     // Footer with shortcuts
-    M5.Display.fillRect(0, FE_SCREEN_HEIGHT - 10, FE_SCREEN_WIDTH, 10, TFT_DARKGREY);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(2, FE_SCREEN_HEIGHT - 9);
-    M5.Display.print("FN+S:Save FN+Q:Quit FN+H:Help");
+    feDrawFooter("FN+S:Save FN+Q:Quit FN+H:Help");
 }
 
 static bool editorSave() {
@@ -381,22 +404,22 @@ static bool editorSave() {
 }
 
 static void showHelp() {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("=== Editor Help ===");
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.println();
-    M5.Display.println(";/.    Up/Down");
-    M5.Display.println(",//    Left/Right");
-    M5.Display.println("Enter  New line");
-    M5.Display.println("Bksp   Delete");
-    M5.Display.println();
-    M5.Display.println("FN+S   Save");
-    M5.Display.println("FN+Q   Quit");
-    M5.Display.println();
-    M5.Display.setTextColor(TFT_DARKGREY);
-    M5.Display.println("Press any key...");
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextColor(TFT_CYAN);
+    LB::setCursor(5, 5);
+    LB::println("=== Editor Help ===");
+    LB::setTextColor(TFT_WHITE);
+    LB::println();
+    LB::println(";/.    Up/Down");
+    LB::println(",//    Left/Right");
+    LB::println("Enter  New line");
+    LB::println("Bksp   Delete");
+    LB::println();
+    LB::println("FN+S   Save");
+    LB::println("FN+Q   Quit");
+    LB::println();
+    LB::setTextColor(TFT_DARKGREY);
+    LB::println("Press any key...");
 
     while (true) {
         M5Cardputer.update();
@@ -411,14 +434,7 @@ static void showHelp() {
 // ============================================================================
 
 bool createNewFile(const char* dirPath) {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Create new file:");
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(5, 20);
-    M5.Display.print("> ");
-
+    fePromptScreen("Create new file:");
     String name = getUserInput(false);
     if (name.length() == 0) return false;
 
@@ -445,14 +461,7 @@ bool createNewFile(const char* dirPath) {
 }
 
 bool createNewFolder(const char* dirPath) {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Create new folder:");
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(5, 20);
-    M5.Display.print("> ");
-
+    fePromptScreen("Create new folder:");
     String name = getUserInput(false);
     if (name.length() == 0) return false;
 
@@ -473,16 +482,12 @@ bool createNewFolder(const char* dirPath) {
 // ============================================================================
 
 static void browserRender(const std::vector<String>& entries, const std::vector<bool>& isFolder) {
-    M5.Display.fillScreen(TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
 
     // Header
-    M5.Display.fillRect(0, 0, FE_SCREEN_WIDTH, FE_HEADER_HEIGHT, TFT_DARKGREY);
-    M5.Display.setTextColor(TFT_YELLOW);
-    M5.Display.setCursor(2, 2);
-
     String header = currentPath;
     if (header.length() > 36) header = "..." + header.substring(header.length() - 33);
-    M5.Display.print(header);
+    feDrawHeader(header, TFT_YELLOW);
 
     // Entries
     int total = entries.size();
@@ -497,26 +502,23 @@ static void browserRender(const std::vector<String>& entries, const std::vector<
 
         // Highlight selected
         if (idx == browserCursor) {
-            M5.Display.fillRect(0, y - 1, FE_SCREEN_WIDTH, FE_LINE_HEIGHT, TFT_NAVY);
-            M5.Display.setTextColor(TFT_GREEN);
+            LB::fillRect(0, y - 1, FE_SCREEN_WIDTH, FE_LINE_HEIGHT, TFT_NAVY);
+            LB::setTextColor(TFT_GREEN);
         } else if (folder) {
-            M5.Display.setTextColor(TFT_CYAN);
+            LB::setTextColor(TFT_CYAN);
         } else if (name.endsWith(".txt")) {
-            M5.Display.setTextColor(TFT_WHITE);
+            LB::setTextColor(TFT_WHITE);
         } else {
-            M5.Display.setTextColor(TFT_DARKGREY);
+            LB::setTextColor(TFT_DARKGREY);
         }
 
-        M5.Display.setCursor(2, y);
+        LB::setCursor(2, y);
         if (name.length() > 38) name = name.substring(0, 35) + "...";
-        M5.Display.print(name);
+        LB::print(name);
     }
 
     // Footer
-    M5.Display.fillRect(0, FE_SCREEN_HEIGHT - 10, FE_SCREEN_WIDTH, 10, TFT_DARKGREY);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(2, FE_SCREEN_HEIGHT - 9);
-    M5.Display.print("E:Edit N:New D:Del M:Mkdir");
+    feDrawFooter("E:Edit N:New D:Del M:Mkdir");
 }
 
 void fileEditorMain() {
