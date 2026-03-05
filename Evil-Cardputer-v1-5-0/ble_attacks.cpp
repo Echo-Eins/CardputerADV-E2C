@@ -12,6 +12,64 @@
 #include <M5Unified.h>
 #include "M5Cardputer.h"
 #include <SD.h>
+#include "gui/gui.h"
+
+using LB = GUI::LegacyBridge;
+
+// ============================================================================
+// Shared BLE UI Helpers
+// ============================================================================
+
+// Draw a colored header bar with title (left) and status text (right)
+static void bleDrawHeaderBar(int height, uint16_t bgColor, uint16_t fgColor,
+                              const char* title, const char* rightText = nullptr) {
+    LB::fillRect(0, 0, 240, height, bgColor);
+    LB::setTextSize(1);
+    LB::setTextColor(fgColor, bgColor);
+    LB::setCursor(6, 4);
+    LB::print(title);
+    if (rightText) {
+        int w = LB::textWidth(rightText);
+        LB::setCursor(240 - w - 6, 4);
+        LB::print(rightText);
+    }
+}
+
+// Draw a rounded box with title and 2 scrolling payload lines
+static void bleDrawSpamBox(int boxY, int boxH, const char* title,
+                            const String lines[2], int head,
+                            uint16_t borderColor, uint16_t titleColor,
+                            uint16_t textColor, uint16_t bgColor,
+                            int maxChars = 0) {
+    LB::drawRoundRect(3, boxY, 234, boxH - 4, 5, borderColor);
+    LB::setTextSize(1);
+    LB::setTextColor(titleColor, bgColor);
+    LB::setCursor(10, boxY + 2);
+    LB::print(title);
+    LB::fillRect(5, boxY + 14, 230, boxH - 20, bgColor);
+    LB::setTextColor(textColor, bgColor);
+    int lineY = boxY + 18;
+    for (int i = 0; i < 2; ++i) {
+        int idx = (head - 1 - i + 2) % 2;
+        if (lines[idx].length() == 0) continue;
+        LB::setCursor(maxChars ? 6 : 10, lineY + i * 12);
+        if (maxChars && (int)lines[idx].length() > maxChars) {
+            LB::print(lines[idx].substring(0, maxChars));
+        } else {
+            LB::print(lines[idx]);
+        }
+    }
+}
+
+// Clear a rectangular area and print colored text at (x,y)
+static void bleUpdateField(int x, int y, int clearW, int clearH,
+                            float textSize, uint16_t color, const char* text) {
+    LB::fillRect(x, y, clearW, clearH, TFT_BLACK);
+    LB::setCursor(x, y);
+    LB::setTextSize(textSize);
+    LB::setTextColor(color);
+    LB::print(text);
+}
 
 // ============================================================================
 // BLE State
@@ -168,16 +226,9 @@ static void wofDrawHeader(bool force = false) {
   unsigned long now = millis();
   if (!force && (now - wofLastHeaderUpdate) < 250) return;
   wofLastHeaderUpdate = now;
-  M5.Display.fillRect(0, 0, 240, WOF_HDR_H, WOF_ACCENT);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_BLACK, WOF_ACCENT);
-  M5.Display.setCursor(6, 4);
-  M5.Display.print("Wall of Flippers");
   char buf[40];
   snprintf(buf, sizeof(buf), "OK:%d  SP:%d", wofValidCount, wofSpoofCount);
-  int w = M5.Display.textWidth(buf);
-  M5.Display.setCursor(240 - w - 6, 4);
-  M5.Display.print(buf);
+  bleDrawHeaderBar(WOF_HDR_H, WOF_ACCENT, TFT_BLACK, "Wall of Flippers", buf);
 }
 
 static void wofDrawList(bool force = false) {
@@ -196,14 +247,14 @@ static void wofDrawList(bool force = false) {
     }
   }
 
-  M5.Display.fillRect(0, WOF_LIST_Y, 240, WOF_LIST_H, WOF_BG);
-  M5.Display.setTextSize(1.5);
+  LB::fillRect(0, WOF_LIST_Y, 240, WOF_LIST_H, WOF_BG);
+  LB::setTextSize(1.5);
   for (int row = 0; row < WOF_VISIBLE; ++row) {
     int idx = wofTop + row;
     if (idx >= wofCount) break;
     int y = WOF_LIST_Y + row * WOF_LINE_H;
 
-    M5.Display.setTextColor(WOF_TEXT, WOF_BG);
+    LB::setTextColor(WOF_TEXT, WOF_BG);
 
     // Color dot based on Flipper color
     uint16_t dot = WOF_TEXT;
@@ -211,7 +262,7 @@ static void wofDrawList(bool force = false) {
     else if (wofItems[idx].color == "Black") dot = WOF_BLACK;
     else if (wofItems[idx].color == "Transp") dot = WOF_TRANS;
 
-    M5.Display.fillCircle(5, y + (WOF_LINE_H / 2), 3, dot);
+    LB::fillCircle(5, y + (WOF_LINE_H / 2), 3, dot);
 
     // Name (without "Flipper " prefix)
     String dispName = wofItems[idx].name;
@@ -220,9 +271,9 @@ static void wofDrawList(bool force = false) {
     String left  = fitLeft(dispName, 14);
     String right = String(wofItems[idx].rssi) + " dBm";
 
-    M5.Display.setCursor(15, y + 2); M5.Display.print(left);
-    int w = M5.Display.textWidth(right);
-    M5.Display.setCursor(240 - w - 4, y + 2); M5.Display.print(right);
+    LB::setCursor(15, y + 2); LB::print(left);
+    int w = LB::textWidth(right);
+    LB::setCursor(240 - w - 4, y + 2); LB::print(right);
   }
 }
 
@@ -230,21 +281,8 @@ static void wofDrawSpamBox(bool force = false) {
   unsigned long now = millis();
   if (!force && (now - wofLastSpamUpdate) < 150) return;
   wofLastSpamUpdate = now;
-  int y = 135 - WOF_SPAM_H;
-  M5.Display.drawRoundRect(3, y, 234, WOF_SPAM_H - 4, 5, WOF_MUTED);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(WOF_MUTED, WOF_BG);
-  M5.Display.setCursor(10, y + 2);
-  M5.Display.print("BLE Frames (last 2)");
-  M5.Display.fillRect(5, y + 14, 230, WOF_SPAM_H - 20, WOF_BG);
-  M5.Display.setTextColor(WOF_TEXT, WOF_BG);
-  int lineY = y + 18;
-  for (int i = 0; i < 2; ++i) {
-    int idx = (wofSpamHead - 1 - i + 2) % 2;
-    if (wofSpam[idx].length() == 0) continue;
-    M5.Display.setCursor(10, lineY + i * 12);
-    M5.Display.print(wofSpam[idx]);
-  }
+  bleDrawSpamBox(135 - WOF_SPAM_H, WOF_SPAM_H, "BLE Frames (last 2)",
+                  wofSpam, wofSpamHead, WOF_MUTED, WOF_MUTED, WOF_TEXT, WOF_BG);
 }
 
 // ===================== DATA/UI BINDING =====================
@@ -255,7 +293,7 @@ static void wofResetUI() {
   wofCount = 0;
   for (int i = 0; i < 2; ++i) wofSpam[i] = "";
   wofSpamHead = 0;
-  M5.Display.fillScreen(WOF_BG);
+  LB::fillScreen(WOF_BG);
   wofDrawHeader(true); wofDrawList(true); wofDrawSpamBox(true);
 }
 
@@ -366,10 +404,10 @@ static void wofHandleKeys(bool& shouldExit) {
 void wallOfFlipper() {
   bool exitRequested = false;
   wofResetUI();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(WOF_TEXT, WOF_BG);
-  M5.Display.setCursor(8, WOF_LIST_Y + 4);
-  M5.Display.print("Scan BLE en cours...");
+  LB::setTextSize(1.5);
+  LB::setTextColor(WOF_TEXT, WOF_BG);
+  LB::setCursor(8, WOF_LIST_Y + 4);
+  LB::print("Scan BLE en cours...");
   initializeBLEIfNeeded();
   delay(120);
   enterDebounce();
@@ -426,48 +464,43 @@ String generateRandomBLEName_Full() {
 
 // ===== UI Helpers =====
 static inline void uiHeader(const char* title) {
-  M5.Display.fillRect(0, 0, 240, 135, TFT_BLACK);
-  M5.Display.setTextSize(2);
-  M5.Display.setTextColor(TFT_CYAN);
-  int tw = M5.Display.textWidth(title);
-  M5.Display.setCursor((240 - tw) / 2, 8);
-  M5.Display.println(title);
+  LB::fillRect(0, 0, 240, 135, TFT_BLACK);
+  LB::setTextSize(2);
+  LB::setTextColor(TFT_CYAN);
+  int tw = LB::textWidth(title);
+  LB::setCursor((240 - tw) / 2, 8);
+  LB::println(title);
 
-  M5.Display.fillRect(0, 28, 240, 2, TFT_PURPLE);
-  M5.Display.drawRect(6, 34, 228, 88, TFT_PURPLE);
+  LB::fillRect(0, 28, 240, 2, TFT_PURPLE);
+  LB::drawRect(6, 34, 228, 88, TFT_PURPLE);
 
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_WHITE);
-  M5.Display.setCursor(8, 126);
-  M5.Display.print("BACKSPACE: exit");
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_WHITE);
+  LB::setCursor(8, 126);
+  LB::print("BACKSPACE: exit");
 }
 
 static inline void uiStaticLabels(const char* modeText) {
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(TFT_WHITE);
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_WHITE);
 
-  M5.Display.setCursor(14, 40);  M5.Display.print("MODE:");
-  M5.Display.setCursor(14, 58);  M5.Display.print("NAME:");
-  M5.Display.setCursor(14, 76);  M5.Display.print("ADS :");
-  M5.Display.setCursor(14, 94);  M5.Display.print("TIME:");
-  M5.Display.setCursor(130, 94); M5.Display.print("RATE:");
+  LB::setCursor(14, 40);  LB::print("MODE:");
+  LB::setCursor(14, 58);  LB::print("NAME:");
+  LB::setCursor(14, 76);  LB::print("ADS :");
+  LB::setCursor(14, 94);  LB::print("TIME:");
+  LB::setCursor(130, 94); LB::print("RATE:");
 
-  M5.Display.setTextColor(TFT_YELLOW);
-  M5.Display.setCursor(62, 40);
-  M5.Display.print(modeText);
+  LB::setTextColor(TFT_YELLOW);
+  LB::setCursor(62, 40);
+  LB::print(modeText);
 
-  M5.Display.fillCircle(220, 20, 4, TFT_RED);
+  LB::fillCircle(220, 20, 4, TFT_RED);
 }
 
 static inline void uiUpdateSpeedLabel(int mode) {
   const char* txt[] = { "NORMAL", "TURBO", "SLOW" };
   uint16_t color[] = { TFT_DARKGREY, TFT_RED, TFT_BLUE };
-
-  M5.Display.fillRect(130, 76, 100, 14, TFT_BLACK);
-  M5.Display.setCursor(130, 76);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(color[mode]);
-  M5.Display.print(txt[mode]);
+  bleUpdateField(130, 76, 100, 14, 1, color[mode], txt[mode]);
 }
 
 // Rainbow wheel for TURBO mode
@@ -495,9 +528,9 @@ void bleNameFloodUI() {
     if (!SD.exists(filePath)) {
       File f = SD.open(filePath, FILE_WRITE);
       if (!f) {
-        M5.Display.setTextColor(TFT_RED);
-        M5.Display.setCursor(14, 60);
-        M5.Display.println("Error creating /evil/ble/names.txt");
+        LB::setTextColor(TFT_RED);
+        LB::setCursor(14, 60);
+        LB::println("Error creating /evil/ble/names.txt");
         delay(2000); inMenu = true; return;
       }
       f.println("Evil\xF0\x9F\x91\xB9""Beacon"); f.println("\xF0\x9F\x92\x80""HackMyPhone"); f.println("\xF0\x9F\x98\x88""FreeVirusWiFi");
@@ -511,9 +544,9 @@ void bleNameFloodUI() {
     }
     File file = SD.open(filePath);
     if (!file) {
-      M5.Display.setTextColor(TFT_RED);
-      M5.Display.setCursor(14, 60);
-      M5.Display.println("SD read error.");
+      LB::setTextColor(TFT_RED);
+      LB::setCursor(14, 60);
+      LB::println("SD read error.");
       delay(2000);
       inMenu = true;
       return;
@@ -524,9 +557,9 @@ void bleNameFloodUI() {
     }
     file.close();
     if (bleNames.empty()) {
-      M5.Display.setTextColor(TFT_RED);
-      M5.Display.setCursor(14, 60);
-      M5.Display.println("No names in file!");
+      LB::setTextColor(TFT_RED);
+      LB::setCursor(14, 60);
+      LB::println("No names in file!");
       delay(2000);
       inMenu = true;
       return;
@@ -555,34 +588,34 @@ void bleNameFloodUI() {
   uint8_t rainbowPos = 0;
   uint8_t ledState = 0;
 
-  M5.Display.fillCircle(220, 20, 4, TFT_GREEN);
+  LB::fillCircle(220, 20, 4, TFT_GREEN);
 
   auto printName = [&](const String & nm) {
-    M5.Display.fillRect(62, 56, 166, 16, TFT_BLACK);
-    M5.Display.fillRect(62, 74, 60, 16, TFT_BLACK);
-    M5.Display.fillRect(50, 92, 70, 16, TFT_BLACK);
-    M5.Display.fillRect(170, 92, 50, 16, TFT_BLACK);
+    LB::fillRect(62, 56, 166, 16, TFT_BLACK);
+    LB::fillRect(62, 74, 60, 16, TFT_BLACK);
+    LB::fillRect(50, 92, 70, 16, TFT_BLACK);
+    LB::fillRect(170, 92, 50, 16, TFT_BLACK);
 
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_CYAN);
-    M5.Display.setCursor(62, 58);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_CYAN);
+    LB::setCursor(62, 58);
     String shown = nm; if (shown.length() > 18) shown = shown.substring(0, 18);
-    M5.Display.print(shown);
+    LB::print(shown);
 
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.setCursor(62, 76);
-    M5.Display.printf("%lu", pubCount);
+    LB::setTextColor(TFT_GREEN);
+    LB::setCursor(62, 76);
+    LB::printf("%lu", pubCount);
 
     unsigned long sec = (millis() - startTs) / 1000UL;
     unsigned int mm = sec / 60U; unsigned int ss = sec % 60U;
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(60, 94);
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(60, 94);
     char buf[8]; snprintf(buf, sizeof(buf), "%02u:%02u", mm, ss);
-    M5.Display.print(buf);
+    LB::print(buf);
 
-    M5.Display.setTextColor(TFT_YELLOW);
-    M5.Display.setCursor(170, 94);
-    M5.Display.printf("%.1f", rate);
+    LB::setTextColor(TFT_YELLOW);
+    LB::setCursor(170, 94);
+    LB::printf("%.1f", rate);
   };
 
   String currentName;
@@ -674,10 +707,11 @@ void bleNameFloodUI() {
       rate = (float)(pubCount - prevCount) / ((now - lastRateTs) / 1000.0f);
       prevCount = pubCount;
       lastRateTs = now;
-      M5.Display.fillRect(170, 92, 50, 16, TFT_BLACK);
-      M5.Display.setTextColor(TFT_YELLOW);
-      M5.Display.setCursor(170, 94);
-      M5.Display.printf("%.1f", rate);
+      LB::fillRect(170, 92, 50, 16, TFT_BLACK);
+      LB::setTextSize(1.5);
+      LB::setTextColor(TFT_YELLOW);
+      LB::setCursor(170, 94);
+      LB::printf("%.1f", rate);
     }
 
     delay(1);
@@ -687,7 +721,7 @@ void bleNameFloodUI() {
   releaseBLE();
   pixels.setPixelColor(0, 0);
   pixels.show();
-  M5.Display.fillCircle(220, 20, 4, TFT_RED);
+  LB::fillCircle(220, 20, 4, TFT_RED);
   delay(120);
   waitAndReturnToMenu("BLENameFlood stopped");
 }
@@ -762,18 +796,9 @@ static void atDrawHeader(bool force = false) {
   unsigned long now = millis();
   if (!force && (now - atLastHeaderUpdate) < 250) return;
   atLastHeaderUpdate = now;
-
-  M5.Display.fillRect(0, 0, 240, AT_HDR_H, AT_ACCENT);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_BLACK, AT_ACCENT);
-  M5.Display.setCursor(6, 4);
-  M5.Display.print("Wall of AirTags");
-
   char buf[24];
   snprintf(buf, sizeof(buf), "Tags:%d", atCount);
-  int w = M5.Display.textWidth(buf);
-  M5.Display.setCursor(240 - w - 6, 4);
-  M5.Display.print(buf);
+  bleDrawHeaderBar(AT_HDR_H, AT_ACCENT, TFT_BLACK, "Wall of AirTags", buf);
 }
 
 static void atDrawList(bool force = false) {
@@ -792,34 +817,34 @@ static void atDrawList(bool force = false) {
     }
   }
 
-  M5.Display.fillRect(0, AT_LIST_Y, 240, AT_LIST_H, AT_BG);
-  M5.Display.setTextSize(1);
+  LB::fillRect(0, AT_LIST_Y, 240, AT_LIST_H, AT_BG);
+  LB::setTextSize(1);
 
   for (int row = 0; row < AT_VISIBLE; ++row) {
     int idx = atTop + row;
     if (idx >= atCount) break;
 
     int y = AT_LIST_Y + row * (AT_LINE_H + AT_GAP);
-    M5.Display.setTextColor(AT_TEXT, AT_BG);
+    LB::setTextColor(AT_TEXT, AT_BG);
 
     // MAC short
     String macShort = atItems[idx].mac.substring(9);
-    M5.Display.setCursor(4, y);
-    M5.Display.print(macShort);
+    LB::setCursor(4, y);
+    LB::print(macShort);
 
     // Distance
     char distBuf[10];
     snprintf(distBuf, sizeof(distBuf), "%.1fm", atItems[idx].distance);
-    M5.Display.setCursor(80, y);
-    M5.Display.print(distBuf);
+    LB::setCursor(80, y);
+    LB::print(distBuf);
 
     // RSSI
-    M5.Display.setCursor(130, y);
-    M5.Display.printf("%ddBm", atItems[idx].rssi);
+    LB::setCursor(130, y);
+    LB::printf("%ddBm", atItems[idx].rssi);
 
     // Trend
-    M5.Display.setCursor(185, y);
-    M5.Display.print(atItems[idx].trend.substring(0, 6));
+    LB::setCursor(185, y);
+    LB::print(atItems[idx].trend.substring(0, 6));
   }
 }
 
@@ -827,26 +852,8 @@ static void atDrawSpamBox(bool force = false) {
   unsigned long now = millis();
   if (!force && (now - atLastSpamUpdate) < 150) return;
   atLastSpamUpdate = now;
-
-  int y = 135 - AT_SPAM_H;
-  M5.Display.drawRoundRect(3, y, 234, AT_SPAM_H - 4, 5, AT_MUTED);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(AT_MUTED, AT_BG);
-  M5.Display.setCursor(10, y + 2);
-  M5.Display.print("Last 2 payloads");
-
-  M5.Display.fillRect(5, y + 14, 230, AT_SPAM_H - 20, AT_BG);
-  M5.Display.setTextColor(AT_TEXT, AT_BG);
-
-  int lineY = y + 18;
-  for (int i = 0; i < 2; ++i) {
-    int idx = (atSpamHead - 1 - i + 2) % 2;
-    if (atSpam[idx].length() == 0) continue;
-    M5.Display.setCursor(6, lineY + i * 12);
-    String truncated = atSpam[idx];
-    if (truncated.length() > 36) truncated = truncated.substring(0, 36);
-    M5.Display.print(truncated);
-  }
+  bleDrawSpamBox(135 - AT_SPAM_H, AT_SPAM_H, "Last 2 payloads",
+                  atSpam, atSpamHead, AT_MUTED, AT_MUTED, AT_TEXT, AT_BG, 36);
 }
 
 static void atPushSpam(const String& s) {
@@ -976,7 +983,7 @@ void wallOfAirTags() {
     }
   }
 
-  M5.Display.fillScreen(AT_BG);
+  LB::fillScreen(AT_BG);
   atDrawHeader(true);
   atDrawList(true);
   atDrawSpamBox(true);
@@ -1204,40 +1211,29 @@ static void fmStartTagRaw(const FakeTag& t) {
 
 // UI
 static void fmDrawHeader(bool on) {
-  M5.Display.fillRect(0, 0, 240, AT_HDR_H, AT_ACCENT);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_BLACK, AT_ACCENT);
-  M5.Display.setCursor(6, 4);
-  M5.Display.print("FindMyEvil");
-
-  const char* s = on ? "ON" : "OFF";
-  int w = M5.Display.textWidth(s);
-  M5.Display.setCursor(240 - w - 6, 4);
-  M5.Display.print(s);
-
+  // Build right-side status: "85% ON" or "85% OFF"
   String batteryLevel = getBatteryLevel();
-  int batWidth = M5.Display.textWidth(batteryLevel + "%");
-  M5.Display.setCursor(240 - w - batWidth - 12, 4);
-  M5.Display.print(batteryLevel + "%");
+  String rightText = batteryLevel + "% " + (on ? "ON" : "OFF");
+  bleDrawHeaderBar(AT_HDR_H, AT_ACCENT, TFT_BLACK, "FindMyEvil", rightText.c_str());
 }
 
 static void fmDrawBody() {
-  M5.Display.fillRect(0, AT_LIST_Y, 240, 135 - AT_LIST_Y, AT_BG);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(AT_TEXT, AT_BG);
+  LB::fillRect(0, AT_LIST_Y, 240, 135 - AT_LIST_Y, AT_BG);
+  LB::setTextSize(1);
+  LB::setTextColor(AT_TEXT, AT_BG);
 
   int y = AT_LIST_Y + 2;
-  M5.Display.setCursor(8, y);   M5.Display.print("Interval: "); M5.Display.print(fmIntMs); M5.Display.print(" ms");
+  LB::setCursor(8, y);   LB::print("Interval: "); LB::print(fmIntMs); LB::print(" ms");
   y += 12;
-  M5.Display.setCursor(8, y);   M5.Display.print("Slot:     "); M5.Display.print(fmSlotMs); M5.Display.print(" ms");
-  y += 12;
-
-  M5.Display.setCursor(8, y);
-  M5.Display.print("Mode: ");
-  M5.Display.print(fmUseFindMy ? "FindMy Keys" : "LAB random");
+  LB::setCursor(8, y);   LB::print("Slot:     "); LB::print(fmSlotMs); LB::print(" ms");
   y += 12;
 
-  M5.Display.setCursor(8, y);   M5.Display.print("Tags:     "); M5.Display.print(fmTagCount);
+  LB::setCursor(8, y);
+  LB::print("Mode: ");
+  LB::print(fmUseFindMy ? "FindMy Keys" : "LAB random");
+  y += 12;
+
+  LB::setCursor(8, y);   LB::print("Tags:     "); LB::print(fmTagCount);
   y += 12;
 
   if (fmTagCount) {
@@ -1245,21 +1241,21 @@ static void fmDrawBody() {
     for (int i = 0; i < 8; i++) {
       p += snprintf(line + p, sizeof(line) - p, "%02X ", fmTags[fmTagIdx].adv_key[i]);
     }
-    M5.Display.setCursor(8, y); M5.Display.print("KEY: "); M5.Display.print(line); y += 14;
+    LB::setCursor(8, y); LB::print("KEY: "); LB::print(line); y += 14;
 
     char macs[18];
     snprintf(macs, sizeof(macs), "%02X:%02X:%02X:%02X:%02X:%02X",
              fmTags[fmTagIdx].mac[0], fmTags[fmTagIdx].mac[1], fmTags[fmTagIdx].mac[2],
              fmTags[fmTagIdx].mac[3], fmTags[fmTagIdx].mac[4], fmTags[fmTagIdx].mac[5]);
-    M5.Display.setCursor(8, y); M5.Display.print("MAC: "); M5.Display.print(macs); y += 16;
+    LB::setCursor(8, y); LB::print("MAC: "); LB::print(macs); y += 16;
   }
 
-  M5.Display.setTextColor(AT_MUTED, AT_BG);
-  M5.Display.setCursor(8, y);   M5.Display.print("[SPACE] ON/OFF  [B] Save mode");
+  LB::setTextColor(AT_MUTED, AT_BG);
+  LB::setCursor(8, y);   LB::print("[SPACE] ON/OFF  [B] Save mode");
   y += 12;
-  M5.Display.setCursor(8, y);   M5.Display.print("[R] rotate KEY  [+]/[-] interval");
+  LB::setCursor(8, y);   LB::print("[R] rotate KEY  [+]/[-] interval");
   y += 12;
-  M5.Display.setCursor(8, y);   M5.Display.print("[N] add tag  [BKSP/ENTER] exit");
+  LB::setCursor(8, y);   LB::print("[N] add tag  [BKSP/ENTER] exit");
 }
 
 static void fmRedrawAll() {
@@ -1280,7 +1276,7 @@ void FindMyEvilTx() {
 
   initializeBLEIfNeeded();
 
-  M5.Display.fillScreen(AT_BG);
+  LB::fillScreen(AT_BG);
   fmRedrawAll();
 
   enterDebounce();
@@ -1413,8 +1409,8 @@ void FindMyEvilTx() {
 
     // Standby mode
     if (M5Cardputer.Keyboard.isKeyPressed('b') || M5Cardputer.Keyboard.isKeyPressed('B')) {
-      M5.Display.fillScreen(TFT_BLACK);
-      M5.Display.setBrightness(10);
+      LB::fillScreen(TFT_BLACK);
+      LB::setBrightness(10);
       AT_LOG("[FM-TX]Screen in standby mode, reduced brightness\n");
       while(M5Cardputer.Keyboard.isKeyPressed('b') || M5Cardputer.Keyboard.isKeyPressed('B')){
         M5Cardputer.update();
@@ -1425,7 +1421,7 @@ void FindMyEvilTx() {
         delay(50);
       }
 
-      M5.Display.setBrightness(defaultBrightness);
+      LB::setBrightness(defaultBrightness);
       fmRedrawAll();
       delay(150);
     }
