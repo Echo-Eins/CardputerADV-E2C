@@ -117,6 +117,9 @@ enum SearchKind {
 // Crypto Utilities
 #include "crypto_utils.h"
 
+// LegacyBridge alias for display migration
+using LB = GUI::LegacyBridge;
+
 #include <esp_task_wdt.h>
 
 #include <HTTPClient.h>
@@ -830,10 +833,10 @@ void setup() {
   hwInit();
 
   // Setup display
-  M5.Lcd.setRotation(1);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
-  M5.Display.setTextFont(1);
+  LB::setRotation(1);
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor);
+  LB::setTextFont(1);
 
   // Initialize GUI Framework (async renderer on Core 0 + LegacyBridge)
   if (GUI::begin()) {
@@ -1158,21 +1161,21 @@ void setup() {
   if (!SD.begin(12, SPI, 40000000UL)) {
     Serial.println(F("Error.."));
     Serial.println(F("SD card not mounted..."));
-    M5.Display.fillRect(0, 0, 240, 135, menuBackgroundColor);
-    M5.Display.drawRect(10, 20, 220, 95, TFT_RED);
-    M5.Display.fillRect(11, 21, 218, 93, taskbarBackgroundColor);
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.setTextSize(2);
-    int textWidth = M5.Display.textWidth("SD Card Error");
-    M5.Display.setCursor((240 - textWidth) / 2, 40);
-    M5.Display.println("SD Card Error");
-    M5.Display.setTextColor(TFT_RED);
-    M5.Display.setTextSize(1);
-    textWidth = M5.Display.textWidth("Evil cannot work without SD card");
-    M5.Display.setCursor((240 - textWidth) / 2, 85);
-    M5.Display.println("Evil cannot work without SD card");
+    LB::fillRect(0, 0, 240, 135, menuBackgroundColor);
+    LB::drawRect(10, 20, 220, 95, TFT_RED);
+    LB::fillRect(11, 21, 218, 93, taskbarBackgroundColor);
+    LB::setTextColor(TFT_GREEN);
+    LB::setTextSize(2);
+    int textWidth = LB::textWidth("SD Card Error");
+    LB::setCursor((240 - textWidth) / 2, 40);
+    LB::println("SD Card Error");
+    LB::setTextColor(TFT_RED);
+    LB::setTextSize(1);
+    textWidth = LB::textWidth("Evil cannot work without SD card");
+    LB::setCursor((240 - textWidth) / 2, 85);
+    LB::println("Evil cannot work without SD card");
     delay(4000);
-    M5.Display.setTextSize(1.5);
+    LB::setTextSize(1.5);
   } else {
     Serial.println(F("----------------------"));
     Serial.println(F("SD card initialized !! "));
@@ -1322,12 +1325,12 @@ void setup() {
   int lineY1 = textY - lineOffset;
   int lineY2 = textY + lineOffset + 30;
 
-  M5.Display.clear();
-  M5.Display.drawLine(0, lineY1, M5.Display.width(), lineY1, TFT_WHITE);
-  M5.Display.drawLine(0, lineY2, M5.Display.width(), lineY2, TFT_WHITE);
+  LB::clear();
+  LB::drawLine(0, lineY1, LB::width(), lineY1, TFT_WHITE);
+  LB::drawLine(0, lineY2, LB::width(), lineY2, TFT_WHITE);
 
   // Largeur de l'écran
-  int screenWidth = M5.Lcd.width();
+  int screenWidth = LB::width();
 
   // Textes à afficher
   const char* text1 = "Evil-Cardputer";
@@ -1335,9 +1338,9 @@ void setup() {
   const char* text3 = "v1.5.1 2026";
 
   // Mesure de la largeur du texte et calcul de la position du curseur
-  int text1Width = M5.Lcd.textWidth(text1);
-  int text2Width = M5.Lcd.textWidth(text2);
-  int text3Width = M5.Lcd.textWidth(text3);
+  int text1Width = LB::textWidth(text1);
+  int text2Width = LB::textWidth(text2);
+  int text3Width = LB::textWidth(text3);
 
   int cursorX1 = (screenWidth - text1Width) / 2;
   int cursorX2 = (screenWidth - text2Width) / 2;
@@ -1349,14 +1352,14 @@ void setup() {
   int textY3 = textY + 45;
 
   // Affichage sur l'écran
-  M5.Lcd.setCursor(cursorX1, textY1);
-  M5.Lcd.println(text1);
+  LB::setCursor(cursorX1, textY1);
+  LB::println(text1);
 
-  M5.Lcd.setCursor(cursorX2, textY2);
-  M5.Lcd.println(text2);
+  LB::setCursor(cursorX2, textY2);
+  LB::println(text2);
 
-  M5.Lcd.setCursor(cursorX3, textY3);
-  M5.Lcd.println(text3);
+  LB::setCursor(cursorX3, textY3);
+  LB::println(text3);
 
   // Affichage en série
   Serial.println(F("-------------------"));
@@ -1401,11 +1404,11 @@ void setup() {
   int randomMessageY1 = textY + 80;  // Position Y de la première ligne de randomMessage
   int randomMessageY2 = randomMessageY1 + 12;  // Position Y de la seconde ligne de randomMessage
 
-  M5.Display.setCursor(5, randomMessageY1);
-  M5.Display.println(line1);
+  LB::setCursor(5, randomMessageY1);
+  LB::println(line1);
 
-  M5.Display.setCursor(5, randomMessageY2);
-  M5.Display.println(line2);
+  LB::setCursor(5, randomMessageY2);
+  LB::println(line2);
 
   // Affichage de randomMessage en série
   Serial.println(F(" "));
@@ -1434,11 +1437,11 @@ void setup() {
     } else {
       // Multiple auto-connect networks - let user choose
       Serial.printf("[WiFi] Found %d auto-connect networks\n", autoConnectNets.size());
-      M5.Display.clear();
-      M5.Display.setCursor(5, 5);
-      M5.Display.setTextColor(TFT_YELLOW);
-      M5.Display.println("Multiple saved networks:");
-      M5.Display.setTextColor(menuTextFocusedColor);
+      LB::clear();
+      LB::setCursor(5, 5);
+      LB::setTextColor(TFT_YELLOW);
+      LB::println("Multiple saved networks:");
+      LB::setTextColor(menuTextFocusedColor);
 
       int selection = 0;
       bool selected = false;
@@ -1447,17 +1450,17 @@ void setup() {
       while (!selected) {
         if (needRedraw) {
           for (int i = 0; i < (int)autoConnectNets.size() && i < 8; i++) {
-            M5.Display.setCursor(5, 20 + i * 12);
+            LB::setCursor(5, 20 + i * 12);
             if (i == selection) {
-              M5.Display.setTextColor(TFT_GREEN);
-              M5.Display.print("> ");
+              LB::setTextColor(TFT_GREEN);
+              LB::print("> ");
             } else {
-              M5.Display.setTextColor(TFT_WHITE);
-              M5.Display.print("  ");
+              LB::setTextColor(TFT_WHITE);
+              LB::print("  ");
             }
-            M5.Display.println(autoConnectNets[i]->ssid);
+            LB::println(autoConnectNets[i]->ssid);
           }
-          M5.Display.display();
+          LB::display();
           needRedraw = false;
         }
 
@@ -1487,10 +1490,10 @@ void setup() {
       WiFi.mode(WIFI_MODE_STA);
       WiFi.begin(selectedNet->ssid.c_str(), selectedNet->password.c_str());
 
-      M5.Display.clear();
-      M5.Display.setCursor(5, M5.Display.height() / 2 - 10);
-      M5.Display.println("Connecting to " + selectedNet->ssid + "...");
-      M5.Display.display();
+      LB::clear();
+      LB::setCursor(5, LB::height() / 2 - 10);
+      LB::println("Connecting to " + selectedNet->ssid + "...");
+      LB::display();
 
       unsigned long startAttemptTime = millis();
       while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 5000) {
@@ -1505,11 +1508,11 @@ void setup() {
         password = selectedNet->password;
         wifiCredentialsUpdateLastUsed(ssid);
 
-        M5.Display.clear();
-        M5.Display.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2);
-        M5.Display.println("Connected to");
-        M5.Display.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2 + 12);
-        M5.Display.println(ssid);
+        LB::clear();
+        LB::setCursor(LB::width() / 2 - 48, LB::height() / 2);
+        LB::println("Connected to");
+        LB::setCursor(LB::width() / 2 - 48, LB::height() / 2 + 12);
+        LB::println(ssid);
         delay(1000);
       } else {
         Serial.println(F("Failed to auto-connect"));
@@ -1530,11 +1533,11 @@ void setup() {
 
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println(F("Connected to wifi !!!"));
-      M5.Display.clear();
-      M5.Lcd.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2);
-      M5.Display.println("Connected to");
-      M5.Lcd.setCursor(M5.Display.width() / 2 - 48, M5.Display.height() / 2 + 12);
-      M5.Display.println(ssid);
+      LB::clear();
+      LB::setCursor(LB::width() / 2 - 48, LB::height() / 2);
+      LB::println("Connected to");
+      LB::setCursor(LB::width() / 2 - 48, LB::height() / 2 + 12);
+      LB::println(ssid);
       delay(1000);
     } else {
       Serial.println(F("Fail to connect to Wifi or timeout..."));
@@ -1624,7 +1627,7 @@ int getCapturedPasswordsCount() {
 }
 void initTaskBarSprite() {
   if (!taskBarSpriteReady) {
-    taskBarCanvas.createSprite(M5.Display.width(), 12);
+    taskBarCanvas.createSprite(LB::width(), 12);
     taskBarSpriteReady = true;
   }
 }
@@ -1750,14 +1753,14 @@ void loop() {
       if (secs > 30) secs = 30;
       if (secs > 0) {
         for (int t = secs; t > 0; --t) {
-          M5.Display.clear();
-          M5.Display.setTextSize(1.5);
-          M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-          M5.Display.setCursor(10, 40);
-          M5.Display.println("Auto-start in " + String(t) + " s");
-          M5.Display.setCursor(10, 60);
-          M5.Display.println("Press ENTER to cancel");
-          M5.Display.display();
+          LB::clear();
+          LB::setTextSize(1.5);
+          LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+          LB::setCursor(10, 40);
+          LB::println("Auto-start in " + String(t) + " s");
+          LB::setCursor(10, 60);
+          LB::println("Press ENTER to cancel");
+          LB::display();
           uint32_t t0 = millis();
           while (millis() - t0 < 1000) {
             M5.update();
@@ -1836,9 +1839,9 @@ void loop() {
 
 //-----------------------------------------------------------------------------------------------------
 void drawMenu() {
-  M5.Display.fillRect(0, 13, M5.Display.width(), M5.Display.height() - 13, menuBackgroundColor);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
+  LB::fillRect(0, 13, LB::width(), LB::height() - 13, menuBackgroundColor);
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
 
   const int lineHeight = 13;
   const int startX = 5;
@@ -1853,18 +1856,18 @@ void drawMenu() {
     int menuIndex = mapViewToRealIndex(pos);
 
     if (pos == currentIndex) {
-      M5.Display.fillRect(0, 1 + startY + i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-      M5.Display.setTextColor(menuTextFocusedColor);
+      LB::fillRect(0, 1 + startY + i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+      LB::setTextColor(menuTextFocusedColor);
     } else {
-      M5.Display.setTextColor(menuTextUnFocusedColor);
+      LB::setTextColor(menuTextUnFocusedColor);
     }
 
-    M5.Display.setCursor(startX, startY + i * lineHeight + (lineHeight / 2) - 3);
-    M5.Display.println((const char*)menuItems[menuIndex]);
+    LB::setCursor(startX, startY + i * lineHeight + (lineHeight / 2) - 3);
+    LB::println((const char*)menuItems[menuIndex]);
   }
 
   if (MenuEngine::getMode() == MENU_SEARCH) drawSearchBar();
-  M5.Display.display();
+  LB::display();
 }
 
 
@@ -2253,19 +2256,19 @@ void hexToString(const uint8_t* data, size_t length, char* output) {
 }
 
 void doTheThing() {
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setTextColor(GREEN, BLACK);
-  M5.Lcd.setTextSize(1.5);
-  M5.Lcd.setCursor(0, 0);
+  LB::fillScreen(BLACK);
+  LB::setTextColor(GREEN, BLACK);
+  LB::setTextSize(1.5);
+  LB::setCursor(0, 0);
   char buffer[64];
   for (int i = 0; i < numLines; i++) {
     hexToString(allLines[i], allLinesLen[i], buffer);
     const char* p = buffer;
     while (*p) {
-      M5.Lcd.print(*p++);
+      LB::print(*p++);
       delay(50);
     }
-    M5.Lcd.println();
+    LB::println();
     delay(200);
   }
   while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
@@ -2367,7 +2370,7 @@ void checkSerialCommands() {
       int32_t rssi = WiFi.RSSI(ssidIndex);
       uint8_t* bssid = WiFi.BSSID(ssidIndex);
       String macAddress = bssidToString(bssid);
-      M5.Display.display();
+      LB::display();
       Serial.println(F("------Wifi-Info----"));
       Serial.println("SSID: " + (ssidList[ssidIndex].length() > 0 ? ssidList[ssidIndex] : "N/A"));
       Serial.println("Channel: " + String(WiFi.channel(ssidIndex)));
@@ -2566,13 +2569,13 @@ void scanWifiNetworks() {
   unsigned long startTime = millis();
   int n;
   while (millis() - startTime < 5000) {
-    M5.Display.clear();
-    M5.Display.fillRect(0, M5.Display.height() - 20, M5.Display.width(), 20, TFT_BLACK);
-    M5.Display.setCursor(12 , M5.Display.height() / 2 );
-    M5.Display.print("Scan in progress... ");
+    LB::clear();
+    LB::fillRect(0, LB::height() - 20, LB::width(), 20, TFT_BLACK);
+    LB::setCursor(12 , LB::height() / 2 );
+    LB::print("Scan in progress... ");
     Serial.println(F("-------------------"));
     Serial.println(F("WiFi Scan in progress... "));
-    M5.Display.display();
+    LB::display();
     n = WiFi.scanNetworks();
     if (n != WIFI_SCAN_RUNNING) break;
   }
@@ -2598,26 +2601,26 @@ void showWifiList() {
   const int LEFT_PAD = 2;
   const int ICON_W = 28;
   const int SCROLL_W = 4;
-  const int LIST_WIDTH  = M5.Display.width() - SCROLL_W;
-  const int LIST_HEIGHT = M5.Display.height();
+  const int LIST_WIDTH  = LB::width() - SCROLL_W;
+  const int LIST_HEIGHT = LB::height();
 
   auto clampi = [](int v, int lo, int hi){ return v < lo ? lo : (v > hi ? hi : v); };
 
   auto drawLockIcon = [&](int x, int y, bool locked) {
     if (!locked) return;
-    M5.Display.drawRoundRect(x, y+2, 8, 6, 1, TFT_WHITE);
-    M5.Display.drawLine(x+2, y+2, x+2, y, TFT_WHITE);
-    M5.Display.drawLine(x+5, y+2, x+5, y, TFT_WHITE);
-    M5.Display.drawLine(x+2, y,   x+5, y, TFT_WHITE);
+    LB::drawRoundRect(x, y+2, 8, 6, 1, TFT_WHITE);
+    LB::drawLine(x+2, y+2, x+2, y, TFT_WHITE);
+    LB::drawLine(x+5, y+2, x+5, y, TFT_WHITE);
+    LB::drawLine(x+2, y,   x+5, y, TFT_WHITE);
   };
 
   // Key icon for saved networks (password remembered)
   auto drawKeyIcon = [&](int x, int y) {
     // Small key symbol in yellow/gold
-    M5.Display.fillCircle(x+2, y+3, 2, TFT_YELLOW);      // Key head (circle)
-    M5.Display.drawLine(x+4, y+3, x+8, y+3, TFT_YELLOW); // Key shaft
-    M5.Display.drawLine(x+6, y+3, x+6, y+5, TFT_YELLOW); // Key tooth 1
-    M5.Display.drawLine(x+8, y+3, x+8, y+5, TFT_YELLOW); // Key tooth 2
+    LB::fillCircle(x+2, y+3, 2, TFT_YELLOW);      // Key head (circle)
+    LB::drawLine(x+4, y+3, x+8, y+3, TFT_YELLOW); // Key shaft
+    LB::drawLine(x+6, y+3, x+6, y+5, TFT_YELLOW); // Key tooth 1
+    LB::drawLine(x+8, y+3, x+8, y+5, TFT_YELLOW); // Key tooth 2
   };
 
   auto drawRssiBars = [&](int x, int y, int32_t rssi) {
@@ -2633,29 +2636,29 @@ void showWifiList() {
       int bx = x + i*(bw + gap);
       int by = y + (ROW_H - 2) - h;
       uint16_t c = (i < lvl) ? TFT_GREEN : menuTextUnFocusedColor;
-      M5.Display.fillRect(bx, by, bw, h, c);
+      LB::fillRect(bx, by, bw, h, c);
     }
   };
 
   auto truncateToWidth = [&](String s, int maxW) {
     if (maxW <= 0) return String("");
-    if (M5.Display.textWidth(s) <= maxW) return s;
+    if (LB::textWidth(s) <= maxW) return s;
     String e = "...";
-    while (s.length() > 0 && M5.Display.textWidth(s + e) > maxW) {
+    while (s.length() > 0 && LB::textWidth(s + e) > maxW) {
       s.remove(s.length() - 1);
     }
     return String(s + e);
   };
 
   auto drawScrollbar = [&](int startIndex, int visible, int total) {
-    int x = M5.Display.width() - SCROLL_W;
-    M5.Display.fillRect(x, 0, SCROLL_W, LIST_HEIGHT, menuBackgroundColor);
+    int x = LB::width() - SCROLL_W;
+    LB::fillRect(x, 0, SCROLL_W, LIST_HEIGHT, menuBackgroundColor);
     if (total <= visible) return;
     int trackH = LIST_HEIGHT;
     int thumbH = max(8, (trackH * visible) / total);
     int maxStart = max(1, total - visible);
     int thumbY = (trackH - thumbH) * startIndex / maxStart;
-    M5.Display.fillRect(x+1, thumbY, SCROLL_W-2, thumbH, menuTextUnFocusedColor);
+    LB::fillRect(x+1, thumbY, SCROLL_W-2, thumbH, menuTextUnFocusedColor);
   };
 
   auto isLocked = [&](int i) -> bool {
@@ -2698,13 +2701,13 @@ void showWifiList() {
 
   while (!inMenu) {
     if (needsDisplayUpdate) {
-      M5.Display.fillRect(0, 0, LIST_WIDTH, LIST_HEIGHT, menuBackgroundColor);
+      LB::fillRect(0, 0, LIST_WIDTH, LIST_HEIGHT, menuBackgroundColor);
 
       const int lines = LIST_HEIGHT / ROW_H;
       int listStartIndex = clampi(currentListIndex - lines/2, 0, max(0, numSsid - lines));
 
       M5.Display.setFont(&fonts::Font0);
-      M5.Display.setTextSize(1);
+      LB::setTextSize(1);
 
       for (int row = 0; row < lines; ++row) {
         int i = listStartIndex + row;
@@ -2713,15 +2716,15 @@ void showWifiList() {
 
         bool focused = (i == currentListIndex);
         if (focused) {
-          M5.Display.fillRect(0, y, LIST_WIDTH, ROW_H, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, y, LIST_WIDTH, ROW_H, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor);
+          LB::setTextColor(menuTextUnFocusedColor);
         }
 
         // Méta à droite
         String meta = "ch" + String(chanCache[i] ? chanCache[i] : 0) + " " + String(rssiCache[i]) + "dBm";
-        int metaW = M5.Display.textWidth(meta);
+        int metaW = LB::textWidth(meta);
         int metaX = LIST_WIDTH - metaW - 2;
         if (metaX < LEFT_PAD + ICON_W + 6) metaX = LEFT_PAD + ICON_W + 6;
 
@@ -2737,18 +2740,18 @@ void showWifiList() {
         int textX = LEFT_PAD + ICON_W;
         int maxTextW = max(0, metaX - textX - 2);
         String line = truncateToWidth(ssidList[i], maxTextW);
-        M5.Display.setTextSize(1.3);
-        M5.Display.setCursor(textX, y + 1);
-        M5.Display.print(line);
-        M5.Display.setTextSize(1);
+        LB::setTextSize(1.3);
+        LB::setCursor(textX, y + 1);
+        LB::print(line);
+        LB::setTextSize(1);
         
         // Méta
-        M5.Display.setCursor(metaX, y + 1);
-        M5.Display.print(meta);
+        LB::setCursor(metaX, y + 1);
+        LB::print(meta);
       }
 
       drawScrollbar(clampi(currentListIndex - (LIST_HEIGHT/ROW_H)/2, 0, max(0, numSsid - (LIST_HEIGHT/ROW_H))), LIST_HEIGHT/ROW_H, numSsid);
-      M5.Display.display();
+      LB::display();
       needsDisplayUpdate = false;
     }
 
@@ -2808,49 +2811,49 @@ void showWifiDetails(int networkIndex) {
 
   auto updateDisplay = [&]() {
     if (networkIndex >= 0 && networkIndex < numSsid) {
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
+      LB::clear();
+      LB::setTextSize(1.5);
       int y = 2;
       int x = 0;
 
       // SSID
-      M5.Display.setCursor(x, y);
-      M5.Display.println("SSID:" + (ssidList[networkIndex].length() > 0 ? ssidList[networkIndex] : "N/A"));
+      LB::setCursor(x, y);
+      LB::println("SSID:" + (ssidList[networkIndex].length() > 0 ? ssidList[networkIndex] : "N/A"));
       y += 20;
 
       // Channel
       int channel = WiFi.channel(networkIndex);
-      M5.Display.setCursor(x, y);
-      M5.Display.println("Channel:" + (channel > 0 ? String(channel) : "N/A"));
+      LB::setCursor(x, y);
+      LB::println("Channel:" + (channel > 0 ? String(channel) : "N/A"));
       y += 16;
 
       // Security
       String security = getWifiSecurity(networkIndex);
-      M5.Display.setCursor(x, y);
-      M5.Display.println("Security:" + (security.length() > 0 ? security : "N/A"));
+      LB::setCursor(x, y);
+      LB::println("Security:" + (security.length() > 0 ? security : "N/A"));
       y += 16;
 
       // Signal Strength
       int32_t rssi = WiFi.RSSI(networkIndex);
-      M5.Display.setCursor(x, y);
-      M5.Display.println("Signal:" + (rssi != 0 ? String(rssi) + " dBm" : "N/A"));
+      LB::setCursor(x, y);
+      LB::println("Signal:" + (rssi != 0 ? String(rssi) + " dBm" : "N/A"));
       y += 16;
 
       // MAC Address
       uint8_t* bssid = WiFi.BSSID(networkIndex);
       String macAddress = bssidToString(bssid);
-      M5.Display.setCursor(x, y);
-      M5.Display.println("MAC:" + (macAddress.length() > 0 ? macAddress : "N/A"));
+      LB::setCursor(x, y);
+      LB::println("MAC:" + (macAddress.length() > 0 ? macAddress : "N/A"));
       y += 16;
 
-      M5.Display.setCursor(80, 110);
-      M5.Display.println("ENTER:Clone");
-      M5.Display.setCursor(20, 110);
-      M5.Display.println("<");
-      M5.Display.setCursor(M5.Display.width() - 20 , 110);
-      M5.Display.println(">");
+      LB::setCursor(80, 110);
+      LB::println("ENTER:Clone");
+      LB::setCursor(20, 110);
+      LB::println("<");
+      LB::setCursor(LB::width() - 20 , 110);
+      LB::println(">");
 
-      M5.Display.display();
+      LB::display();
     }
   };
 
@@ -4242,30 +4245,30 @@ inline float easeInOutSine(float x){
 
 // ==== WiFi Waves Neo (Glow + Arcs + Sparks) ====
 void showWaitingAnimationNTLM() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
   static uint32_t t = 0;              // temps logique (ticks)
   static bool sparksInit = false;
 
   // ---- header ----
-  d.fillScreen(TFT_BLACK);
-  d.setTextSize(1.5);
-  d.setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
 
   // centre de l'animation
-  const int cx = d.width() / 2;
-  const int cy = d.height() / 2 + 12;
+  const int cx = LB::width() / 2;
+  const int cy = LB::height() / 2 + 12;
 
   // ---- halo central (glow) ----
   // 3 disques concentriques pour effet lumineux
   for (int i = 3; i >= 1; --i) {
     uint8_t v = 40 * i;               // intensité décroissante
-    d.fillCircle(cx, cy, 10 + i*4, rgb565(0, v, 120));
+    LB::fillCircle(cx, cy, 10 + i*4, rgb565(0, v, 120));
   }
-  d.fillCircle(cx, cy, 6, rgb565(100, 255, 255)); // émetteur
+  LB::fillCircle(cx, cy, 6, rgb565(100, 255, 255)); // émetteur
 
   // ---- ondes circulaires (avec glow “épais”) ----
   // 4 vagues étalées + dégradé HSV
-  const int maxR = (int)(min(d.width(), d.height()) * 0.9f);
+  const int maxR = (int)(min(LB::width(), LB::height()) * 0.9f);
   for (int i = 0; i < 4; ++i) {
     // progression (0..1) décalée par i
     float k = ((t * 0.015f) + i * 0.25f);
@@ -4284,7 +4287,7 @@ void showWaitingAnimationNTLM() {
       uint8_t sat = 255;
       // luminosité externe plus faible
       uint8_t val = (uint8_t)max(30, 220 - j * 35);
-      d.drawCircle(cx, cy, r, hsv565(hue, sat, val));
+      LB::drawCircle(cx, cy, r, hsv565(hue, sat, val));
     }
   }
 
@@ -4306,7 +4309,7 @@ void showWaitingAnimationNTLM() {
         float mid = (start + end) * 0.5f;
         float falloff = 1.0f - fabsf(ang - mid) / (end - start);
         uint8_t v = (uint8_t)(150 + 100 * falloff);
-        d.drawPixel(x, y, hsv565(190, 180, v));
+        LB::drawPixel(x, y, hsv565(190, 180, v));
       }
     }
   }
@@ -4337,15 +4340,15 @@ void showWaitingAnimationNTLM() {
 
     // rendu
     uint16_t c = hsv565(185, 200, v);
-    d.drawPixel((int)s.x, (int)s.y, c);
+    LB::drawPixel((int)s.x, (int)s.y, c);
     // mini glow
     if ((int)s.life % 2 == 0) {
-      d.drawPixel((int)s.x+1, (int)s.y, c);
-      d.drawPixel((int)s.x, (int)s.y+1, c);
+      LB::drawPixel((int)s.x+1, (int)s.y, c);
+      LB::drawPixel((int)s.x, (int)s.y+1, c);
     }
 
     // respawn si mort ou hors écran
-    if (s.life <= 0 || s.x < 0 || s.y < 0 || s.x >= d.width() || s.y >= d.height()) {
+    if (s.life <= 0 || s.x < 0 || s.y < 0 || s.x >= LB::width() || s.y >= LB::height()) {
       s.x = cx; s.y = cy;
       float a = (random(0, 628)) / 100.0f;
       float v2 = 0.9f + (random(0, 50) / 100.0f);
@@ -4354,14 +4357,14 @@ void showWaitingAnimationNTLM() {
     }
   }
 
-  d.setCursor(5, 5);
-  d.print("Waiting WPAD.DAT on \n " + clonedSSID);
+  LB::setCursor(5, 5);
+  LB::print("Waiting WPAD.DAT on \n " + clonedSSID);
   
   // ---- footer discrète ----
-  d.setTextSize(1);
-  d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  d.setCursor(5, d.height() - 12);
-  d.print("Press BACKSPACE to exit");
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_DARKGREY, TFT_BLACK);
+  LB::setCursor(5, LB::height() - 12);
+  LB::print("Press BACKSPACE to exit");
 
   // avance temps
   t++;
@@ -4372,7 +4375,7 @@ void showWaitingAnimationNTLM() {
 
 
 void updateHashUiNTLM() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   // only update if new info
   if (ntlmLastUser == uiLastUser &&
@@ -4388,42 +4391,42 @@ void updateHashUiNTLM() {
   uiLastClient = ntlmLastClient;
   uiLastCount  = ntlmHashCount;
 
-  d.fillScreen(BLACK);
+  LB::fillScreen(BLACK);
 
   // 1) NTLM count
-  d.setTextSize(1.3);
-  d.setTextColor(WHITE, BLACK);
-  d.setCursor(5, 5);
-  d.print("NTLMv2: ");
-  d.setTextSize(2);
-  d.print(ntlmHashCount);
+  LB::setTextSize(1.3);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setCursor(5, 5);
+  LB::print("NTLMv2: ");
+  LB::setTextSize(2);
+  LB::print(ntlmHashCount);
 
   // 2) User
-  d.setTextSize(1.3);
-  d.setCursor(5, 35);
-  d.print("User: ");
-  d.setTextSize(2);
-  d.print(ntlmLastUser);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 35);
+  LB::print("User: ");
+  LB::setTextSize(2);
+  LB::print(ntlmLastUser);
 
   // 3) Domain
-  d.setTextSize(1.3);
-  d.setCursor(5, 65);
-  d.print("Domain: ");
-  d.setTextSize(2);
-  d.print(ntlmLastDomain);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 65);
+  LB::print("Domain: ");
+  LB::setTextSize(2);
+  LB::print(ntlmLastDomain);
 
   // 4) Client (IP)
-  d.setTextSize(1.3);
-  d.setCursor(5, 95);
-  d.print("Client: ");
-  d.setTextSize(2);
-  d.print(ntlmLastClient);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 95);
+  LB::print("Client: ");
+  LB::setTextSize(2);
+  LB::print(ntlmLastClient);
 
   // footer
-  d.setTextSize(1);
-  d.setCursor(5, d.height() - 12);
-  d.setTextColor(TFT_DARKGREY, BLACK);
-  d.print("Press BACKSPACE to exit");
+  LB::setTextSize(1);
+  LB::setCursor(5, LB::height() - 12);
+  LB::setTextColor(TFT_DARKGREY, BLACK);
+  LB::print("Press BACKSPACE to exit");
 }
 
 // =================== Setup / Loop ===================
@@ -4431,7 +4434,7 @@ void wpadAbuse() {
   dnsServer.stop();
   server.stop();
   
-  M5.Lcd.fillScreen(BLACK);
+  LB::fillScreen(BLACK);
   inMenu = false;
   isOperationInProgress = true;
   String ssid = clonedSSID.isEmpty() ? "Evil-Cardputer" : clonedSSID;
@@ -5001,7 +5004,7 @@ void listPortalFiles() {
 
 void changePortal() {
   listPortalFiles();
-  const int listDisplayLimit = M5.Display.height() / 12;
+  const int listDisplayLimit = LB::height() / 12;
   bool needDisplayUpdate = true;
   bool keyHandled = false;  // Pour gérer la réponse à la touche une fois
 
@@ -5015,23 +5018,23 @@ void changePortal() {
     if (needDisplayUpdate) {
       int listStartIndex = max(0, min(portalFileIndex, numPortalFiles - listDisplayLimit));
 
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
-      M5.Display.setTextColor(menuTextUnFocusedColor);
-      M5.Display.setCursor(10, 10);
+      LB::clear();
+      LB::setTextSize(1.5);
+      LB::setTextColor(menuTextUnFocusedColor);
+      LB::setCursor(10, 10);
 
       for (int i = listStartIndex; i < min(numPortalFiles, listStartIndex + listDisplayLimit); i++) {
         int lineHeight = 12; // Espacement réduit entre les lignes
         if (i == portalFileIndex) {
-          M5.Display.fillRect(0, (i - listStartIndex) * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, (i - listStartIndex) * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor);
+          LB::setTextColor(menuTextUnFocusedColor);
         }
-        M5.Display.setCursor(10, (i - listStartIndex) * lineHeight);
-        M5.Display.println(portalFiles[i].substring(12));
+        LB::setCursor(10, (i - listStartIndex) * lineHeight);
+        LB::println(portalFiles[i].substring(12));
       }
-      M5.Display.display();
+      LB::display();
       needDisplayUpdate = false;
     }
 
@@ -5144,8 +5147,8 @@ void checkCredentials() {
 
 void displayCredentials(int index) {
   // Clear the display and set up text properties
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
+  LB::clear();
+  LB::setTextSize(1.5);
 
   const int lineHeight = 15; // Réduire l'espace entre les lignes
   int maxVisibleLines = 9; // Nombre maximum de lignes affichables à l'écran
@@ -5155,7 +5158,7 @@ void displayCredentials(int index) {
 
   // Calculer combien de lignes sont nécessaires avant l'index sélectionné
   for (int i = 0; i < index; i++) {
-    int neededLines = 1 + M5.Display.textWidth(credentialsList[i]) / (M5.Display.width() - 20);
+    int neededLines = 1 + LB::textWidth(credentialsList[i]) / (LB::width() - 20);
     linesBeforeIndex += neededLines;
   }
 
@@ -5168,25 +5171,25 @@ void displayCredentials(int index) {
   // Afficher les entrées de credentials visibles
   for (int i = firstLineIndex; currentLine < maxVisibleLines && i < numCredentials; i++) {
     String credential = credentialsList[i];
-    int neededLines = 1 + M5.Display.textWidth(credential) / (M5.Display.width() - 20);
+    int neededLines = 1 + LB::textWidth(credential) / (LB::width() - 20);
 
     if (i == index) {
-      M5.Display.fillRect(0, currentLine * lineHeight, M5.Display.width(), lineHeight * neededLines, menuSelectedBackgroundColor);
+      LB::fillRect(0, currentLine * lineHeight, LB::width(), lineHeight * neededLines, menuSelectedBackgroundColor);
     }
 
     for (int line = 0; line < neededLines; line++) {
-      M5.Display.setCursor(10, (currentLine + line) * lineHeight);
-      M5.Display.setTextColor(i == index ? menuTextFocusedColor : menuTextUnFocusedColor);
+      LB::setCursor(10, (currentLine + line) * lineHeight);
+      LB::setTextColor(i == index ? menuTextFocusedColor : menuTextUnFocusedColor);
 
       int startChar = line * (credential.length() / neededLines);
       int endChar = min(credential.length(), startChar + (credential.length() / neededLines));
-      M5.Display.println(credential.substring(startChar, endChar));
+      LB::println(credential.substring(startChar, endChar));
     }
 
     currentLine += neededLines;
   }
 
-  M5.Display.display();
+  LB::display();
 }
 
 /*
@@ -5197,22 +5200,22 @@ Confirm pop up yes/no
 
 
 void okPopup(String message) {
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
+  LB::clear();
+  LB::setTextSize(1.5);
 
   int messageWidth = message.length() * 9;  // Approximate character width
-  int startX = (M5.Display.width() - messageWidth) / 2;
+  int startX = (LB::width() - messageWidth) / 2;
 
-  M5.Display.setCursor(startX, M5.Display.height() / 2 - 20);
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.println(message);
+  LB::setCursor(startX, LB::height() / 2 - 20);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::println(message);
 
   // Draw OK button
-  M5.Display.setTextColor(TFT_BLUE);
-  M5.Display.setCursor((M5.Display.width() - 18) / 2, M5.Display.height() / 2 + 20);
-  M5.Display.print("OK");
+  LB::setTextColor(TFT_BLUE);
+  LB::setCursor((LB::width() - 18) / 2, LB::height() / 2 + 20);
+  LB::print("OK");
 
-  M5.Display.display();
+  LB::display();
   enterDebounce();
   while (true) {
     M5.update();
@@ -5227,25 +5230,25 @@ bool confirmPopup(String message) {
   bool confirm = false;
   bool decisionMade = false;
 
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
+  LB::clear();
+  LB::setTextSize(1.5);
   int messageWidth = message.length() * 9;  // Each character is 6 pixels wide
-  int startX = (M5.Display.width() - messageWidth) / 2;  // Calculate starting X position
+  int startX = (LB::width() - messageWidth) / 2;  // Calculate starting X position
 
-  M5.Display.setCursor(startX, M5.Display.height() / 2);
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.println(message);
+  LB::setCursor(startX, LB::height() / 2);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::println(message);
 
-  M5.Display.setTextColor(TFT_GREEN);
-  M5.Display.setCursor(60, 110);
-  M5.Display.print("Y");
+  LB::setTextColor(TFT_GREEN);
+  LB::setCursor(60, 110);
+  LB::print("Y");
 
-  M5.Display.setTextColor(TFT_RED);
-  M5.Display.setCursor(M5.Display.width() - 60, 110);
-  M5.Display.print("N");
+  LB::setTextColor(TFT_RED);
+  LB::setCursor(LB::width() - 60, 110);
+  LB::print("N");
 
-  M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-  M5.Display.display();
+  LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+  LB::display();
 
   while (!decisionMade) {
     M5.update();
@@ -5323,9 +5326,9 @@ int oldNumPasswords = -1;
 String wificonnectedPrint = "";
 
 void displayMonitorPage1() {
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
 
   if (WiFi.localIP().toString() != "0.0.0.0") {
     wificonnected = true;
@@ -5336,21 +5339,21 @@ void displayMonitorPage1() {
     wificonnectedPrint = "N";
     ipAddress = "           ";
   }
-  M5.Display.setCursor(5, 45);
-  M5.Display.println("SSID: " + clonedSSID);
-  M5.Display.setCursor(5, 60);
-  M5.Display.println("Portal: " + String(isCaptivePortalOn ? "On" : "Off"));
-  M5.Display.setCursor(5, 75);
-  M5.Display.println("Page: " + selectedPortalFile.substring(12));
-  M5.Display.setCursor(5, 90);
-  M5.Display.println("Connected : " + wificonnectedPrint);
-  M5.Display.setCursor(5, 105);
-  M5.Display.println("IP : " + ipAddress);
+  LB::setCursor(5, 45);
+  LB::println("SSID: " + clonedSSID);
+  LB::setCursor(5, 60);
+  LB::println("Portal: " + String(isCaptivePortalOn ? "On" : "Off"));
+  LB::setCursor(5, 75);
+  LB::println("Page: " + selectedPortalFile.substring(12));
+  LB::setCursor(5, 90);
+  LB::println("Connected : " + wificonnectedPrint);
+  LB::setCursor(5, 105);
+  LB::println("IP : " + ipAddress);
 
   oldNumClients = -1;
   oldNumPasswords = -1;
 
-  M5.Display.display();
+  LB::display();
 
   // Attendre que la touche KEY_ENTER soit relâchée avant de continuer
   enterDebounce();
@@ -5374,16 +5377,16 @@ void displayMonitorPage1() {
     int newNumPasswords = countPasswordsInFile();
 
     if (newNumClients != oldNumClients) {
-      M5.Display.fillRect(0, 15, 50, 10, menuBackgroundColor);
-      M5.Display.setCursor(5, 15);
-      M5.Display.println("Clients: " + String(newNumClients));
+      LB::fillRect(0, 15, 50, 10, menuBackgroundColor);
+      LB::setCursor(5, 15);
+      LB::println("Clients: " + String(newNumClients));
       oldNumClients = newNumClients;
     }
 
     if (newNumPasswords != oldNumPasswords) {
-      M5.Display.fillRect(0, 30, 50, 10, menuBackgroundColor);
-      M5.Display.setCursor(5, 30);
-      M5.Display.println("Passwords: " + String(newNumPasswords));
+      LB::fillRect(0, 30, 50, 10, menuBackgroundColor);
+      LB::setCursor(5, 30);
+      LB::println("Passwords: " + String(newNumPasswords));
       oldNumPasswords = newNumPasswords;
     }
 
@@ -5467,7 +5470,7 @@ void displayMonitorPage2() {
   const int lineHeight   = 12;
   const int topY         = 15;   // zone liste
   const int bottomPad    = 12;   // bandeau ticker
-  const int listHeight   = M5.Display.height() - topY - bottomPad; // 135-15-12=108
+  const int listHeight   = LB::height() - topY - bottomPad; // 135-15-12=108
   const int maxVisible   = listHeight / lineHeight;                 // 108/12=9 lignes visibles
 
   // Etat de scroll & ticker
@@ -5476,9 +5479,9 @@ void displayMonitorPage2() {
   unsigned long tickerUntil = 0;
 
   // Pré-affichage
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
 
   // snapshot initial
   updateConnectedMACs();
@@ -5486,36 +5489,36 @@ void displayMonitorPage2() {
   _prevCount = numConnectedMACs;
 
   auto drawHeader = [&](){
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Connected MACs (" + String(numConnectedMACs) + ")");
+    LB::setCursor(5, 5);
+    LB::println("Connected MACs (" + String(numConnectedMACs) + ")");
   };
 
   auto drawList = [&](){
     // Efface zone liste
-    M5.Display.fillRect(0, topY, M5.Display.width(), listHeight, menuBackgroundColor);
+    LB::fillRect(0, topY, LB::width(), listHeight, menuBackgroundColor);
     // Affiche les lignes visibles
     for (int i = 0; i < maxVisible; ++i) {
       int idx = topIndex + i;
       int y = topY + i * lineHeight;
       if (idx < numConnectedMACs) {
-        M5.Display.setCursor(10, y);
-        M5.Display.println(macAddresses[idx]);
+        LB::setCursor(10, y);
+        LB::println(macAddresses[idx]);
       }
     }
   };
 
   auto drawTicker = [&](){
-    M5.Display.fillRect(0, M5.Display.height() - bottomPad, M5.Display.width(), bottomPad, menuBackgroundColor);
+    LB::fillRect(0, LB::height() - bottomPad, LB::width(), bottomPad, menuBackgroundColor);
     if (ticker.length() && millis() < tickerUntil) {
-      M5.Display.setCursor(5, M5.Display.height() - bottomPad + 1);
-      M5.Display.println(ticker);
+      LB::setCursor(5, LB::height() - bottomPad + 1);
+      LB::println(ticker);
     }
   };
 
   drawHeader();
   drawList();
   drawTicker();
-  M5.Display.display();
+  LB::display();
 
   // anti-rebond initial
   while (M5Cardputer.Keyboard.isKeyPressed(',') ||
@@ -5603,7 +5606,7 @@ void displayMonitorPage2() {
     if (needRedrawTicker) { drawTicker(); }
 
     if (needRedrawHeader || needRedrawList || needRedrawTicker) {
-      M5.Display.display();
+      LB::display();
     }
 
     delay(20); // baisse charge CPU, pas d’impact UX
@@ -5624,29 +5627,29 @@ unsigned long lastUpdateTime = 0;
 const long updateInterval = 1000;
 
 void displayMonitorPage3() {
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
 
   oldStack = getStack();
   oldRamUsage = getRamUsage();
   oldBatteryLevel = getBatteryLevel();
 
-  M5.Display.setCursor(10 / 4, 15);
-  M5.Display.println("Stack left: " + oldStack + " Kb");
-  M5.Display.setCursor(10 / 4, 30);
-  M5.Display.println("RAM: " + oldRamUsage + " Ko");
-  M5.Display.setCursor(10 / 4, 45);
-  M5.Display.println("Battery: " + oldBatteryLevel + "%");
+  LB::setCursor(10 / 4, 15);
+  LB::println("Stack left: " + oldStack + " Kb");
+  LB::setCursor(10 / 4, 30);
+  LB::println("RAM: " + oldRamUsage + " Ko");
+  LB::setCursor(10 / 4, 45);
+  LB::println("Battery: " + oldBatteryLevel + "%");
 
-  M5.Display.display();
+  LB::display();
   lastUpdateTime = millis();
 
   oldStack = "";
   oldRamUsage = "";
   oldBatteryLevel = "";
 
-  M5.Display.display();
+  LB::display();
 
   unsigned long lastKeyPressTime = 0;
   const unsigned long debounceDelay = 200; // Debounce delay in milliseconds
@@ -5674,20 +5677,20 @@ void displayMonitorPage3() {
 
       // Afficher les valeurs mises à jour
       if (newStack != oldStack) {
-        M5.Display.setCursor(10 / 4, 15);
-        M5.Display.println("Stack left: " + newStack + " Kb");
+        LB::setCursor(10 / 4, 15);
+        LB::println("Stack left: " + newStack + " Kb");
         oldStack = newStack;
       }
 
       if (newRamUsage != oldRamUsage) {
-        M5.Display.setCursor(10 / 4, 30);
-        M5.Display.println("RAM: " + newRamUsage + " Ko");
+        LB::setCursor(10 / 4, 30);
+        LB::println("RAM: " + newRamUsage + " Ko");
         oldRamUsage = newRamUsage;
       }
 
       if (newBatteryLevel != oldBatteryLevel) {
-        M5.Display.setCursor(10 / 4, 45);
-        M5.Display.println("Battery: " + newBatteryLevel + "%");
+        LB::setCursor(10 / 4, 45);
+        LB::println("Battery: " + newBatteryLevel + "%");
         oldBatteryLevel = newBatteryLevel;
       }
 
@@ -5761,9 +5764,9 @@ void waitAndReturnToMenu(String message) {
   const int charWidth = 10;  // Largeur approximative d'un caractère
   const int maxCharsPerLine = screenWidth / charWidth;
 
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor);
 
   // Découper le message en plusieurs lignes
   std::vector<String> lines;
@@ -5803,11 +5806,11 @@ void waitAndReturnToMenu(String message) {
     int lineWidth = line.length() * charWidth;
     int startX = (screenWidth - lineWidth) / 2;  // Calculer la position X pour centrer
 
-    M5.Display.setCursor(startX, startY + i * 12);
-    M5.Display.println(line);
+    LB::setCursor(startX, startY + i * 12);
+    LB::println(line);
   }
 
-  M5.Display.display();
+  LB::display();
   delay(1500);
   inMenu = true;
   drawMenu();
@@ -5821,9 +5824,9 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
     const int maxVisibleLines = 11;
     int menuStartIndex = 0;
 
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextFont(1);
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setTextFont(1);
     enterDebounce();
 
     for (int i = 0; i < maxVisibleLines; ++i) {
@@ -5831,15 +5834,15 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
         if (optionIndex >= options.size()) break;
 
         if (optionIndex == currentIndex) {
-            M5.Display.fillRect(0, 0 + i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-            M5.Display.setTextColor(menuTextFocusedColor);
+            LB::fillRect(0, 0 + i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+            LB::setTextColor(menuTextFocusedColor);
         } else {
-            M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+            LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
         }
-        M5.Display.setCursor(5, 0 + i * lineHeight);
-        M5.Display.println(options[optionIndex].first);
+        LB::setCursor(5, 0 + i * lineHeight);
+        LB::println(options[optionIndex].first);
     }
-    M5.Display.display();
+    LB::display();
 
     while (!selectionMade) {
         M5.update();
@@ -5889,23 +5892,23 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
         }
 
         if (screenNeedsUpdate) {
-            M5.Display.clear();
+            LB::clear();
 
             for (int i = 0; i < maxVisibleLines; ++i) {
                 int optionIndex = menuStartIndex + i;
                 if (optionIndex >= options.size()) break;
 
                 if (optionIndex == currentIndex) {
-                    M5.Display.fillRect(0, 0 + i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-                    M5.Display.setTextColor(menuTextFocusedColor);
+                    LB::fillRect(0, 0 + i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+                    LB::setTextColor(menuTextFocusedColor);
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+                    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
                 }
-                M5.Display.setCursor(5, 0 + i * lineHeight);
-                M5.Display.println(options[optionIndex].first);
+                LB::setCursor(5, 0 + i * lineHeight);
+                LB::println(options[optionIndex].first);
             }
 
-            M5.Display.display();
+            LB::display();
         }
 
         delay(100);
@@ -5924,11 +5927,11 @@ void showWifiPasswordsMenu() {
   const auto& savedNets = wifiCredentialsGetAll();
 
   if (savedNets.size() == 0) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, M5.Display.height() / 2 - 10);
-    M5.Display.setTextColor(TFT_YELLOW);
-    M5.Display.println("No saved WiFi networks");
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, LB::height() / 2 - 10);
+    LB::setTextColor(TFT_YELLOW);
+    LB::println("No saved WiFi networks");
+    LB::display();
     delay(1500);
     return;
   }
@@ -5943,13 +5946,13 @@ void showWifiPasswordsMenu() {
 
   while (!exitMenu) {
     if (needRedraw) {
-      M5.Display.clear();
-      M5.Display.setCursor(5, 2);
-      M5.Display.setTextColor(TFT_CYAN);
-      M5.Display.println("Saved WiFi (" + String(savedNets.size()) + ")");
-      M5.Display.setTextColor(menuTextUnFocusedColor);
-      M5.Display.setCursor(5, 14);
-      M5.Display.println("ENTER=Options  BACK=Exit");
+      LB::clear();
+      LB::setCursor(5, 2);
+      LB::setTextColor(TFT_CYAN);
+      LB::println("Saved WiFi (" + String(savedNets.size()) + ")");
+      LB::setTextColor(menuTextUnFocusedColor);
+      LB::setCursor(5, 14);
+      LB::println("ENTER=Options  BACK=Exit");
 
       int startIdx = 0;
       if (selection >= MAX_VISIBLE) {
@@ -5961,28 +5964,28 @@ void showWifiPasswordsMenu() {
         int y = 30 + i * ROW_H;
 
         if (idx == selection) {
-          M5.Display.fillRect(0, y, M5.Display.width(), ROW_H, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(TFT_GREEN);
+          LB::fillRect(0, y, LB::width(), ROW_H, menuSelectedBackgroundColor);
+          LB::setTextColor(TFT_GREEN);
         } else {
-          M5.Display.setTextColor(TFT_WHITE);
+          LB::setTextColor(TFT_WHITE);
         }
 
-        M5.Display.setCursor(5, y + 2);
+        LB::setCursor(5, y + 2);
         String line = savedNets[idx].ssid;
         if (savedNets[idx].autoConnect) {
           line += " [A]";  // Auto-connect indicator
         }
         // Truncate if too long
-        if (M5.Display.textWidth(line) > M5.Display.width() - 10) {
-          while (line.length() > 0 && M5.Display.textWidth(line + "...") > M5.Display.width() - 10) {
+        if (LB::textWidth(line) > LB::width() - 10) {
+          while (line.length() > 0 && LB::textWidth(line + "...") > LB::width() - 10) {
             line.remove(line.length() - 1);
           }
           line += "...";
         }
-        M5.Display.print(line);
+        LB::print(line);
       }
 
-      M5.Display.display();
+      LB::display();
       needRedraw = false;
     }
 
@@ -6014,17 +6017,17 @@ void showWifiPasswordsMenu() {
       }});
       netOptions.push_back({"Show Password", [selectedSSID]() {
         String pw = wifiCredentialsGetPassword(selectedSSID);
-        M5.Display.clear();
-        M5.Display.setCursor(5, 10);
-        M5.Display.setTextColor(TFT_CYAN);
-        M5.Display.println(selectedSSID);
-        M5.Display.setCursor(5, 30);
-        M5.Display.setTextColor(TFT_WHITE);
-        M5.Display.println("Password:");
-        M5.Display.setCursor(5, 50);
-        M5.Display.setTextColor(TFT_GREEN);
-        M5.Display.println(pw);
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 10);
+        LB::setTextColor(TFT_CYAN);
+        LB::println(selectedSSID);
+        LB::setCursor(5, 30);
+        LB::setTextColor(TFT_WHITE);
+        LB::println("Password:");
+        LB::setCursor(5, 50);
+        LB::setTextColor(TFT_GREEN);
+        LB::println(pw);
+        LB::display();
         enterDebounce();
         while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) && !M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
           M5Cardputer.update();
@@ -6071,10 +6074,10 @@ void toggleI2C() {
         ScrollInput::shutdown();
     }
 
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
-    M5.Display.setTextColor(I2CManager::isEnabled() ? TFT_GREEN : TFT_RED);
-    M5.Display.print(I2CManager::isEnabled() ? "I2C Enabled" : "I2C Disabled");
+    LB::fillScreen(TFT_BLACK);
+    LB::setCursor(5, LB::height() / 2 - 5);
+    LB::setTextColor(I2CManager::isEnabled() ? TFT_GREEN : TFT_RED);
+    LB::print(I2CManager::isEnabled() ? "I2C Enabled" : "I2C Disabled");
     delay(1000);
 }
 
@@ -6082,10 +6085,10 @@ void showI2CDevices() {
     enterDebounce();
 
     if (!I2CManager::isEnabled()) {
-        M5.Display.fillScreen(TFT_BLACK);
-        M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
-        M5.Display.setTextColor(TFT_YELLOW);
-        M5.Display.print("I2C is disabled");
+        LB::fillScreen(TFT_BLACK);
+        LB::setCursor(5, LB::height() / 2 - 5);
+        LB::setTextColor(TFT_YELLOW);
+        LB::print("I2C is disabled");
         delay(1500);
         return;
     }
@@ -6094,32 +6097,32 @@ void showI2CDevices() {
     I2CDeviceInfo scanResults[32];
     uint8_t count = I2CManager::fullScan(scanResults, 32);
 
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setCursor(5, 2);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Display.println("I2C Device Scan");
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
+    LB::setCursor(5, 2);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_CYAN, TFT_BLACK);
+    LB::println("I2C Device Scan");
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
 
     if (count == 0) {
-        M5.Display.println("No devices found");
+        LB::println("No devices found");
     } else {
-        M5.Display.printf("%d device(s):\n", count);
+        LB::printf("%d device(s):\n", count);
         for (uint8_t i = 0; i < count && i < 9; i++) {
             if (scanResults[i].paHubIndex != 0xFF) {
-                M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
+                LB::setTextColor(TFT_YELLOW, TFT_BLACK);
             } else {
-                M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
+                LB::setTextColor(TFT_GREEN, TFT_BLACK);
             }
-            M5.Display.println(scanResults[i].toString());
+            LB::println(scanResults[i].toString());
         }
         if (count > 9) {
-            M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            M5.Display.printf("... +%d more\n", count - 9);
+            LB::setTextColor(TFT_DARKGREY, TFT_BLACK);
+            LB::printf("... +%d more\n", count - 9);
         }
     }
 
-    M5.Display.display();
+    LB::display();
 
     // Wait for any key to exit
     enterDebounce();
@@ -6144,10 +6147,10 @@ void showDisplaySelection() {
 
     uint8_t count = DisplayProfileManager::getProfileCount();
     if (count == 0) {
-        M5.Display.fillScreen(TFT_BLACK);
-        M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
-        M5.Display.setTextColor(TFT_YELLOW);
-        M5.Display.print("No displays configured");
+        LB::fillScreen(TFT_BLACK);
+        LB::setCursor(5, LB::height() / 2 - 5);
+        LB::setTextColor(TFT_YELLOW);
+        LB::print("No displays configured");
         delay(1500);
         return;
     }
@@ -6165,13 +6168,13 @@ void showDisplaySelection() {
         uint8_t idx = i;
         dispOptions.push_back({label, [idx]() {
             DisplayProfileManager::setActive(idx);
-            M5.Display.fillScreen(TFT_BLACK);
-            M5.Display.setCursor(5, M5.Display.height() / 2 - 5);
-            M5.Display.setTextColor(TFT_GREEN);
+            LB::fillScreen(TFT_BLACK);
+            LB::setCursor(5, LB::height() / 2 - 5);
+            LB::setTextColor(TFT_GREEN);
             const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
             if (sel) {
-                M5.Display.print("Active: ");
-                M5.Display.print(sel->name);
+                LB::print("Active: ");
+                LB::print(sel->name);
             }
             delay(1000);
         }});
@@ -6228,25 +6231,25 @@ void setCPUFrequency() {
 
     while (!freqSelected) {
         if (needDisplayUpdate) {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 5);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.println("Select CPU Frequency:");
+            LB::clear();
+            LB::setCursor(5, 5);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::println("Select CPU Frequency:");
 
             // --- afficher la fréquence actuelle ---
             int currentFreq = getCpuFrequencyMhz();
-            M5.Display.setTextColor(TFT_YELLOW, menuBackgroundColor);
-            M5.Display.println("Current: " + String(currentFreq) + " MHz");
-            M5.Display.println(""); // ligne vide avant la liste
+            LB::setTextColor(TFT_YELLOW, menuBackgroundColor);
+            LB::println("Current: " + String(currentFreq) + " MHz");
+            LB::println(""); // ligne vide avant la liste
 
             // --- afficher la liste des options ---
             for (int i = 0; i < freqs.size(); i++) {
                 if (i == currentIndex) {
-                    M5.Display.setTextColor(menuTextFocusedColor);
+                    LB::setTextColor(menuTextFocusedColor);
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+                    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
                 }
-                M5.Display.println(String(freqs[i]) + " MHz");
+                LB::println(String(freqs[i]) + " MHz");
             }
 
             needDisplayUpdate = false;
@@ -6265,9 +6268,9 @@ void setCPUFrequency() {
             int selectedFreq = freqs[currentIndex];
             setCpuFrequencyMhz(selectedFreq);
             saveConfigParameter("cpu_freq", selectedFreq); // sauvegarde
-            M5.Display.fillScreen(menuBackgroundColor);
-            M5.Display.setCursor(5, M5.Display.height() / 2);
-            M5.Display.print("CPU set to " + String(selectedFreq) + " MHz");
+            LB::fillScreen(menuBackgroundColor);
+            LB::setCursor(5, LB::height() / 2);
+            LB::print("CPU set to " + String(selectedFreq) + " MHz");
             Serial.println("CPU Frequency changed to " + String(selectedFreq) + " MHz");
             delay(1000);
             freqSelected = true;
@@ -6292,18 +6295,18 @@ void setGPSBaudrate() {
     enterDebounce();
     while (!baudrateSelected) {
         if (needDisplayUpdate) {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 5);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.println("Select GPS Baudrate:");
+            LB::clear();
+            LB::setCursor(5, 5);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::println("Select GPS Baudrate:");
 
             for (int i = 0; i < baudrates.size(); i++) {
                 if (i == currentBaudrateIndex) {
-                    M5.Display.setTextColor(menuTextFocusedColor); // Highlight selected item
+                    LB::setTextColor(menuTextFocusedColor); // Highlight selected item
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Normal text color
+                    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Normal text color
                 }
-                M5.Display.println(String(baudrates[i]));
+                LB::println(String(baudrates[i]));
             }
 
             needDisplayUpdate = false; // Reset the display update flag
@@ -6326,10 +6329,10 @@ void setGPSBaudrate() {
         else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
             baudrate_gps = baudrates[currentBaudrateIndex];
             saveGPSBaudrateConfig(baudrate_gps);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.fillScreen(menuBackgroundColor);
-            M5.Display.setCursor(5, M5.Display.height() / 2);
-            M5.Display.print("GPS Baudrate set to\n" + String(baudrate_gps));
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::fillScreen(menuBackgroundColor);
+            LB::setCursor(5, LB::height() / 2);
+            LB::print("GPS Baudrate set to\n" + String(baudrate_gps));
             cardgps.end();
             cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
             delay(1000);
@@ -6487,8 +6490,8 @@ void setStartupSound() {
     root.close();
 
     if (sounds.size() == 0) {
-        M5.Display.clear();
-        M5.Display.println("No sounds found");
+        LB::clear();
+        LB::println("No sounds found");
         delay(2000);
         return;
     }
@@ -6503,10 +6506,10 @@ void setStartupSound() {
     enterDebounce();
     while (!soundSelected) {
         if (needDisplayUpdate) {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 5);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.println("Select Startup Sound:");
+            LB::clear();
+            LB::setCursor(5, 5);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::println("Select Startup Sound:");
 
             for (int i = 0; i < maxDisplayItems && (menuStartIndex + i) < sounds.size(); i++) {
                 int itemIndex = menuStartIndex + i;
@@ -6518,11 +6521,11 @@ void setStartupSound() {
                 }
 
                 if (itemIndex == currentSoundIndex) {
-                    M5.Display.setTextColor(menuTextFocusedColor); // Highlight selected item
+                    LB::setTextColor(menuTextFocusedColor); // Highlight selected item
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Normal text color
+                    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Normal text color
                 }
-                M5.Display.println(displayFileName);
+                LB::println(displayFileName);
             }
 
             needDisplayUpdate = false; // Reset the display update flag
@@ -6550,10 +6553,10 @@ void setStartupSound() {
         } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
             selectedStartupSound = sounds[currentSoundIndex];
             saveStartupSoundConfig(selectedStartupSound);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.fillScreen(menuBackgroundColor);
-            M5.Display.setCursor(5, M5.Display.height() / 2);
-            M5.Display.print("Startup sound set to\n" + selectedStartupSound);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::fillScreen(menuBackgroundColor);
+            LB::setCursor(5, LB::height() / 2);
+            LB::print("Startup sound set to\n" + selectedStartupSound);
             delay(1000);
             soundSelected = true;
         } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
@@ -6708,8 +6711,8 @@ void setStartupImage() {
     root.close();
 
     if (images.size() == 0) {
-        M5.Display.clear();
-        M5.Display.println("No images found");
+        LB::clear();
+        LB::println("No images found");
         delay(2000);
         return;
     }
@@ -6726,19 +6729,19 @@ void setStartupImage() {
         if (!imageMode) {
             // Mode Liste
             if (needDisplayUpdate) {
-                M5.Display.clear();
-                M5.Display.setCursor(5, 5);
-                M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-                M5.Display.println("Select Startup Image:");
+                LB::clear();
+                LB::setCursor(5, 5);
+                LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+                LB::println("Select Startup Image:");
 
                 for (int i = 0; i < maxDisplayItems && (menuStartIndex + i) < images.size(); i++) {
                     int itemIndex = menuStartIndex + i;
                     if (itemIndex == currentImageIndex) {
-                        M5.Display.setTextColor(menuTextFocusedColor); // Sélectionner la couleur
+                        LB::setTextColor(menuTextFocusedColor); // Sélectionner la couleur
                     } else {
-                        M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Non sélectionné
+                        LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK); // Non sélectionné
                     }
-                    M5.Display.println(images[itemIndex]);
+                    LB::println(images[itemIndex]);
                 }
 
                 needDisplayUpdate = false; // Réinitialiser le besoin de mise à jour
@@ -6746,7 +6749,7 @@ void setStartupImage() {
         } else {
             // Mode Affichage direct des images
             if (needDisplayUpdate) {
-                M5.Display.clear();
+                LB::clear();
                 String ThisImg = "/evil/img/" + images[currentImageIndex];
                 drawImage(ThisImg.c_str());
                 needDisplayUpdate = false; // Mise à jour effectuée
@@ -6794,10 +6797,10 @@ void setStartupImage() {
             String ThisImg = "/evil/img/" + images[currentImageIndex];
             drawImage(ThisImg.c_str());
             delay(1000);
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-            M5.Display.fillScreen(menuBackgroundColor);
-            M5.Display.setCursor(5, M5.Display.height() / 2);
-            M5.Display.print("Startup image set to\n" + selectedStartupImage);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::fillScreen(menuBackgroundColor);
+            LB::setCursor(5, LB::height() / 2);
+            LB::print("Startup image set to\n" + selectedStartupImage);
             delay(1000);
             imageSelected = true;
         }
@@ -6832,13 +6835,13 @@ void toggleLED() {
 }
 
 void brightness() {
-  int currentBrightness = M5.Display.getBrightness();
+  int currentBrightness = LB::getBrightness();
   int minBrightness = 1;
   int maxBrightness = 255;
 
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor);
 
   bool brightnessAdjusted = true;
   unsigned long lastKeyPressTime = 0;
@@ -6872,21 +6875,21 @@ void brightness() {
 
     if (brightnessAdjusted) {
       float brightnessPercentage = 100.0 * (currentBrightness - minBrightness) / (maxBrightness - minBrightness);
-      M5.Display.fillScreen(menuBackgroundColor);
-      M5.Display.setCursor(50, M5.Display.height() / 2);
-      M5.Display.print("Brightness: ");
-      M5.Display.print((int)brightnessPercentage);
-      M5.Display.println("%");
-      M5.Display.setBrightness(currentBrightness);
-      M5.Display.display();
+      LB::fillScreen(menuBackgroundColor);
+      LB::setCursor(50, LB::height() / 2);
+      LB::print("Brightness: ");
+      LB::print((int)brightnessPercentage);
+      LB::println("%");
+      LB::setBrightness(currentBrightness);
+      LB::display();
       brightnessAdjusted = false;
     }
   }
 
   float finalBrightnessPercentage = 100.0 * (currentBrightness - minBrightness) / (maxBrightness - minBrightness);
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setCursor(5, M5.Display.height() / 2);
-  M5.Display.print("Brightness set to " + String((int)finalBrightnessPercentage) + "%");
+  LB::fillScreen(menuBackgroundColor);
+  LB::setCursor(5, LB::height() / 2);
+  LB::print("Brightness set to " + String((int)finalBrightnessPercentage) + "%");
   delay(1000);
 }
 
@@ -6896,9 +6899,9 @@ void adjustVolume() {
     int minVolume = 0;  // Volume minimum
     int maxVolume = 255;  // Volume maximum
 
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setTextColor(menuTextUnFocusedColor);
 
     bool volumeAdjusted = true;
     unsigned long lastKeyPressTime = 0;
@@ -6931,21 +6934,21 @@ void adjustVolume() {
 
         if (volumeAdjusted) {
             float volumePercentage = 100.0 * (currentVolume - minVolume) / (maxVolume - minVolume);
-            M5.Display.fillScreen(menuBackgroundColor);
-            M5.Display.setCursor(50, M5.Display.height() / 2);
-            M5.Display.print("Volume: ");
-            M5.Display.print((int)volumePercentage);
-            M5.Display.println("%");
+            LB::fillScreen(menuBackgroundColor);
+            LB::setCursor(50, LB::height() / 2);
+            LB::print("Volume: ");
+            LB::print((int)volumePercentage);
+            LB::println("%");
             M5Cardputer.Speaker.setVolume(currentVolume);
-            M5.Display.display();
+            LB::display();
             volumeAdjusted = false;
         }
     }
 
     float finalVolumePercentage = 100.0 * (currentVolume - minVolume) / (maxVolume - minVolume);
-    M5.Display.fillScreen(menuBackgroundColor);
-    M5.Display.setCursor(50, M5.Display.height() / 2);
-    M5.Display.print("Volume set to " + String((int)finalVolumePercentage) + "%");
+    LB::fillScreen(menuBackgroundColor);
+    LB::setCursor(50, LB::height() / 2);
+    LB::print("Volume set to " + String((int)finalVolumePercentage) + "%");
     delay(1000);
 }
 
@@ -6973,12 +6976,12 @@ void toggleGpsPinsMode() {
   // Re-init GPS UART if possible
   cardgps.end();
   cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setCursor(5, M5.Display.height()/2);
+  LB::fillScreen(menuBackgroundColor);
+  LB::setCursor(5, LB::height()/2);
   if (gpsPinsMode == 1) {
-    M5.Display.print("GPS Pins set to 15/13");
+    LB::print("GPS Pins set to 15/13");
   } else {
-    M5.Display.print("GPS Pins set to 1/2");
+    LB::print("GPS Pins set to 1/2");
   }
   delay(1000);
 }
@@ -6992,11 +6995,11 @@ void saveCurrentPortalAndSSID() {
   savePortalFileConfig(selectedPortalFile);
   saveClonedSSIDConfig(clonedSSID);
   savePasswordConfig(captivePortalPassword);
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setCursor(10, 10);
-  M5.Display.println("Portal : " + selectedPortalFile.substring(12));
-  M5.Display.println("SSID : " + clonedSSID);
-  M5.Display.println("Password : " + captivePortalPassword);
+  LB::fillScreen(menuBackgroundColor);
+  LB::setCursor(10, 10);
+  LB::println("Portal : " + selectedPortalFile.substring(12));
+  LB::println("SSID : " + clonedSSID);
+  LB::println("Password : " + captivePortalPassword);
   delay(2000);
   waitAndReturnToMenu("Config saved"); // même UX que le reste du projet
 }
@@ -7020,18 +7023,18 @@ void setCaptivePortalIP() {
 
   while (!selected) {
     if (needDisplayUpdate) {
-      M5.Display.clear();
-      M5.Display.setCursor(5, 5);
-      M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-      M5.Display.println("Select Captive IP:");
+      LB::clear();
+      LB::setCursor(5, 5);
+      LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+      LB::println("Select Captive IP:");
 
       for (int i = 0; i < 2; i++) {
         if (i == currentIndexLocal) {
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+          LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
         }
-        M5.Display.println(String("  ") + choices[i]);
+        LB::println(String("  ") + choices[i]);
       }
       needDisplayUpdate = false;
     }
@@ -7051,10 +7054,10 @@ void setCaptivePortalIP() {
       portalIpIndex = currentIndexLocal;
       saveConfigParameter("portal_ip_sel", portalIpIndex); // persistance
       Serial.println("[CFG] Captive IP selection saved: " + String(kCaptiveIPStr[portalIpIndex]));
-      M5.Display.fillScreen(menuBackgroundColor);
-      M5.Display.setCursor(5, M5.Display.height()/2);
-      M5.Display.print("Captive IP set to ");
-      M5.Display.println(kCaptiveIPStr[portalIpIndex]);
+      LB::fillScreen(menuBackgroundColor);
+      LB::setCursor(5, LB::height()/2);
+      LB::print("Captive IP set to ");
+      LB::println(kCaptiveIPStr[portalIpIndex]);
       delay(1000);
       selected = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
@@ -7085,7 +7088,7 @@ void restoreConfigParameter(String key) {
 
           if (key == "brightness") {
             intValue = stringValue.toInt();
-            M5.Display.setBrightness(intValue);
+            LB::setBrightness(intValue);
             Serial.println("Brightness restored to " + String(intValue));
           } else if (key == "volume") {
             intValue = stringValue.toInt();
@@ -7231,7 +7234,7 @@ void restoreConfigParameter(String key) {
       if (!keyFound) {
         Serial.println("Key not found in config, using default for " + key);
         if (key == "brightness") {
-          M5.Display.setBrightness(defaultBrightness);
+          LB::setBrightness(defaultBrightness);
         } else if (key == "volume") {
           M5Cardputer.Speaker.setVolume(180);
         } else if (key == "ledOn") {
@@ -7293,7 +7296,7 @@ void restoreConfigParameter(String key) {
 
     // Répliques défaut en l'absence de fichier
     if (key == "brightness") {
-      M5.Display.setBrightness(defaultBrightness);
+      LB::setBrightness(defaultBrightness);
     } else if (key == "volume") {
       M5Cardputer.Speaker.setVolume(180);
     } else if (key == "ledOn") {
@@ -7367,7 +7370,7 @@ int getColorValue(const char* colorName) {
   if (strcmp(colorName, "TFT_BROWN") == 0) return TFT_BROWN;
   if (strcmp(colorName, "TFT_GOLD") == 0) return TFT_GOLD;
   // Can add your own colors via:
-  // if (strcmp(colorName, "[CUSTOM_NAME]") == 0) return M5.Lcd.color565(uint8_t r,uint8_t g,uint8_t b);
+  // if (strcmp(colorName, "[CUSTOM_NAME]") == 0) return LB::color565(uint8_t r,uint8_t g,uint8_t b);
   return -1; // Error Case
 }
 
@@ -7462,8 +7465,8 @@ void packetSnifferKarma(void* buf, wifi_promiscuous_pkt_type_t type) {
   const uint8_t frame_type = frame[0];
 
   if (ssid_count_Karma == 0) {
-    M5.Display.setCursor(8, M5.Display.height() / 2 - 10);
-    M5.Display.println("Waiting for probe...");
+    LB::setCursor(8, LB::height() / 2 - 10);
+    LB::println("Waiting for probe...");
   }
 
   if (frame_type == 0x40) { // Probe Request Frame
@@ -7543,7 +7546,7 @@ void updateDisplayWithSSIDKarma(const char* ssidKarma, int count) {
  const int maxLength = 22;
   char truncatedSSID[maxLength + 1];  // Adjusted size to maxLength to fix bufferoverflow
 
-  M5.Display.fillRect(0, 0, M5.Display.width(), M5.Display.height() - 27, menuBackgroundColor);
+  LB::fillRect(0, 0, LB::width(), LB::height() - 27, menuBackgroundColor);
   int startIndexKarma = max(0, count - maxMenuDisplay);
 
   for (int i = startIndexKarma; i < count; i++) {
@@ -7552,60 +7555,60 @@ void updateDisplayWithSSIDKarma(const char* ssidKarma, int count) {
     }
 
     int lineIndexKarma = i - startIndexKarma;
-    M5.Display.setCursor(5, lineIndexKarma * 12);
+    LB::setCursor(5, lineIndexKarma * 12);
 
     if (strlen(ssidsKarma[i].data()) > maxLength) {
       strncpy(truncatedSSID, ssidsKarma[i].data(), maxLength);
       truncatedSSID[maxLength] = '\0';  // Properly null-terminate
-      M5.Display.printf("%d.%s", i + 1, truncatedSSID);
+      LB::printf("%d.%s", i + 1, truncatedSSID);
     } else {
-      M5.Display.printf("%d.%s", i + 1, ssidsKarma[i].data());
+      LB::printf("%d.%s", i + 1, ssidsKarma[i].data());
     }
   }
   if (count <= 9) {
-    M5.Display.fillRect(M5.Display.width() - 15 * 1.5 / 2, 0, 15 * 1.5 / 2, 15, TFT_DARKGREEN);
-    M5.Display.setCursor(M5.Display.width() - 13 * 1.5 / 2, 3);
+    LB::fillRect(LB::width() - 15 * 1.5 / 2, 0, 15 * 1.5 / 2, 15, TFT_DARKGREEN);
+    LB::setCursor(LB::width() - 13 * 1.5 / 2, 3);
   } else if (count >= 10 && count <= 99) {
-    M5.Display.fillRect(M5.Display.width() - 30 * 1.5 / 2, 0, 30 * 1.5 / 2, 15, TFT_DARKGREEN);
-    M5.Display.setCursor(M5.Display.width() - 27 * 1.5 / 2, 3);
+    LB::fillRect(LB::width() - 30 * 1.5 / 2, 0, 30 * 1.5 / 2, 15, TFT_DARKGREEN);
+    LB::setCursor(LB::width() - 27 * 1.5 / 2, 3);
   } else if (count >= 100 && count < MAX_SSIDS_Karma * 0.7) {
-    M5.Display.fillRect(M5.Display.width() - 45 * 1.5 / 2, 0, 45 * 1.5 / 2, 15, TFT_ORANGE);
-    M5.Display.setTextColor(TFT_BLACK);
-    M5.Display.setCursor(M5.Display.width() - 42 * 1.5 / 2, 3);
-    M5.Display.setTextColor(TFT_WHITE);
+    LB::fillRect(LB::width() - 45 * 1.5 / 2, 0, 45 * 1.5 / 2, 15, TFT_ORANGE);
+    LB::setTextColor(TFT_BLACK);
+    LB::setCursor(LB::width() - 42 * 1.5 / 2, 3);
+    LB::setTextColor(TFT_WHITE);
   } else {
-    M5.Display.fillRect(M5.Display.width() - 45 * 1.5 / 2, 0, 45 * 1.5 / 2, 15, TFT_RED);
-    M5.Display.setCursor(M5.Display.width() - 42 * 1.5 / 2, 3);
+    LB::fillRect(LB::width() - 45 * 1.5 / 2, 0, 45 * 1.5 / 2, 15, TFT_RED);
+    LB::setCursor(LB::width() - 42 * 1.5 / 2, 3);
   }
   if (count == MAX_SSIDS_Karma) {
-    M5.Display.printf("MAX");
+    LB::printf("MAX");
   } else {
-    M5.Display.printf("%d", count);
+    LB::printf("%d", count);
   }
-  M5.Display.display();
+  LB::display();
 }
 
 
 void drawStartButtonKarma() {
-  M5.Display.clear();
-  M5.Display.fillRect(0, M5.Display.height() - 30, M5.Display.width(), 30, TFT_GREEN);
-  M5.Display.setCursor(M5.Display.width() / 2 - 24 , M5.Display.height() - 20);
-  M5.Display.setTextColor(TFT_BLACK);
-  M5.Display.println("Start Sniff");
-  M5.Display.setTextColor(TFT_WHITE);
+  LB::clear();
+  LB::fillRect(0, LB::height() - 30, LB::width(), 30, TFT_GREEN);
+  LB::setCursor(LB::width() / 2 - 24 , LB::height() - 20);
+  LB::setTextColor(TFT_BLACK);
+  LB::println("Start Sniff");
+  LB::setTextColor(TFT_WHITE);
 }
 
 void drawStopButtonKarma() {
-  M5.Display.fillRect(0, M5.Display.height() - 27, M5.Display.width(), 27, TFT_RED);
-  M5.Display.setCursor(M5.Display.width() / 2 - 60, M5.Display.height() - 20);
-  M5.Display.println("Stop Sniff");
-  M5.Display.setTextColor(TFT_WHITE);
+  LB::fillRect(0, LB::height() - 27, LB::width(), 27, TFT_RED);
+  LB::setCursor(LB::width() / 2 - 60, LB::height() - 20);
+  LB::println("Stop Sniff");
+  LB::setTextColor(TFT_WHITE);
 }
 
 void startScanKarma() {
   isScanningKarma = true;
   ssid_count_Karma = 0;
-  M5.Display.clear();
+  LB::clear();
   drawStopButtonKarma();
   esp_wifi_set_promiscuous(false);
   esp_wifi_stop();
@@ -7645,22 +7648,22 @@ void stopScanKarma() {
     delay(1500);
     bool saveSSID = confirmPopup("   Save " + String(ssid_count_Karma) + " SSIDs?");
     if (saveSSID) {
-      M5.Display.clear();
-      M5.Display.setCursor(5 , M5.Display.height() / 2 );
-      M5.Display.println("Saving SSIDs on SD..");
+      LB::clear();
+      LB::setCursor(5 , LB::height() / 2 );
+      LB::println("Saving SSIDs on SD..");
       for (int i = 0; i < ssid_count_Karma; i++) {
         saveSSIDToFile(ssidsKarma[i].data());
       }
-      M5.Display.clear();
-      M5.Display.setCursor(5 , M5.Display.height() / 2 );
-      M5.Display.println(String(ssid_count_Karma) + " SSIDs saved on SD.");
+      LB::clear();
+      LB::setCursor(5 , LB::height() / 2 );
+      LB::println(String(ssid_count_Karma) + " SSIDs saved on SD.");
       Serial.println(F("-------------------"));
       Serial.println(String(ssid_count_Karma) + " SSIDs saved on SD.");
       Serial.println(F("-------------------"));
     } else {
-      M5.Display.clear();
-      M5.Display.setCursor(5 , M5.Display.height() / 2 );
-      M5.Display.println("  No SSID saved.");
+      LB::clear();
+      LB::setCursor(5 , LB::height() / 2 );
+      LB::println("  No SSID saved.");
     }
     delay(1000);
     for (int i = 0; i < (int)ssidsKarma.size(); ++i) ssidsKarma[i].fill('\0');
@@ -7733,9 +7736,9 @@ void handleMenuInputKarma() {
 }
 
 void drawMenuKarma() {
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
 
   int lineHeight = 12;
   int startX = 0;
@@ -7746,23 +7749,23 @@ void drawMenuKarma() {
     if (menuIndexKarma >= menuSizeKarma) break;
 
     if (menuIndexKarma == currentIndexKarma) {
-      M5.Display.fillRect(0, i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-      M5.Display.setTextColor(menuTextFocusedColor);
+      LB::fillRect(0, i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+      LB::setTextColor(menuTextFocusedColor);
     } else {
-      M5.Display.setTextColor(menuTextUnFocusedColor);
+      LB::setTextColor(menuTextUnFocusedColor);
     }
-    M5.Display.setCursor(startX, startY + i * lineHeight + (lineHeight / 2) - 11);
-    M5.Display.println(ssidsKarma[menuIndexKarma].data());
+    LB::setCursor(startX, startY + i * lineHeight + (lineHeight / 2) - 11);
+    LB::println(ssidsKarma[menuIndexKarma].data());
   }
-  M5.Display.display();
+  LB::display();
 }
 
 void executeMenuItemKarma(int indexKarma) {
   if (indexKarma >= 0 && indexKarma < ssid_count_Karma) {
     startAPWithSSIDKarma(ssidsKarma[indexKarma].data());
   } else {
-    M5.Display.clear();
-    M5.Display.println("Selection invalide!");
+    LB::clear();
+    LB::println("Selection invalide!");
     delay(1000);
     drawStartButtonKarma();
     currentStateKarma = StartScanKarma;
@@ -7779,7 +7782,7 @@ void startAPWithSSIDKarma(const char* ssid) {
   Serial.println("Karma Attack started for : " + String(ssid));
   Serial.println(F("-------------------"));
 
-  M5.Display.clear();
+  LB::clear();
   unsigned long startTime = millis();
   unsigned long currentTime;
   int remainingTime;
@@ -7794,18 +7797,18 @@ void startAPWithSSIDKarma(const char* ssid) {
     currentTime = millis();
     remainingTime = scanTimeKarma - ((currentTime - startTime) / 1000);
     clientCount = WiFi.softAPgetStationNum();
-    M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.setCursor((M5.Display.width() - 12 * strlen(ssid)) / 2, 25);
-    M5.Display.println(String(ssid));
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor((LB::width() - 12 * strlen(ssid)) / 2, 25);
+    LB::println(String(ssid));
 
-    M5.Display.setCursor(10, 45);
-    M5.Display.print("Left Time: ");
-    M5.Display.print(remainingTime);
-    M5.Display.println(" s ");
+    LB::setCursor(10, 45);
+    LB::print("Left Time: ");
+    LB::print(remainingTime);
+    LB::println(" s ");
 
-    M5.Display.setCursor(10, 65);
-    M5.Display.print("Connected Client: ");
-    M5.Display.println(clientCount);
+    LB::setCursor(10, 65);
+    LB::print("Connected Client: ");
+    LB::println(clientCount);
 
     Serial.println(F("---Karma-Attack---"));
     Serial.println("On :" + String(ssid));
@@ -7813,10 +7816,10 @@ void startAPWithSSIDKarma(const char* ssid) {
     Serial.println("Connected Client: " + String(clientCount));
     Serial.println(F("-------------------"));
 
-    M5.Lcd.setTextColor(menuTextUnFocusedColor);
-    M5.Display.setCursor(33, 110);
-    M5.Display.println(" Stop");
-    M5.Display.display();
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::setCursor(33, 110);
+    LB::println(" Stop");
+    LB::display();
 
     if (remainingTime <= 0) {
       break;
@@ -7828,15 +7831,15 @@ void startAPWithSSIDKarma(const char* ssid) {
     }
 
   }
-  M5.Display.clear();
-  M5.Display.setCursor(15 , M5.Display.height() / 2 );
+  LB::clear();
+  LB::setCursor(15 , LB::height() / 2 );
   if (clientCount > 0) {
-    M5.Display.println("Karma Successful!!!");
+    LB::println("Karma Successful!!!");
     Serial.println(F("-------------------"));
     Serial.println(F("Karma Attack worked !"));
     Serial.println(F("-------------------"));
   } else {
-    M5.Display.println(" Karma Failed...");
+    LB::println(" Karma Failed...");
     Serial.println(F("-------------------"));
     Serial.println(F("Karma Attack failed..."));
     Serial.println(F("-------------------"));
@@ -7930,23 +7933,23 @@ void listProbes() {
     }
 
     if (needDisplayUpdate) {
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
+      LB::clear();
+      LB::setTextSize(1.5);
       int y = 1; // Début de l'affichage en y
 
       for (int i = 0; i < maxDisplay; i++) {
         int probeIndex = (currentListIndex + i) % numProbes;
         if (i == 0) { // Mettre en évidence la sonde actuellement sélectionnée
-          M5.Display.fillRect(0, y, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, y, LB::width(), lineHeight, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor);
+          LB::setTextColor(menuTextUnFocusedColor);
         }
-        M5.Display.setCursor(5, y);
-        M5.Display.println(probes[probeIndex]);
+        LB::setCursor(5, y);
+        LB::println(probes[probeIndex]);
         y += lineHeight;
       }
-      M5.Display.display();
+      LB::display();
       needDisplayUpdate = false;
     }
   }
@@ -8034,19 +8037,19 @@ void deleteProbe() {
     }
 
     if (needDisplayUpdate) {
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
+      LB::clear();
+      LB::setTextSize(1.5);
 
       for (int i = 0; i < maxDisplay && i + currentListIndex < numProbes; i++) {
         int probeIndex = currentListIndex + i;
         String ssid = probes[probeIndex];
         ssid = ssid.substring(0, min(ssid.length(), (unsigned int)21));  // Tronquer pour l'affichage
-        M5.Display.setCursor(5, i * lineHeight + 10);
-        M5.Display.setTextColor(probeIndex == currentListIndex ? menuTextFocusedColor : menuTextUnFocusedColor);
-        M5.Display.println(ssid);
+        LB::setCursor(5, i * lineHeight + 10);
+        LB::setTextColor(probeIndex == currentListIndex ? menuTextFocusedColor : menuTextUnFocusedColor);
+        LB::println(ssid);
       }
 
-      M5.Display.display();
+      LB::display();
       needDisplayUpdate = false;
     }
   }
@@ -8097,17 +8100,17 @@ int showProbesAndSelect(String probes[], int numProbes) {
     }
 
     if (needDisplayUpdate) {
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
+      LB::clear();
+      LB::setTextSize(1.5);
 
       for (int i = 0; i < maxDisplay && currentListIndex + i < numProbes; i++) {
         int displayIndex = currentListIndex + i;
-        M5.Display.setCursor(10, i * lineHeight + 10);
-        M5.Display.setTextColor(displayIndex == currentListIndex ? menuTextFocusedColor : menuTextUnFocusedColor);  // Highlight the current element
-        M5.Display.println(probes[displayIndex]);
+        LB::setCursor(10, i * lineHeight + 10);
+        LB::setTextColor(displayIndex == currentListIndex ? menuTextFocusedColor : menuTextUnFocusedColor);  // Highlight the current element
+        LB::println(probes[displayIndex]);
       }
 
-      M5.Display.display();
+      LB::display();
       needDisplayUpdate = false;
     }
   }
@@ -8300,14 +8303,14 @@ void probeAttack() {
 
   if (!isItSerialCommand) {
     useCustomProbes = confirmPopup("Use custom probes?");
-    M5.Display.clear();
+    LB::clear();
     if (useCustomProbes) {
       customProbes = readCustomProbes("/evil/config/config.txt");
     } else {
       customProbes.clear();
     }
   } else {
-    M5.Display.clear();
+    LB::clear();
     isItSerialCommand = false;
     customProbes.clear();
   }
@@ -8320,17 +8323,17 @@ void probeAttack() {
   const int debounceDelay = 200;
   unsigned long lastDebounceTime = 0;
 
-  M5.Display.fillRect(0, M5.Display.height() - 30, M5.Display.width(), 30, TFT_RED);
-  M5.Display.setCursor(M5.Display.width() / 2 - 24, M5.Display.height() - 20);
-  M5.Display.setTextColor(TFT_WHITE,TFT_RED);
-  M5.Display.println("Stop");
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::fillRect(0, LB::height() - 30, LB::width(), 30, TFT_RED);
+  LB::setCursor(LB::width() / 2 - 24, LB::height() - 20);
+  LB::setTextColor(TFT_WHITE,TFT_RED);
+  LB::println("Stop");
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
 
   int probesTextX = 0;
-  M5.Display.setCursor(probesTextX, 37);
-  M5.Display.println("Probes attack running...");
-  M5.Display.setCursor(probesTextX, 52);
-  M5.Display.print("Probes sent: ");
+  LB::setCursor(probesTextX, 37);
+  LB::println("Probes attack running...");
+  LB::setCursor(probesTextX, 52);
+  LB::print("Probes sent: ");
 
   Serial.println(F("-------------------"));
   Serial.println(F("Starting Probes attack"));
@@ -8365,9 +8368,9 @@ void probeAttack() {
         pixels.show();
       }
 
-      M5.Display.setCursor(probesTextX + 12, 67);
-      M5.Display.fillRect(probesTextX + 12, 67, 40, 15, menuBackgroundColor);
-      M5.Display.print(probeCount);
+      LB::setCursor(probesTextX + 12, 67);
+      LB::fillRect(probesTextX + 12, 67, 40, 15, menuBackgroundColor);
+      LB::print(probeCount);
 
       Serial.println("Sent probe request: " + ssid);
     
@@ -8701,11 +8704,11 @@ void activateAPForAutoKarma(const char* ssid) {
       Serial.println(F("-------------------"));
       memset(lastSSID, 0, sizeof(lastSSID));
       newSSIDAvailable = false;
-      M5.Display.clear();
-      M5.Display.setCursor(5 , 32);
-      M5.Display.println("Karma Successfull !!!");
-      M5.Display.setCursor(5 , 48);
-      M5.Display.println("On : " + clonedSSID);
+      LB::clear();
+      LB::setCursor(5 , 32);
+      LB::println("Karma Successfull !!!");
+      LB::setCursor(5 , 48);
+      LB::println("On : " + clonedSSID);
       delay(7000);
       WiFi.softAPdisconnect(true);
       karmaSuccess = true;
@@ -8729,16 +8732,16 @@ void activateAPForAutoKarma(const char* ssid) {
 
 
 void displayWaitingForProbe() {
-  M5.Display.setCursor(5, 5);
+  LB::setCursor(5, 5);
   if (!isWaitingForProbeDisplayed) {
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
-    M5.Display.fillRect(0, M5.Display.height() - 30, M5.Display.width(), 60, TFT_RED);
-    M5.Display.setCursor(M5.Display.width() / 2 - 54, M5.Display.height() - 20);
-    M5.Display.println("Stop Auto");
-    M5.Display.setCursor(5, M5.Display.height() / 2 - 20);
-    M5.Display.print("Waiting for probe");
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::fillRect(0, LB::height() - 30, LB::width(), 60, TFT_RED);
+    LB::setCursor(LB::width() / 2 - 54, LB::height() - 20);
+    LB::println("Stop Auto");
+    LB::setCursor(5, LB::height() / 2 - 20);
+    LB::print("Waiting for probe");
 
     isWaitingForProbeDisplayed = true;
   }
@@ -8749,16 +8752,16 @@ void displayWaitingForProbe() {
     probeDisplayState = (probeDisplayState + 1) % 4;
 
     // Calculer la position X pour l'animation des points
-    int textWidth = M5.Display.textWidth("Waiting for probe ");
+    int textWidth = LB::textWidth("Waiting for probe ");
     int x = textWidth;
-    int y = M5.Display.height() / 2 - 20;
+    int y = LB::height() / 2 - 20;
 
     // Effacer la zone derrière les points
-    M5.Display.fillRect(x, y, M5.Display.textWidth("..."), M5.Display.fontHeight(), menuBackgroundColor);
+    LB::fillRect(x, y, LB::textWidth("..."), LB::fontHeight(), menuBackgroundColor);
 
-    M5.Display.setCursor(x, y);
+    LB::setCursor(x, y);
     for (int i = 0; i < probeDisplayState; i++) {
-      M5.Display.print(".");
+      LB::print(".");
     }
   }
 }
@@ -8767,39 +8770,39 @@ void displayAPStatus(const char* ssid, unsigned long startTime, int autoKarmaAPD
   unsigned long currentTime = millis();
   int remainingTime = autoKarmaAPDuration / 1000 - ((currentTime - startTime) / 1000);
   int clientCount = WiFi.softAPgetStationNum();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5, 5);
+  LB::setTextSize(1.5);
+  LB::setCursor(5, 5);
   if (!isInitialDisplayDone) {
-    M5.Display.clear();
-    M5.Display.setTextColor(menuTextUnFocusedColor);
+    LB::clear();
+    LB::setTextColor(menuTextUnFocusedColor);
 
-    M5.Display.setCursor(5, 10);
-    M5.Display.println(String(ssid));
+    LB::setCursor(5, 10);
+    LB::println(String(ssid));
 
-    M5.Display.setCursor(5, 30);
-    M5.Display.print("Left Time: ");
-    M5.Display.setCursor(5, 50);
-    M5.Display.print("Connected Client: ");
+    LB::setCursor(5, 30);
+    LB::print("Left Time: ");
+    LB::setCursor(5, 50);
+    LB::print("Connected Client: ");
     // Affichage du bouton Stop
-    M5.Display.setCursor(50, M5.Display.height() - 10);
-    M5.Display.println("Stop");
+    LB::setCursor(50, LB::height() - 10);
+    LB::println("Stop");
 
     isInitialDisplayDone = true;
   }
-  int timeValuePosX = M5.Display.textWidth("Left Time: ");
+  int timeValuePosX = LB::textWidth("Left Time: ");
   int timeValuePosY = 30;
-  M5.Display.fillRect(timeValuePosX, 20 , 25, 20, menuBackgroundColor);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
-  M5.Display.setCursor(timeValuePosX, timeValuePosY);
-  M5.Display.print(remainingTime);
-  M5.Display.print(" s ");
+  LB::fillRect(timeValuePosX, 20 , 25, 20, menuBackgroundColor);
+  LB::setTextColor(menuTextUnFocusedColor);
+  LB::setCursor(timeValuePosX, timeValuePosY);
+  LB::print(remainingTime);
+  LB::print(" s ");
 
-  int clientValuePosX = M5.Display.textWidth("Connected Client: ");
+  int clientValuePosX = LB::textWidth("Connected Client: ");
   int clientValuePosY = 50;
-  M5.Display.fillRect(clientValuePosX, 40 , 25 , 20, menuBackgroundColor);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
-  M5.Display.setCursor(clientValuePosX, clientValuePosY);
-  M5.Display.print(clientCount);
+  LB::fillRect(clientValuePosX, 40 , 25 , 20, menuBackgroundColor);
+  LB::setTextColor(menuTextUnFocusedColor);
+  LB::setCursor(clientValuePosX, clientValuePosY);
+  LB::print(clientCount);
 }
 
 //Auto karma end
@@ -8839,18 +8842,18 @@ void wardrivingMode() {
   Serial.println(F("-------------------"));
   Serial.println(F("Starting Wardriving"));
   Serial.println(F("-------------------"));
-  M5.Lcd.fillScreen(menuBackgroundColor);
-  M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Lcd.setTextSize(1.5);
-  M5.Display.fillRect(0, M5.Display.height() - 30, M5.Display.width(), 30, TFT_RED);
-  M5.Display.setCursor(M5.Display.width() / 2 - 24 , M5.Display.height() - 20);
-  M5.Display.setTextColor(TFT_WHITE);
-  M5.Display.println("Stop");
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Lcd.setCursor(0, 10);
-  M5.Lcd.printf("Scanning...");
-  M5.Lcd.setCursor(0, 30);
-  M5.Lcd.println("No GPS Data");
+  LB::fillScreen(menuBackgroundColor);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::fillRect(0, LB::height() - 30, LB::width(), 30, TFT_RED);
+  LB::setCursor(LB::width() / 2 - 24 , LB::height() - 20);
+  LB::setTextColor(TFT_WHITE);
+  LB::println("Stop");
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(0, 10);
+  LB::printf("Scanning...");
+  LB::setCursor(0, 30);
+  LB::println("No GPS Data");
 
   delay(1000);
   if (!SD.exists("/evil/wardriving")) {
@@ -8896,28 +8899,28 @@ void wardrivingMode() {
           accuracy = gps.hdop.value();
           gpsDataAvailable = true;
           // Affichage des informations GPS sur l'écran
-          M5.Lcd.setCursor(0, 30);
-          M5.Lcd.print("Longitude:");
-          M5.Lcd.println(String(gps.location.lng(), 6));
-          M5.Lcd.setCursor(0, 45);
-          M5.Lcd.print("Latitude:");
-          M5.Lcd.println(String(gps.location.lat(), 6));
-          M5.Lcd.setCursor(0, 60);
-          M5.Lcd.print("Sattelites:" + String(gps.satellites.value()));
-          M5.Lcd.println("  ");
+          LB::setCursor(0, 30);
+          LB::print("Longitude:");
+          LB::println(String(gps.location.lng(), 6));
+          LB::setCursor(0, 45);
+          LB::print("Latitude:");
+          LB::println(String(gps.location.lat(), 6));
+          LB::setCursor(0, 60);
+          LB::print("Sattelites:" + String(gps.satellites.value()));
+          LB::println("  ");
 
           // Altitude
-          M5.Lcd.setCursor(0, 75);
-          M5.Lcd.print("Altitude:");
-          M5.Lcd.print(String(gps.altitude.meters(), 2) + "m");
-          M5.Lcd.println("  ");
+          LB::setCursor(0, 75);
+          LB::print("Altitude:");
+          LB::print(String(gps.altitude.meters(), 2) + "m");
+          LB::println("  ");
 
           // Date et Heure
           String dateTime = formatTimeFromGPS();
-          M5.Lcd.setCursor(0, 90);
-          M5.Lcd.print("Time:");
-          M5.Lcd.print(dateTime);
-          M5.Lcd.println("  ");
+          LB::setCursor(0, 90);
+          LB::print("Time:");
+          LB::print(dateTime);
+          LB::println("  ");
         }
       }
     }
@@ -8968,19 +8971,19 @@ void wardrivingMode() {
 
       scanStarted = false; // Reset for the next scan
       // Mettre à jour le nombre de WiFi à proximité sur l'écran
-      M5.Lcd.setCursor(0, 10);
-      M5.Lcd.printf("Near WiFi: %d  \n", n);
+      LB::setCursor(0, 10);
+      LB::printf("Near WiFi: %d  \n", n);
     }
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ) {
       exitWardriving = true;
       delay(1000);
-      M5.Display.setTextSize(1.5);
+      LB::setTextSize(1.5);
       if (confirmPopup("List Open Networks?")) {
-        M5.Lcd.fillScreen(menuBackgroundColor);
-        M5.Display.setCursor(5, M5.Display.height() / 2);
-        M5.Display.println("Saving Open Networks");
-        M5.Display.println("  Please wait...");
+        LB::fillScreen(menuBackgroundColor);
+        LB::setCursor(5, LB::height() / 2);
+        LB::println("Saving Open Networks");
+        LB::println("  Please wait...");
         createKarmaList(maxIndex);
       }
       waitAndReturnToMenu("Stopping Wardriving.");
@@ -9305,7 +9308,7 @@ void beaconAttack(){
     WiFi.mode(WIFI_MODE_STA);
 
     bool useCustomBeacons = confirmPopup("Use custom beacons?");
-    M5.Display.clear();
+    LB::clear();
 
     std::vector<String> customBeacons;
     if(useCustomBeacons) customBeacons = readCustomBeacons("/evil/config/config.txt");
@@ -9313,11 +9316,11 @@ void beaconAttack(){
     unsigned long previousMillis=0; // tempo personnalisée si besoin
 
     // UI "Stop" en bas
-    M5.Display.fillRect(0, M5.Display.height()-30, M5.Display.width(), 30, TFT_RED);
-    M5.Display.setCursor(M5.Display.width()/2-24, M5.Display.height()-20);
-    M5.Display.setTextColor(TFT_WHITE); M5.Display.println("Stop");
+    LB::fillRect(0, LB::height()-30, LB::width(), 30, TFT_RED);
+    LB::setCursor(LB::width()/2-24, LB::height()-20);
+    LB::setTextColor(TFT_WHITE); LB::println("Stop");
 
-    M5.Display.setCursor(10,18); M5.Display.println("Beacon Spam running..");
+    LB::setCursor(10,18); LB::println("Beacon Spam running..");
     Serial.println(F("-------------------\nStarting Beacon Spam\n-------------------"));
 
     while(!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) &&
@@ -9351,11 +9354,11 @@ Set WiFi password, ssid and mac address
 ============================================================================================================================
 */
 void setWifiSSID() {
-  M5.Display.setTextSize(1.5); // Définissez la taille du texte pour l'affichage
-  M5.Display.clear(); // Effacez l'écran avant de rafraîchir le texte
-  M5.Display.setCursor(5, 10); // Positionnez le curseur pour le texte
-  M5.Display.println("Enter SSID:"); // Entête ou instruction
-  M5.Display.setCursor(5, 30); // Définissez la position pour afficher le SSID
+  LB::setTextSize(1.5); // Définissez la taille du texte pour l'affichage
+  LB::clear(); // Effacez l'écran avant de rafraîchir le texte
+  LB::setCursor(5, 10); // Positionnez le curseur pour le texte
+  LB::println("Enter SSID:"); // Entête ou instruction
+  LB::setCursor(5, 30); // Définissez la position pour afficher le SSID
   String nameSSID = ""; // Initialisez la chaîne de données pour stocker le SSID entré
   enterDebounce();
   while (true) {
@@ -9375,12 +9378,12 @@ void setWifiSSID() {
         }
 
         // Afficher le SSID courant sur l'écran
-        M5.Display.clear(); // Effacez l'écran avant de rafraîchir le texte
-        M5.Display.setCursor(5, 10); // Positionnez le curseur pour le texte
-        M5.Display.println("Enter SSID:"); // Entête ou instruction
-        M5.Display.setCursor(5, 30); // Définissez la position pour afficher le SSID
-        M5.Display.println(nameSSID); // Affichez le SSID entré
-        M5.Display.display(); // Mettez à jour l'affichage
+        LB::clear(); // Effacez l'écran avant de rafraîchir le texte
+        LB::setCursor(5, 10); // Positionnez le curseur pour le texte
+        LB::println("Enter SSID:"); // Entête ou instruction
+        LB::setCursor(5, 30); // Définissez la position pour afficher le SSID
+        LB::println(nameSSID); // Affichez le SSID entré
+        LB::display(); // Mettez à jour l'affichage
 
         // Si la touche 'enter' est pressée, terminez la saisie et lancez la fonction de clonage
         if (status.enter) {
@@ -9388,18 +9391,18 @@ void setWifiSSID() {
             cloneSSIDForCaptivePortal(nameSSID);
             break; // Sortez de la boucle après la sélection
           } else {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("SSID Error:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println("Must be superior to 0 and max 32");
-            M5.Display.display();
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("SSID Error:");
+            LB::setCursor(5, 30);
+            LB::println("Must be superior to 0 and max 32");
+            LB::display();
             delay(2000); // Affiche le message pendant 2 secondes
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("Enter SSID:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println(nameSSID); // Affichez le mot de passe entré
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("Enter SSID:");
+            LB::setCursor(5, 30);
+            LB::println(nameSSID); // Affichez le mot de passe entré
           }
         }
       }
@@ -9413,15 +9416,15 @@ void setWifiSSID() {
 
 void setWifiPassword() {
   String newPassword = ""; // Initialisez la chaîne pour stocker le mot de passe entré
-  M5.Display.setTextSize(1.5); // Définissez la taille du texte pour l'affichage
+  LB::setTextSize(1.5); // Définissez la taille du texte pour l'affichage
   // Attendre que la touche KEY_ENTER soit relâchée avant de continuer
-  M5.Display.clear(); // Effacez l'écran avant de rafraîchir le texte
-  M5.Display.setCursor(5, 10); // Positionnez le curseur pour le texte
-  M5.Display.println("Enter Password:"); // Entête ou instruction
-  M5.Display.setCursor(5, M5.Display.height() - 12); // Définissez la position pour afficher le SSID
-  M5.Display.setTextSize(1); // Définissez la taille du texte pour l'affichage
-  M5.Display.println("Should be greater than 8 or egal 0"); // Entête ou instruction
-  M5.Display.setTextSize(1.5); // Définissez la taille du texte pour l'affichage
+  LB::clear(); // Effacez l'écran avant de rafraîchir le texte
+  LB::setCursor(5, 10); // Positionnez le curseur pour le texte
+  LB::println("Enter Password:"); // Entête ou instruction
+  LB::setCursor(5, LB::height() - 12); // Définissez la position pour afficher le SSID
+  LB::setTextSize(1); // Définissez la taille du texte pour l'affichage
+  LB::println("Should be greater than 8 or egal 0"); // Entête ou instruction
+  LB::setTextSize(1.5); // Définissez la taille du texte pour l'affichage
   enterDebounce();
   while (true) {
     M5Cardputer.update();
@@ -9440,12 +9443,12 @@ void setWifiPassword() {
         }
 
         // Afficher le mot de passe courant sur l'écran
-        M5.Display.clear(); // Effacez l'écran avant de rafraîchir le texte
-        M5.Display.setCursor(5, 10); // Positionnez le curseur pour le texte
-        M5.Display.println("Enter Password:"); // Entête ou instruction
-        M5.Display.setCursor(5, 30); // Définissez la position pour afficher le mot de passe
-        M5.Display.println(newPassword); // Affichez le mot de passe entré
-        M5.Display.display(); // Mettez à jour l'affichage
+        LB::clear(); // Effacez l'écran avant de rafraîchir le texte
+        LB::setCursor(5, 10); // Positionnez le curseur pour le texte
+        LB::println("Enter Password:"); // Entête ou instruction
+        LB::setCursor(5, 30); // Définissez la position pour afficher le mot de passe
+        LB::println(newPassword); // Affichez le mot de passe entré
+        LB::display(); // Mettez à jour l'affichage
 
         // Si la touche 'enter' est pressée, terminez la saisie
         if (status.enter) {
@@ -9453,20 +9456,20 @@ void setWifiPassword() {
             captivePortalPassword = newPassword;
             break; // Sort de la boucle après la sélection
           } else {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("Password Error:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println("Must be at least 8 characters");
-            M5.Display.println("   Or 0 for Open Network");
-            M5.Display.display();
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("Password Error:");
+            LB::setCursor(5, 30);
+            LB::println("Must be at least 8 characters");
+            LB::println("   Or 0 for Open Network");
+            LB::display();
             delay(2000); // Affiche le message pendant 2 secondes
             // Efface et redemande le mot de passe
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("Enter Password:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println(newPassword); // Affichez le mot de passe entré
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("Enter Password:");
+            LB::setCursor(5, 30);
+            LB::println(newPassword); // Affichez le mot de passe entré
           }
         }
       }
@@ -9477,14 +9480,14 @@ void setWifiPassword() {
 
 void setMacAddress() {
   String macAddress = ""; // Initialize the string to store the entered MAC address
-  M5.Display.setTextSize(1.5); // Set the text size for display
-  M5.Display.clear(); // Clear the screen before refreshing the text
-  M5.Display.setCursor(5, 10); // Position the cursor for the text
-  M5.Display.println("Enter MAC Address:"); // Header or instruction
-  M5.Display.setCursor(5, M5.Display.height() - 12); // Position the cursor for instructions
-  M5.Display.setTextSize(1); // Set the text size for the display
-  M5.Display.println("Format: XX:XX:XX:XX:XX:XX"); // Instruction on the format
-  M5.Display.setTextSize(1.5); // Set the text size back for the main input
+  LB::setTextSize(1.5); // Set the text size for display
+  LB::clear(); // Clear the screen before refreshing the text
+  LB::setCursor(5, 10); // Position the cursor for the text
+  LB::println("Enter MAC Address:"); // Header or instruction
+  LB::setCursor(5, LB::height() - 12); // Position the cursor for instructions
+  LB::setTextSize(1); // Set the text size for the display
+  LB::println("Format: XX:XX:XX:XX:XX:XX"); // Instruction on the format
+  LB::setTextSize(1.5); // Set the text size back for the main input
   enterDebounce();
   
   while (true) {
@@ -9504,12 +9507,12 @@ void setMacAddress() {
         }
 
         // Display the current MAC address on the screen
-        M5.Display.clear(); // Clear the screen before refreshing the text
-        M5.Display.setCursor(5, 10); // Position the cursor for the text
-        M5.Display.println("Enter MAC Address:"); // Header or instruction
-        M5.Display.setCursor(5, 30); // Position the cursor for the MAC address
-        M5.Display.println(macAddress); // Display the entered MAC address
-        M5.Display.display(); // Update the display
+        LB::clear(); // Clear the screen before refreshing the text
+        LB::setCursor(5, 10); // Position the cursor for the text
+        LB::println("Enter MAC Address:"); // Header or instruction
+        LB::setCursor(5, 30); // Position the cursor for the MAC address
+        LB::println(macAddress); // Display the entered MAC address
+        LB::display(); // Update the display
 
         // If the 'enter' key is pressed, finish the input
         if (status.enter) {
@@ -9517,20 +9520,20 @@ void setMacAddress() {
             setDeviceMacAddress(macAddress); // Set the MAC address for AP mode
             break; // Exit the loop after setting the MAC address
           } else {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("MAC Address Error:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println("Invalid format. Use:");
-            M5.Display.println("XX:XX:XX:XX:XX:XX");
-            M5.Display.display();
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("MAC Address Error:");
+            LB::setCursor(5, 30);
+            LB::println("Invalid format. Use:");
+            LB::println("XX:XX:XX:XX:XX:XX");
+            LB::display();
             delay(2000); // Display the message for 2 seconds
             // Clear and ask for the MAC address again
-            M5.Display.clear();
-            M5.Display.setCursor(5, 10);
-            M5.Display.println("Enter MAC Address:");
-            M5.Display.setCursor(5, 30);
-            M5.Display.println(macAddress); // Display the entered MAC address
+            LB::clear();
+            LB::setCursor(5, 10);
+            LB::println("Enter MAC Address:");
+            LB::setCursor(5, 30);
+            LB::println(macAddress); // Display the entered MAC address
           }
         }
       }
@@ -9584,15 +9587,15 @@ void setDeviceMacAddress(String mac) {
     }
 
     // Display results on the M5Stack screen
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
+    LB::clear();
+    LB::setCursor(5, 10);
     if (resultAP == ESP_OK) {
-        M5.Display.println("MAC Address set for AP:");
-        M5.Display.println(mac);
+        LB::println("MAC Address set for AP:");
+        LB::println(mac);
     } else {
-        M5.Display.println("Error setting MAC Address");
+        LB::println("Error setting MAC Address");
     }
-    M5.Display.display();
+    LB::display();
 
     // Start WiFi after setting MAC
     esp_wifi_start();  
@@ -9618,11 +9621,11 @@ void snifferCallback(void* buf, wifi_promiscuous_pkt_type_t type) {
   unsigned long currentTime = millis();
   if (currentTime - lastTime >= 1000) {
     if (packetCount < 100) {
-      M5.Lcd.setCursor(M5.Display.width() - 72, 0);
+      LB::setCursor(LB::width() - 72, 0);
     } else {
-      M5.Lcd.setCursor(M5.Display.width() - 81, 0);
+      LB::setCursor(LB::width() - 81, 0);
     }
-    M5.Lcd.printf(" PPS:%d ", packetCount);
+    LB::printf(" PPS:%d ", packetCount);
 
     lastTime = currentTime;
     packetCount = 0;
@@ -9652,16 +9655,16 @@ void snifferCallback(void* buf, wifi_promiscuous_pkt_type_t type) {
 
     enregistrerDansFichierPCAP(pkt, false);
     nombreDeEAPOL++;
-    M5.Lcd.setCursor(M5.Display.width() - 45, 14);
-    M5.Lcd.printf("H:");
-    M5.Lcd.print(nombreDeHandshakes);
+    LB::setCursor(LB::width() - 45, 14);
+    LB::printf("H:");
+    LB::print(nombreDeHandshakes);
     if (nombreDeEAPOL < 999) {
-      M5.Lcd.setCursor(M5.Display.width() - 81, 28);
+      LB::setCursor(LB::width() - 81, 28);
     } else {
-      M5.Lcd.setCursor(M5.Display.width() - 90, 28);
+      LB::setCursor(LB::width() - 90, 28);
     }
-    M5.Lcd.printf("EAPOL:");
-    M5.Lcd.print(nombreDeEAPOL);
+    LB::printf("EAPOL:");
+    LB::print(nombreDeEAPOL);
   }
 
   if (frameType == 0x00 && frameSubType == 0x08) {
@@ -9737,23 +9740,23 @@ void snifferCallback(void* buf, wifi_promiscuous_pkt_type_t type) {
     Serial.println();
 
     // Affichage sur l'écran
-    M5.Lcd.setTextColor(WHITE, BLACK);
-    M5.Lcd.setCursor(0, M5.Display.height() / 3 - 14);
-    M5.Lcd.printf("Deauth Detected!");
-    M5.Lcd.setCursor(0, M5.Display.height() / 3 );
-    M5.Lcd.printf("CH: %d RSSI: %d  ", ctrl.channel, ctrl.rssi);
-    M5.Lcd.setCursor(0, M5.Display.height() / 3 + 14);
-    M5.Lcd.print("Send: "); printAddressLCD(senderAddr);
-    M5.Lcd.setCursor(0, M5.Display.height() / 3 + 28);
-    M5.Lcd.print("Receive: "); printAddressLCD(receiverAddr);
+    LB::setTextColor(WHITE, BLACK);
+    LB::setCursor(0, LB::height() / 3 - 14);
+    LB::printf("Deauth Detected!");
+    LB::setCursor(0, LB::height() / 3 );
+    LB::printf("CH: %d RSSI: %d  ", ctrl.channel, ctrl.rssi);
+    LB::setCursor(0, LB::height() / 3 + 14);
+    LB::print("Send: "); printAddressLCD(senderAddr);
+    LB::setCursor(0, LB::height() / 3 + 28);
+    LB::print("Receive: "); printAddressLCD(receiverAddr);
     nombreDeDeauth++;
     if (nombreDeDeauth < 999) {
-      M5.Lcd.setCursor(M5.Display.width() - 90, 42);
+      LB::setCursor(LB::width() - 90, 42);
     } else {
-      M5.Lcd.setCursor(M5.Display.width() - 102, 42);
+      LB::setCursor(LB::width() - 102, 42);
     }
-    M5.Lcd.printf("DEAUTH:");
-    M5.Lcd.print(nombreDeDeauth);
+    LB::printf("DEAUTH:");
+    LB::print(nombreDeDeauth);
 
   }
   esp_task_wdt_reset();  // S'assurer que le watchdog est réinitialisé fréquemment
@@ -9765,11 +9768,11 @@ void displayPwnagotchiDetails(const String& name, const String& pwndnb) {
   String displayText = "Pwnagotchi: " + name + "      \npwnd: " + pwndnb + "   ";
 
   // Préparer l'affichage
-  M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.setCursor(0, M5.Display.height() - 40);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setCursor(0, LB::height() - 40);
 
   // Afficher les informations
-  M5.Lcd.println(displayText);
+  LB::println(displayText);
 }
 
 void printAddress(const uint8_t* addr) {
@@ -9786,7 +9789,7 @@ void printAddressLCD(const uint8_t* addr) {
           addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
   // Afficher l'adresse MAC
-  M5.Lcd.print(macBuffer);
+  LB::print(macBuffer);
 }
 
 unsigned long lastBtnBPressTime = 0;
@@ -9797,9 +9800,9 @@ void deauthDetect() {
   unsigned long lastKeyPressTime = 0;  // Temps de la dernière pression de touche
   const unsigned long debounceDelay = 300;  // Delai de debounce en millisecondes
 
-  M5.Display.clear();
-  M5.Lcd.setTextSize(1.5);
-  M5.Lcd.setTextColor(WHITE, BLACK);
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(WHITE, BLACK);
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
@@ -9813,11 +9816,11 @@ void deauthDetect() {
   int x_btnB = 140;
   int y_btns = 122;
 
-  M5.Lcd.setCursor(x_btnA, y_btns);
-  M5.Lcd.println("Mode:m");
+  LB::setCursor(x_btnA, y_btns);
+  LB::println("Mode:m");
 
-  M5.Lcd.setCursor(x_btnB, y_btns);
-  M5.Lcd.println("Back:ok");
+  LB::setCursor(x_btnB, y_btns);
+  LB::println("Back:ok");
 
   if (!SD.exists("/evil/handshakes") && !SD.mkdir("/evil/handshakes")) {
     Serial.println(F("Fail to create /handshakes folder"));
@@ -9871,14 +9874,14 @@ void deauthDetect() {
     }
 
     if (currentChannelDeauth != lastDisplayedChannelDeauth || autoChannelHop != lastDisplayedMode) {
-      M5.Lcd.setCursor(0, 0);
-      M5.Lcd.printf("Channel: %d    \n", currentChannelDeauth);
+      LB::setCursor(0, 0);
+      LB::printf("Channel: %d    \n", currentChannelDeauth);
       lastDisplayedChannelDeauth = currentChannelDeauth;
     }
 
     if (autoChannelHop != lastDisplayedMode) {
-      M5.Lcd.setCursor(0, 12);
-      M5.Lcd.printf("Mode: %s  \n", autoChannelHop ? "Auto" : "Static");
+      LB::setCursor(0, 12);
+      LB::printf("Mode: %s  \n", autoChannelHop ? "Auto" : "Static");
       lastDisplayedMode = autoChannelHop;
     }
 
@@ -10110,7 +10113,7 @@ void deauthAttack(int networkIndex) {
         return;
     }
 
-    M5.Display.clear();
+    LB::clear();
 
     // Retrieve selected AP info
     uint8_t* bssid = WiFi.BSSID(networkIndex);
@@ -10127,7 +10130,7 @@ void deauthAttack(int networkIndex) {
 
     if (!bssid || channel <= 0) {
         Serial.println(F("Invalid AP - aborting attack"));
-        M5.Display.println("Invalid AP");
+        LB::println("Invalid AP");
         return;
     }
 
@@ -10137,21 +10140,21 @@ void deauthAttack(int networkIndex) {
     unsigned long lastDebounceTime = 0;
 
     // Setup display
-    M5.Display.fillRect(0, M5.Display.height() - 30, M5.Display.width(), 30, TFT_RED);
-    M5.Display.setCursor(M5.Display.width() / 2 - 24, M5.Display.height() - 16);
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.println("Stop");
+    LB::fillRect(0, LB::height() - 30, LB::width(), 30, TFT_RED);
+    LB::setCursor(LB::width() / 2 - 24, LB::height() - 16);
+    LB::setTextColor(TFT_WHITE);
+    LB::println("Stop");
 
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.setCursor(10, 20);
-    M5.Display.println("SSID: " + ssid);
-    M5.Display.setCursor(10, 34);
-    M5.Display.println("MAC: " + macAddress);
-    M5.Display.setCursor(10, 48);
-    M5.Display.println("Channel : " + String(channel));
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor(10, 20);
+    LB::println("SSID: " + ssid);
+    LB::setCursor(10, 34);
+    LB::println("MAC: " + macAddress);
+    LB::setCursor(10, 48);
+    LB::println("Channel : " + String(channel));
 
-    M5.Display.setCursor(10, 62);
-    M5.Display.print("Deauth sent: ");
+    LB::setCursor(10, 62);
+    LB::print("Deauth sent: ");
     Serial.println(F("-------------------"));
     Serial.println(F("Starting Deauth Attack"));
     Serial.println(F("-------------------"));
@@ -10170,11 +10173,11 @@ void deauthAttack(int networkIndex) {
             delay(25);
             pixels.setPixelColor(0, pixels.Color(0, 0, 0));
             pixels.show();
-            M5.Display.setCursor(132, 62);
-            M5.Display.print(String(deauthCount));
+            LB::setCursor(132, 62);
+            LB::print(String(deauthCount));
 
-            M5.Display.setCursor(10, 76);
-            M5.Display.print("Delay: " + String(delayTime) + "ms    ");
+            LB::setCursor(10, 76);
+            LB::print("Delay: " + String(delayTime) + "ms    ");
 
             Serial.println(F("-------------------"));
             Serial.println("Deauth packet sent : " + String(deauthCount));
@@ -10255,18 +10258,18 @@ void snifferCallbackDeauth(void* buf, wifi_promiscuous_pkt_type_t type) {
             Serial.print(F("Address MAC expedition: "));
             printAddress(senderAddr);
             
-            M5.Lcd.setCursor(M5.Display.width() - 36, 0);
-            M5.Lcd.printf("H:");
-            M5.Lcd.print(nombreDeHandshakes);
+            LB::setCursor(LB::width() - 36, 0);
+            LB::printf("H:");
+            LB::print(nombreDeHandshakes);
             if (nombreDeEAPOL < 99) {
-                M5.Lcd.setCursor(M5.Display.width() - 36, 12);
+                LB::setCursor(LB::width() - 36, 12);
             } else if (nombreDeEAPOL < 999) {
-                M5.Lcd.setCursor(M5.Display.width() - 48, 12);
+                LB::setCursor(LB::width() - 48, 12);
             } else {
-                M5.Lcd.setCursor(M5.Display.width() - 60, 12);
+                LB::setCursor(LB::width() - 60, 12);
             }
-            M5.Lcd.printf("E:");
-            M5.Lcd.print(nombreDeEAPOL);
+            LB::printf("E:");
+            LB::print(nombreDeEAPOL);
         }
     }
 
@@ -10311,10 +10314,10 @@ void broadcastDeauthAttack(const uint8_t* ap_mac, int channel) {
     printf("Erreur lors du changement de canal: %s\n", esp_err_to_name(ret));
     return;
   }
-  M5.Lcd.setCursor(67, 1);
-  M5.Lcd.printf("C:");
-  M5.Lcd.print(channel);
-  M5.Lcd.print(" ");
+  LB::setCursor(67, 1);
+  LB::printf("C:");
+  LB::print(channel);
+  LB::print(" ");
 
   // Set AP and source MAC addresses
   updateMacAddresses(ap_mac);
@@ -10341,10 +10344,10 @@ void sendDeauthToClient(const uint8_t* client_mac, const uint8_t* ap_mac, int ch
     printf("Erreur lors du changement de canal: %s\n", esp_err_to_name(ret));
     return;
   }
-  M5.Lcd.setCursor(67, 1);
-  M5.Lcd.printf("C:");
-  M5.Lcd.print(channel);
-  M5.Lcd.print(" ");
+  LB::setCursor(67, 1);
+  LB::printf("C:");
+  LB::print(channel);
+  LB::print(" ");
 
   uint8_t deauth_frame[sizeof(deauth_frame)];
   memcpy(deauth_frame, deauth_frame, sizeof(deauth_frame));
@@ -10376,8 +10379,8 @@ void sendBroadcastDeauths() {
         Serial.print(F("Sending Broadcast Deauth to AP: "));
         Serial.println(ap_names[ap.first].c_str());
 
-        M5.Lcd.setCursor(M5.Display.width() / 2 - 80 , M5.Display.height() / 2 + 28);
-        M5.Lcd.printf(ap_names[ap.first].c_str());
+        LB::setCursor(LB::width() / 2 - 80 , LB::height() / 2 + 28);
+        LB::printf(ap_names[ap.first].c_str());
 
         int channel = ap_channels_map[ap.first];
         uint8_t ap_mac_address[6];
@@ -10393,8 +10396,8 @@ void sendBroadcastDeauths() {
               Serial.print(F(" to AP MAC "));
               Serial.println(mac_to_string(ap_mac_address).c_str());
 
-              M5.Lcd.setCursor(M5.Display.width() / 2 - 83 , M5.Display.height() / 2 + 16);
-              M5.Lcd.printf("Sending Deauth to");
+              LB::setCursor(LB::width() / 2 - 83 , LB::height() / 2 + 16);
+              LB::printf("Sending Deauth to");
 
               for (int i = 0; i < nbDeauthSend; i++) {
                 sendDeauthToClient(client_mac, ap_mac_address, channel);
@@ -10402,13 +10405,13 @@ void sendBroadcastDeauths() {
             }
           }
           vTaskDelay(deauthWaitingTime);
-          M5.Lcd.setCursor(M5.Display.width() / 2 - 80, M5.Display.height() / 2 + 28);
-          M5.Lcd.printf("                                ");
+          LB::setCursor(LB::width() / 2 - 80, LB::height() / 2 + 28);
+          LB::printf("                                ");
         } else {
           Serial.println(F("Failed to convert AP MAC address from string."));
         }
-        M5.Lcd.setCursor(M5.Display.width() / 2 - 83  , M5.Display.height() / 2 + 16);
-        M5.Lcd.printf("                       ");
+        LB::setCursor(LB::width() / 2 - 83  , LB::height() / 2 + 16);
+        LB::printf("                       ");
       }
     }
   }
@@ -10461,8 +10464,8 @@ void changeChannel() {
   Serial.println(F("-----------------------------"));
 
   // Mise à jour de l'affichage sur l'appareil M5
-  M5.Lcd.setCursor(67, 1);
-  M5.Lcd.printf("C:%d ", currentChannel);
+  LB::setCursor(67, 1);
+  LB::printf("C:%d ", currentChannel);
 }
 
 
@@ -10471,16 +10474,16 @@ void wifi_scan() {
   Serial.println(F("Scanning WiFi networks..."));
   ap_channels.clear();
   const char* scanningText = "Scanning nearby networks..";
-  M5.Lcd.setCursor((M5.Lcd.width()-M5.Lcd.textWidth(scanningText))/2, M5.Display.height() - 12 );
-  M5.Lcd.printf(scanningText);
+  LB::setCursor((LB::width()-LB::textWidth(scanningText))/2, LB::height() - 12 );
+  LB::printf(scanningText);
 
   int n = WiFi.scanNetworks(false, false);
   if (n == 0) {
     Serial.println(F("No networks found"));
     const char* failedText = "No AP Found.";
-    M5.Lcd.setCursor((M5.Lcd.width()-M5.Lcd.textWidth(failedText))/2, M5.Display.height() - 12 );
-    M5.Lcd.setTextColor(TFT_RED);
-    M5.Lcd.printf(failedText);
+    LB::setCursor((LB::width()-LB::textWidth(failedText))/2, LB::height() - 12 );
+    LB::setTextColor(TFT_RED);
+    LB::printf(failedText);
     return;
   }
 
@@ -10508,14 +10511,14 @@ void wifi_scan() {
   }
 
   Serial.println(F("-----------------------------"));
-  M5.Lcd.setCursor(0, 1);
-  M5.Lcd.printf("AP:");
-  M5.Lcd.print(n);
-  M5.Lcd.print("  ");
-  M5.Lcd.drawLine(0, 13, M5.Lcd.width(), 13, taskbarDividerColor);
+  LB::setCursor(0, 1);
+  LB::printf("AP:");
+  LB::print(n);
+  LB::print("  ");
+  LB::drawLine(0, 13, LB::width(), 13, taskbarDividerColor);
   delay(30);
-  M5.Lcd.setCursor((M5.Lcd.width()-M5.Lcd.textWidth(scanningText))/2, M5.Display.height() - 12 );
-  M5.Lcd.printf("                          ");
+  LB::setCursor((LB::width()-LB::textWidth(scanningText))/2, LB::height() - 12 );
+  LB::printf("                          ");
 }
 
 
@@ -10531,7 +10534,7 @@ void print_connections() {
     if (isRegularAP(ap.first)) {
       if (ap_names.find(ap.first) != ap_names.end() && !ap_names[ap.first].empty()) {
         // Clear the line before printing new data
-        M5.Lcd.fillRect(0, yPos, M5.Lcd.width(), 20, BLACK);
+        LB::fillRect(0, yPos, LB::width(), 20, BLACK);
 
         // Print to Serial
         Serial.print(ap_names[ap.first].c_str());
@@ -10551,13 +10554,13 @@ void print_connections() {
         int clientCount = ap.second.size();
         String displayText = currentAPName + ": " + String(clientCount);
 
-        M5.Lcd.setCursor(0, yPos);
-        M5.Lcd.println(displayText);
+        LB::setCursor(0, yPos);
+        LB::println(displayText);
 
         yPos += 12;  // Move the Y position for the next line
 
         // Ensure there is enough screen space for the next line
-        if (yPos > M5.Lcd.height() - 15) {
+        if (yPos > LB::height() - 15) {
           break;  // Exit the loop if there's not enough space for more lines
         }
       }
@@ -10594,29 +10597,29 @@ void promiscuous_callback(void* buf, wifi_promiscuous_pkt_type_t type) {
     Serial.print(F("EAPOL Detected from AP: "));
     if (!apName.empty()) {
       Serial.println(apName.c_str());
-      M5.Lcd.setCursor(0 , M5.Display.height() - 10);
+      LB::setCursor(0 , LB::height() - 10);
       String eapolapname = apName.c_str();
-      M5.Lcd.print("EAPOL!:" + eapolapname + "                         ");
+      LB::print("EAPOL!:" + eapolapname + "                         ");
     } else {
       Serial.println(F("Unknown AP"));
-      M5.Lcd.setCursor(0 , M5.Display.height() - 8);
-      M5.Lcd.printf("EAPOL from Unknow                                 ");
+      LB::setCursor(0 , LB::height() - 8);
+      LB::printf("EAPOL from Unknow                                 ");
     }
     Serial.println(F("-----------------------------"));
 
 
     enregistrerDansFichierPCAP(pkt, false);
     nombreDeEAPOL++;
-    M5.Lcd.setCursor(116, 1);
-    M5.Lcd.printf("H:");
-    M5.Lcd.print(nombreDeHandshakes);
+    LB::setCursor(116, 1);
+    LB::printf("H:");
+    LB::print(nombreDeHandshakes);
     if (nombreDeEAPOL < 99) {
-      M5.Lcd.setCursor(164, 1);
+      LB::setCursor(164, 1);
     } else {
-      M5.Lcd.setCursor(155, 1);
+      LB::setCursor(155, 1);
     }
-    M5.Lcd.printf("E:");
-    M5.Lcd.print(nombreDeEAPOL);
+    LB::printf("E:");
+    LB::print(nombreDeEAPOL);
     esp_task_wdt_reset();  // Réinitialisation du watchdog
     // Délay pour permettre au task IDLE de s'exécuter
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -10657,13 +10660,13 @@ void promiscuous_callback(void* buf, wifi_promiscuous_pkt_type_t type) {
 
 void purgeAllAPData() {
   connections.clear();  // Clears all client associations
-  M5.Lcd.fillRect(0, 14, M5.Lcd.width(), M5.Lcd.height() - 14, BLACK);
+  LB::fillRect(0, 14, LB::width(), LB::height() - 14, BLACK);
   Serial.println(F("All AP and client data have been purged."));
 }
 
 
 void deauthClients() {
-  M5.Display.clear();
+  LB::clear();
 
   esp_wifi_set_promiscuous(false);
   WiFi.disconnect(true);  // Déconnecte et efface les paramètres WiFi enregistrés
@@ -10689,17 +10692,17 @@ void deauthClients() {
   purgeAllAPData();
   wifi_scan();
 
-  M5.Lcd.fillRect(0, 14, M5.Lcd.width(), M5.Lcd.height() - 14, BLACK);
+  LB::fillRect(0, 14, LB::width(), LB::height() - 14, BLACK);
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_promiscuous_rx_cb(promiscuous_callback);
 
-  M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Lcd.setCursor(M5.Display.width() - 30, 1);
-  M5.Lcd.printf("D:");
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(LB::width() - 30, 1);
+  LB::printf("D:");
   if (isDeauthActive) {
-    M5.Lcd.print("1");
+    LB::print("1");
   } else {
-    M5.Lcd.print("0");
+    LB::print("0");
   }
   enterDebounce();
 
@@ -10743,8 +10746,8 @@ void deauthClients() {
     if (M5Cardputer.Keyboard.isKeyPressed('d') && (currentPressTime - lastKeyPressTime > debounceDelay)) {
       isDeauthActive = !isDeauthActive;
       Serial.println(isDeauthActive ? "Deauther activated !" : "Deauther disabled !");
-      M5.Lcd.setCursor(M5.Display.width() - 30, 1);
-      M5.Lcd.printf("D:%d", isDeauthActive ? 1 : 0);
+      LB::setCursor(LB::width() - 30, 1);
+      LB::printf("D:%d", isDeauthActive ? 1 : 0);
       lastKeyPressTime = currentPressTime;
     }
 
@@ -10763,8 +10766,8 @@ void deauthClients() {
         deauthWaitingTime = 5000;
         nbDeauthSend = 5;
         Serial.println(F("Fast mode enabled !"));
-        M5.Lcd.setCursor(M5.Display.width() - 40, 1);
-        M5.Lcd.printf("F");
+        LB::setCursor(LB::width() - 40, 1);
+        LB::printf("F");
       } else {
         isDeauthFast = false;
         scanInterval = 90000; // interval of deauth and scanning network
@@ -10773,8 +10776,8 @@ void deauthClients() {
         deauthWaitingTime = 7500;
         nbDeauthSend = 10;
         Serial.println(F("Fast mode disabled !"));
-        M5.Lcd.setCursor(M5.Display.width() - 40, 1);
-        M5.Lcd.printf(" ");
+        LB::setCursor(LB::width() - 40, 1);
+        LB::printf(" ");
       }
       lastKeyPressTime = currentPressTime;
     }
@@ -10984,17 +10987,17 @@ void showPcapInfo(int index){
 
   bool ok = bc && (fw || pm);
 
-  M5.Display.clear(); M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5,0);
-  M5.Display.println(entry);
-  M5.Display.println("----------------------");
-  M5.Display.printf("Beacon : %s\n", bc ? "YES" : "NO");
-  M5.Display.printf("4-Way  : %s\n", fw ? "YES" : "NO");
-  M5.Display.printf("PMKID  : %s\n", pm ? "YES" : "NO");
-  M5.Display.println("----------------------");
-  M5.Display.printf("Result : %s\n", ok ? "VALID" : "INVALID");
-  M5.Display.println("\n   ^ / v  : next / prev");
-  M5.Display.display();
+  LB::clear(); LB::setTextSize(1.5);
+  LB::setCursor(5,0);
+  LB::println(entry);
+  LB::println("----------------------");
+  LB::printf("Beacon : %s\n", bc ? "YES" : "NO");
+  LB::printf("4-Way  : %s\n", fw ? "YES" : "NO");
+  LB::printf("PMKID  : %s\n", pm ? "YES" : "NO");
+  LB::println("----------------------");
+  LB::printf("Result : %s\n", ok ? "VALID" : "INVALID");
+  LB::println("\n   ^ / v  : next / prev");
+  LB::display();
 }
 
 
@@ -11087,17 +11090,17 @@ void loadPcapFiles(){
 
 /* --------- UI --------- */
 void displayPcapList(){
-  const int h=18, win=M5.Display.height()/h;
+  const int h=18, win=LB::height()/h;
   int s=max(0,min(currentListIndexPcap,int(pcapFiles.size())-win));
-  M5.Display.clear(); M5.Display.setTextSize(1.5);
+  LB::clear(); LB::setTextSize(1.5);
   for(int i=s;i<min(int(pcapFiles.size()),s+win);++i){
     if(i==currentListIndexPcap){
-      M5.Display.fillRect(0,(i-s)*h,M5.Display.width(),h,menuSelectedBackgroundColor);
-      M5.Display.setTextColor(menuTextFocusedColor);
-    }else M5.Display.setTextColor(menuTextUnFocusedColor);
-    M5.Display.setCursor(10,(i-s)*h); M5.Display.println(pcapFiles[i]);
+      LB::fillRect(0,(i-s)*h,LB::width(),h,menuSelectedBackgroundColor);
+      LB::setTextColor(menuTextFocusedColor);
+    }else LB::setTextColor(menuTextUnFocusedColor);
+    LB::setCursor(10,(i-s)*h); LB::println(pcapFiles[i]);
   }
-  M5.Display.display();
+  LB::display();
 }
 void navigatePcapList(bool next){
   currentListIndexPcap = next ? (currentListIndexPcap+1)%pcapFiles.size()
@@ -11161,10 +11164,10 @@ Connect to wifi
 bool connectToWiFi(const String& ssid, const String& password) {
   WiFi.begin(ssid.c_str(), password.c_str());
 
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Connecting to WiFi...");
-  M5.Display.display();
+  LB::clear();
+  LB::setCursor(5, 10);
+  LB::println("Connecting to WiFi...");
+  LB::display();
 
   Serial.print(F("Connecting to SSID: "));
   Serial.println(ssid);
@@ -11179,22 +11182,22 @@ bool connectToWiFi(const String& ssid, const String& password) {
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println(F("WiFi connected successfully!"));
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Connected!");
-    M5.Display.setCursor(5, 30);
-    M5.Display.println("IP: " + WiFi.localIP().toString());
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Connected!");
+    LB::setCursor(5, 30);
+    LB::println("IP: " + WiFi.localIP().toString());
+    LB::display();
     delay(2000); // Affiche le message pendant 2 secondes
     return true;
   } else {
     Serial.println(F("Failed to connect to WiFi."));
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Failed to connect.");
-    M5.Display.setCursor(5, 30);
-    M5.Display.println("Please try again.");
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Failed to connect.");
+    LB::setCursor(5, 30);
+    LB::println("Please try again.");
+    LB::display();
     delay(2000); // Affiche le message pendant 2 secondes
     return false;
   }
@@ -11204,11 +11207,11 @@ bool connectToWiFi(const String& ssid, const String& password) {
 String inputWifiPassword(const String& ssidName) {
   String typedPassword = "";
 
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Enter Password for " + ssidName + " :");
-  M5.Display.setCursor(5, 30);
-  M5.Display.display();
+  LB::clear();
+  LB::setCursor(5, 10);
+  LB::println("Enter Password for " + ssidName + " :");
+  LB::setCursor(5, 30);
+  LB::display();
   enterDebounce();
 
   while (true) {
@@ -11225,12 +11228,12 @@ String inputWifiPassword(const String& ssidName) {
           typedPassword.remove(typedPassword.length() - 1);
         }
 
-        M5.Display.clear();
-        M5.Display.setCursor(5, 10);
-        M5.Display.println("Password for " + ssidName + " :");
-        M5.Display.setCursor(5, 30);
-        M5.Display.println(typedPassword);
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 10);
+        LB::println("Password for " + ssidName + " :");
+        LB::setCursor(5, 30);
+        LB::println(typedPassword);
+        LB::display();
 
         if (status.enter) {
           return typedPassword;
@@ -11305,14 +11308,14 @@ void connectWifi(int networkIndex) {
       } else {
         // Saved password failed
         Serial.println(F("Saved password failed, asking for new one..."));
-        M5.Display.clear();
-        M5.Display.setCursor(5, 10);
-        M5.Display.setTextColor(TFT_RED);
-        M5.Display.println("Saved password failed!");
-        M5.Display.setTextColor(menuTextFocusedColor);
-        M5.Display.setCursor(5, 30);
-        M5.Display.println("Enter new password...");
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 10);
+        LB::setTextColor(TFT_RED);
+        LB::println("Saved password failed!");
+        LB::setTextColor(menuTextFocusedColor);
+        LB::setCursor(5, 30);
+        LB::println("Enter new password...");
+        LB::display();
         delay(1500);
       }
     }
@@ -11357,18 +11360,18 @@ connect to SSH
 //from https://github.com/fernandofatech/M5Cardputer-SSHClient and refactored
 bool sshKilled = false;
 void testConnectivity(const char *host) {
-  M5.Display.clear();
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(5, 10);
+  LB::clear();
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(5, 10);
   Serial.println(F("Pinging Host..."));
-  M5.Display.print("Pinging: " + String(host));
+  LB::print("Pinging: " + String(host));
   if (Ping.ping(host)) {
-    M5.Display.setCursor(5, 10);
+    LB::setCursor(5, 10);
     Serial.println(F("Ping successfull"));
-    M5.Display.println("Ping successfull                            ");
+    LB::println("Ping successfull                            ");
   } else {
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Ping Failed                                 ");
+    LB::setCursor(5, 10);
+    LB::println("Ping Failed                                 ");
     Serial.println(F("Ping failed"));
   }
 }
@@ -11386,8 +11389,8 @@ ssh_session connect_ssh(const char *host, const char *user, int port) {
 
   if (ssh_connect(session) != SSH_OK) {
     Serial.print(F("Error connecting to host"));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("Error connecting to host");
+    LB::setCursor(5, 10);
+    LB::print("Error connecting to host");
     Serial.println(ssh_get_error(session));
     ssh_free(session);
     return NULL;
@@ -11400,8 +11403,8 @@ int authenticate_console(ssh_session session, const char *password) {
   int rc = ssh_userauth_password(session, NULL, password);
   if (rc != SSH_AUTH_SUCCESS) {
     Serial.print(F("Password error authenticating"));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("Password error authenticating");
+    LB::setCursor(5, 10);
+    LB::print("Password error authenticating");
     Serial.println(ssh_get_error(session));
     return rc;
   }
@@ -11414,16 +11417,16 @@ void sshConnectTask(void *pvParameters) {
   my_ssh_session = connect_ssh(ssh_host.c_str(), ssh_user.c_str(), ssh_port);
   if (my_ssh_session == NULL) {
     Serial.println(F("SSH Connection failed."));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("SSH Connection failed.");
+    LB::setCursor(5, 10);
+    LB::print("SSH Connection failed.");
     vTaskDelete(NULL);
     return;
   }
 
   if (authenticate_console(my_ssh_session, ssh_password.c_str()) != SSH_OK) {
     Serial.println(F("SSH Authentication failed."));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("SSH Authentication failed.");
+    LB::setCursor(5, 10);
+    LB::print("SSH Authentication failed.");
     ssh_disconnect(my_ssh_session);
     ssh_free(my_ssh_session);
     vTaskDelete(NULL);
@@ -11434,8 +11437,8 @@ void sshConnectTask(void *pvParameters) {
   my_channel = ssh_channel_new(my_ssh_session);
   if (my_channel == NULL || ssh_channel_open_session(my_channel) != SSH_OK) {
     Serial.println(F("SSH Channel open error."));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("SSH Channel open error.");
+    LB::setCursor(5, 10);
+    LB::print("SSH Channel open error.");
     ssh_disconnect(my_ssh_session);
     ssh_free(my_ssh_session);
     vTaskDelete(NULL);
@@ -11445,8 +11448,8 @@ void sshConnectTask(void *pvParameters) {
 
   if (ssh_channel_request_pty(my_channel) != SSH_OK || ssh_channel_request_shell(my_channel) != SSH_OK) {
     Serial.println(F("Request PTY/Shell failed."));
-    M5.Display.setCursor(5, 10);
-    M5.Display.print("Request PTY/Shell failed.");
+    LB::setCursor(5, 10);
+    LB::print("Request PTY/Shell failed.");
     ssh_channel_close(my_channel);
     ssh_channel_free(my_channel);
     ssh_disconnect(my_ssh_session);
@@ -11456,10 +11459,10 @@ void sshConnectTask(void *pvParameters) {
     return;
   }
 
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("SSH Connection established.");
-  M5.Display.display();
+  LB::clear();
+  LB::setCursor(5, 10);
+  LB::println("SSH Connection established.");
+  LB::display();
 
   xTaskCreatePinnedToCore(sshTask, "SSH Task", 16392, NULL, 1, NULL, 1);
   vTaskDelete(NULL);
@@ -11467,9 +11470,9 @@ void sshConnectTask(void *pvParameters) {
 
 String getUserInput(bool isPassword = false) {
   String input = "";
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(5, 30);
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(5, 30);
   while (true) {
     M5Cardputer.update();
     if (M5Cardputer.Keyboard.isChange()) {
@@ -11482,17 +11485,17 @@ String getUserInput(bool isPassword = false) {
 
         if (status.del && input.length() > 0) {
           input.remove(input.length() - 1);
-          M5.Display.setCursor(5, 30);
-          M5.Display.print("                                          ");
+          LB::setCursor(5, 30);
+          LB::print("                                          ");
         }
 
         if (status.enter && input.length() > 0) {
           return input;
         }
 
-        M5.Display.setCursor(5, 30);
-        M5.Display.print(input);
-        M5.Display.display();
+        LB::setCursor(5, 30);
+        LB::print(input);
+        LB::display();
       }
     }
     delay(200); // Petit délai pour réduire la charge du processeur
@@ -11513,7 +11516,7 @@ void parseUserHostPort(const String &input, String &user, String &host, int &por
 // Fonction principale pour se connecter via SSH
 void sshConnect(const char *host) {
    sshKilled = false;
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
   if (WiFi.localIP().toString() == "0.0.0.0") {
     waitAndReturnToMenu("Not connected...");
     return;
@@ -11535,30 +11538,30 @@ void sshConnect(const char *host) {
     }
 
     if (ssh_user == "" || ssh_host == "" || ssh_password == "") {
-      M5.Display.clear();
-      M5.Display.setCursor(5, 10);
-      M5.Display.println("Enter SSH User@Host:Port:");
+      LB::clear();
+      LB::setCursor(5, 10);
+      LB::println("Enter SSH User@Host:Port:");
       String userHostPort = getUserInput();
       parseUserHostPort(userHostPort, ssh_user, ssh_host, ssh_port);
     }
   } else {
     ssh_host = host;
     ssh_password = "";
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Enter SSH User:");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Enter SSH User:");
     ssh_user = getUserInput();
 
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Enter SSH Port:");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Enter SSH Port:");
     String portStr = getUserInput();
     ssh_port = portStr.toInt();
   }
   if (ssh_password == "") {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Enter SSH Password:");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Enter SSH Password:");
     ssh_password = getUserInput();
   }
   if (ssh_user.length() == 0 || ssh_host.length() == 0 || ssh_password.length() == 0) {
@@ -11637,7 +11640,7 @@ void sshTask(void *pvParameters) {
   Serial.println(F("starting sshtask")); // debug here
   ssh_channel channel = my_channel;
   if (channel == NULL) {
-    M5Cardputer.Display.println("SSH Channel not open.");
+    LB::println("SSH Channel not open.");
     vTaskDelete(NULL);
     return;
   }
@@ -11650,16 +11653,16 @@ void sshTask(void *pvParameters) {
   unsigned long lastKeyPressMillis = 0;
   const unsigned long debounceDelay = 200;
 
-  int displayHeight = M5Cardputer.Display.height();
-  int displayWidth = M5Cardputer.Display.width();
+  int displayHeight = LB::height();
+  int displayWidth = LB::width();
   int totalLines = displayHeight / lineHeight;
   int currentLine = 0;
 
-  M5Cardputer.Display.clear();
-  M5Cardputer.Display.setTextSize(1);
-  M5Cardputer.Display.setCursor(cursorX, cursorY);
-  M5Cardputer.Display.print(commandBuffer);
-  M5Cardputer.Display.display();
+  LB::clear();
+  LB::setTextSize(1);
+  LB::setCursor(cursorX, cursorY);
+  LB::print(commandBuffer);
+  LB::display();
   Serial.println(F("entering while true"));// debug here
   while (true) {
     M5Cardputer.update();
@@ -11711,31 +11714,31 @@ void sshTask(void *pvParameters) {
               commandBuffer += currentCommand;
 
               // Clear the display and update with new command
-              M5Cardputer.Display.clear();
+              LB::clear();
               cursorX = 0;
               cursorY = 0;
               currentLine = 0;
-              M5Cardputer.Display.setCursor(cursorX, cursorY);
-              M5Cardputer.Display.print(commandBuffer);
-              M5Cardputer.Display.display();
+              LB::setCursor(cursorX, cursorY);
+              LB::print(commandBuffer);
+              LB::display();
             }
           }
           else {
             for (auto i : status.word) {
               commandBuffer += i;
               currentCommand += i;
-              M5Cardputer.Display.print(i);
-              cursorX = M5Cardputer.Display.getCursorX();
+              LB::print(i);
+              cursorX = LB::getCursorX();
               if (cursorX >= displayWidth) {
                 cursorX = 0;
                 cursorY += lineHeight;
                 currentLine++;
                 if (currentLine >= totalLines) {
-                  M5Cardputer.Display.scroll(0, -lineHeight);
+                  LB::scroll(0, -lineHeight);
                   cursorY = displayHeight - lineHeight;
                   currentLine = totalLines - 1;
                 }
-                M5Cardputer.Display.setCursor(cursorX, cursorY);
+                LB::setCursor(cursorX, cursorY);
               }
             }
 
@@ -11752,9 +11755,9 @@ void sshTask(void *pvParameters) {
                   cursorY = 0;
                 }
               }
-              M5Cardputer.Display.setCursor(cursorX, cursorY);
-              M5Cardputer.Display.print(" ");
-              M5Cardputer.Display.setCursor(cursorX, cursorY);
+              LB::setCursor(cursorX, cursorY);
+              LB::print(" ");
+              LB::setCursor(cursorX, cursorY);
             }
 
             if (status.enter) {
@@ -11768,17 +11771,17 @@ void sshTask(void *pvParameters) {
               cursorY += lineHeight;
               currentLine++;
               if (cursorY >= displayHeight) {
-                M5Cardputer.Display.scroll(0, -lineHeight);
+                LB::scroll(0, -lineHeight);
                 cursorY = displayHeight - lineHeight;
                 currentLine = totalLines - 1;
               }
               cursorX = 0;
-              M5Cardputer.Display.setCursor(cursorX, cursorY);
-              M5Cardputer.Display.print(commandBuffer);
+              LB::setCursor(cursorX, cursorY);
+              LB::print(commandBuffer);
             }
           }
 
-          M5Cardputer.Display.display();
+          LB::display();
           lastKeyPressMillis = currentMillis;
         }
       }
@@ -11801,29 +11804,29 @@ void sshTask(void *pvParameters) {
           cursorY += lineHeight;
           currentLine++;
           if (cursorY >= displayHeight) {
-            M5Cardputer.Display.scroll(0, -lineHeight);
+            LB::scroll(0, -lineHeight);
             cursorY = displayHeight - lineHeight;
             currentLine = totalLines - 1;
           }
           cursorX = 0;
-          M5Cardputer.Display.setCursor(cursorX, cursorY);
+          LB::setCursor(cursorX, cursorY);
         } else {
-          M5Cardputer.Display.print(output[i]);
+          LB::print(output[i]);
           cursorX += 6;
           if (cursorX >= displayWidth) {
             cursorX = 0;
             cursorY += lineHeight;
             currentLine++;
             if (cursorY >= displayHeight) {
-              M5Cardputer.Display.scroll(0, -lineHeight);
+              LB::scroll(0, -lineHeight);
               cursorY = displayHeight - lineHeight;
               currentLine = totalLines - 1;
             }
-            M5Cardputer.Display.setCursor(cursorX, cursorY);
+            LB::setCursor(cursorX, cursorY);
           }
         }
       }
-      M5Cardputer.Display.display();
+      LB::display();
 
       Serial.print(F("Output received: "));
       Serial.println(output);
@@ -11856,20 +11859,20 @@ void scanIpPort() {
     waitAndReturnToMenu("Not connected...");
     return;
   }
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Enter IP Address:");
-  M5.Display.setCursor(5, M5Cardputer.Display.height() - 20);
-  M5.Display.println("Current IP:" + WiFi.localIP().toString());
+  LB::clear();
+  LB::setCursor(5, 10);
+  LB::println("Enter IP Address:");
+  LB::setCursor(5, LB::height() - 20);
+  LB::println("Current IP:" + WiFi.localIP().toString());
   scanIp = getUserInput();
 
   IPAddress ip;
   if (ip.fromString(scanIp)) {
     scanPorts(ip);
   } else {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Invalid IP Address");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Invalid IP Address");
     delay(1000); // Afficher le message pendant 1 secondes
 
   }
@@ -11909,21 +11912,21 @@ static String urlBase = "";
 // Helpers d'affichage
 // ===============================
 void displayUrls() {
-  M5.Display.clear();
-  M5.Display.setTextSize(1);
-  M5.Display.setCursor(5, 5);
+  LB::clear();
+  LB::setTextSize(1);
+  LB::setCursor(5, 5);
 
   const int total = (int)urlList.size();
   const int displayCount = std::min(maxDisplayLines, total);
 
   for (int i = 0; i < displayCount; ++i) {
     int displayIndex = (startIndex + i) % (total == 0 ? 1 : total);
-    M5.Display.setCursor(5, 10 + i * 10);
-    if (total > 0) M5.Display.println(urlList[displayIndex]);
+    LB::setCursor(5, 10 + i * 10);
+    if (total > 0) LB::println(urlList[displayIndex]);
   }
 
-  M5.Display.setCursor(5, 5);
-  M5.Display.printf(" %d-%d of %d on %s\n",
+  LB::setCursor(5, 5);
+  LB::printf(" %d-%d of %d on %s\n",
                     total == 0 ? 0 : startIndex + 1,
                     total == 0 ? 0 : startIndex + displayCount,
                     total, urlBase.c_str());
@@ -12096,16 +12099,16 @@ void webCrawling(const String &urlOrIp) {
   enterDebounce();
   startIndex = 0;
   urlList.clear();
-  M5.Display.setTextColor(WHITE, BLACK);
-  M5.Display.setTextSize(1);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setTextSize(1);
 
   String inputBase = urlOrIp;
   if (inputBase.isEmpty()) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Enter IP/Domain[:port]:");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Enter IP/Domain[:port]:");
     inputBase = getUserInput();
-    M5.Display.setTextSize(1);
+    LB::setTextSize(1);
   }
 
   IPAddress ipTmp;
@@ -12123,26 +12126,26 @@ void webCrawling(const String &urlOrIp) {
 
   urlBase = buildUrlCrawl(base);
 
-  M5.Display.clear();
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Testing base...");
+  LB::clear();
+  LB::setCursor(5, 10);
+  LB::println("Testing base...");
   int code = 0;
   bool ok = httpGetWithRedirectsCrawl(base, code);
 
   if (!ok && base.scheme == "http") {
     if (confirmPopup("HTTP failed. Try HTTPS?")) {
       base.scheme = "https"; base.port = 443; base.path = "/";
-      M5.Display.clear();
-      M5.Display.setCursor(5, 10);
-      M5.Display.println("Testing HTTPS...");
+      LB::clear();
+      LB::setCursor(5, 10);
+      LB::println("Testing HTTPS...");
       ok = httpGetWithRedirectsCrawl(base, code);
     }
   }
 
   if (!ok) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("URL not accessible.");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("URL not accessible.");
     delay(2000);
     waitAndReturnToMenu("Returning to menu...");
     return;
@@ -12153,9 +12156,9 @@ void webCrawling(const String &urlOrIp) {
 
   File file = SD.open("/evil/crawler_wordlist.txt");
   if (!file) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("Failed open wordlist");
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("Failed open wordlist");
     delay(1200);
     waitAndReturnToMenu("Returning to menu...");
     return;
@@ -12175,8 +12178,8 @@ void webCrawling(const String &urlOrIp) {
     UrlPartsCrawl probe = base;
     probe.path = path;
 
-    M5.Display.setCursor(5, M5.Display.height() - 10);
-    M5.Display.printf("On: %s                               ", path.c_str());
+    LB::setCursor(5, LB::height() - 10);
+    LB::printf("On: %s                               ", path.c_str());
 
     int codeProbe = 0;
     bool okProbe = httpGetWithRedirectsCrawl(probe, codeProbe);
@@ -12187,8 +12190,8 @@ void webCrawling(const String &urlOrIp) {
     }
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
-      M5.Display.setCursor(5, M5.Display.height() - 10);
-      M5.Display.println("Crawling Stopped!      ");
+      LB::setCursor(5, LB::height() - 10);
+      LB::println("Crawling Stopped!      ");
       enterDebounce();
       break;
     }
@@ -12196,8 +12199,8 @@ void webCrawling(const String &urlOrIp) {
 
   file.close();
 
-  M5.Display.setCursor(5, M5.Display.height() - 10);
-  M5.Display.println("Finished Crawling!     ");
+  LB::setCursor(5, LB::height() - 10);
+  LB::println("Finished Crawling!     ");
 
   while (true) {
     M5.update();
@@ -12210,7 +12213,7 @@ void webCrawling(const String &urlOrIp) {
     } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
                M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
       urlBase = "";
-      M5.Display.setTextSize(1.5);
+      LB::setTextSize(1.5);
       waitAndReturnToMenu("Returning to menu...");
       break;
     }
@@ -12270,19 +12273,19 @@ void local_scan_setup() {
   IPAddress gatewayIP;
   IPAddress subnetMask;
   std::vector<IPAddress> hostslist;
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setTextSize(1.5);
 
   gatewayIP = WiFi.gatewayIP();
   subnetMask = WiFi.subnetMask();
 
   IPAddress network = WiFi.localIP();
   network[3] = 0;
-  M5.Display.clear();
+  LB::clear();
   int numHosts = 254 - subnetMask[3];
-  M5.Display.setCursor(5, M5.Display.height() / 2);
-  M5.Display.println("Probing " + String(numHosts) + " hosts with ARP");
-  M5.Display.println("       please wait...");
+  LB::setCursor(5, LB::height() / 2);
+  LB::println("Probing " + String(numHosts) + " hosts with ARP");
+  LB::println("       please wait...");
 
   bool foundHosts = false;
   bool stopScan = false; // Variable pour vérifier si ENTER est pressé
@@ -12313,7 +12316,7 @@ void local_scan_setup() {
   }
 
   if (!foundHosts) {
-    M5.Display.println("No hosts found.");
+    LB::println("No hosts found.");
     delay(2000); // Display message for 2 seconds
     return;
   }
@@ -12386,19 +12389,19 @@ void displayHostOptions(const std::vector<IPAddress>& hostslist) {
 
     if (scanninghost) {
       // Clear screen
-      M5.Display.clear();
-      M5.Display.setCursor(5, 5);
+      LB::clear();
+      LB::setCursor(5, 5);
 
       // Display options
       for (int i = 0; i < options.size(); ++i) {
         if (i == index) {
-          M5.Display.fillRect(0, i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+          LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
         }
-        M5.Display.setCursor(5, i * lineHeight);
-        M5.Display.println(options[i].first.c_str());
+        LB::setCursor(5, i * lineHeight);
+        LB::println(options[i].first.c_str());
       }
 
       scanninghost = false;
@@ -12461,19 +12464,19 @@ void afterScanOptions(IPAddress ip, const std::vector<IPAddress>& hostslist) {
 
     if (scanninghost) {
       // Clear screen
-      M5.Display.clear();
-      M5.Display.setCursor(5, 5);
+      LB::clear();
+      LB::setCursor(5, 5);
 
       // Display options
       for (int i = 0; i < option.size(); ++i) {
         if (i == index) {
-          M5.Display.fillRect(0, i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-          M5.Display.setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+          LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
         }
-        M5.Display.setCursor(5, i * lineHeight);
-        M5.Display.println(String(i + 1) + ". " + option[i].first.c_str());
+        LB::setCursor(5, i * lineHeight);
+        LB::println(String(i + 1) + ". " + option[i].first.c_str());
       }
 
       scanninghost = false;
@@ -12513,27 +12516,27 @@ void scanPorts(IPAddress host) {
   WiFiClient client;
   const int ports[] = {20, 21, 22, 23, 25, 80, 137, 139, 443, 445, 3306, 3389, 8080, 8443, 9090};
   const int numPorts = sizeof(ports) / sizeof(ports[0]);
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5, 20);
-  M5.Display.print("Host: " + host.toString());
-  M5.Display.setCursor(5, 34);
-  M5.Display.println("Ports Open: ");
-  M5.Display.println("");
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setCursor(5, 20);
+  LB::print("Host: " + host.toString());
+  LB::setCursor(5, 34);
+  LB::println("Ports Open: ");
+  LB::println("");
   for (int i = 0; i < numPorts; i++) {
     int port = ports[i];
     if (client.connect(host, port)) {
-      M5.Display.print(port);
-      M5.Display.print(", ");
+      LB::print(port);
+      LB::print(", ");
       Serial.println("Port " + String(port) + " Open");
       client.stop();
     } else {
-      M5.Display.print("*");
-      M5.Display.print(", ");
+      LB::print("*");
+      LB::print(", ");
     }
   }
-  M5.Display.setCursor(5, M5.Display.getCursorY() + 16);
-  M5.Display.print("Finished!");
+  LB::setCursor(5, LB::getCursorY() + 16);
+  LB::print("Finished!");
   while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
     M5.update();
     M5Cardputer.update();
@@ -12688,11 +12691,11 @@ void beacon_task(void* pvParameters) {
 
 void displaySpamStatus() {
   enterDebounce();
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("PwnGrid Spam Running...");
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(5, 10);
+  LB::println("PwnGrid Spam Running...");
 
   int current_face_index = 0;
   int current_name_index = 0;
@@ -12719,23 +12722,23 @@ void displaySpamStatus() {
     }
 
     // Update and display current face, name, and channel
-    M5.Display.setCursor(20, 30);
-    M5.Display.printf("Flood:%s", change_identity ? "1" : "0");
-    M5.Display.setCursor(100, 30);
-    M5.Display.printf("DoScreen:%s", dos_pwnd ? "1" : "0");
+    LB::setCursor(20, 30);
+    LB::printf("Flood:%s", change_identity ? "1" : "0");
+    LB::setCursor(100, 30);
+    LB::printf("DoScreen:%s", dos_pwnd ? "1" : "0");
     if (!dos_pwnd) {
-      M5.Display.setCursor(5, 50);
-      M5.Display.printf("Face: \n%s                                              ", faces[current_face_index]);
-      M5.Display.setCursor(5, 80);
-      M5.Display.printf("Name:                  \n%s                                              ", names[current_name_index]);
+      LB::setCursor(5, 50);
+      LB::printf("Face: \n%s                                              ", faces[current_face_index]);
+      LB::setCursor(5, 80);
+      LB::printf("Name:                  \n%s                                              ", names[current_name_index]);
     } else {
-      M5.Display.setCursor(5, 50);
-      M5.Display.printf("Face:\nNOPWND!■■■■■■■■■■■■■■■■■");
-      M5.Display.setCursor(5, 80);
-      M5.Display.printf("Name:\n■■■■■■■■■■■■■■■■■■■■■■");
+      LB::setCursor(5, 50);
+      LB::printf("Face:\nNOPWND!■■■■■■■■■■■■■■■■■");
+      LB::setCursor(5, 80);
+      LB::printf("Name:\n■■■■■■■■■■■■■■■■■■■■■■");
     }
-    M5.Display.setCursor(5, 110);
-    M5.Display.printf("Channel: %d  ", channels[current_channel_index]);
+    LB::setCursor(5, 110);
+    LB::printf("Channel: %d  ", channels[current_channel_index]);
 
     // Update indices for next display
     current_face_index = (current_face_index + 1) % num_faces;
@@ -12879,11 +12882,11 @@ public:
     unsigned long currentTime = millis();
     if (currentTime - lastUpdate >= refreshInterval) {
       lastUpdate = currentTime;
-      M5.Display.fillScreen(TFT_BLACK);
-      M5.Display.setTextSize(2);
-      M5.Display.setCursor(5, 5);
-      M5.Display.setTextColor(isSkimmerDetected ? TFT_RED : menuTextUnFocusedColor);
-      M5.Display.println(displayMessage);
+      LB::fillScreen(TFT_BLACK);
+      LB::setTextSize(2);
+      LB::setCursor(5, 5);
+      LB::setTextColor(isSkimmerDetected ? TFT_RED : menuTextUnFocusedColor);
+      LB::println(displayMessage);
     }
 
     if (isSkimmerDetected && !skimmerDetected) {
@@ -12912,11 +12915,11 @@ void skimmerDetection() {
   pBLEScan->setInterval(1349);
   pBLEScan->setWindow(449);
 
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setTextSize(2);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
-  M5.Display.setCursor(5, 5);
-  M5.Display.println("Scanning for Skimmers...");
+  LB::fillScreen(menuBackgroundColor);
+  LB::setTextSize(2);
+  LB::setTextColor(menuTextUnFocusedColor);
+  LB::setCursor(5, 5);
+  LB::println("Scanning for Skimmers...");
 
   isScanning = true;
   skimmerDetected = false;
@@ -12946,11 +12949,11 @@ void skimmerDetection() {
       }
       isScanning = false;
 
-      M5.Display.fillScreen(TFT_BLACK);
-      M5.Display.setTextSize(2);
-      M5.Display.setCursor(5, 5);
-      M5.Display.setTextColor(TFT_RED);
-      M5.Display.println(skimmerInfo);
+      LB::fillScreen(TFT_BLACK);
+      LB::setTextSize(2);
+      LB::setCursor(5, 5);
+      LB::setTextColor(TFT_RED);
+      LB::println(skimmerInfo);
       M5.Speaker.tone(1000, 500);
       while (true) {
         M5.update();
@@ -12980,8 +12983,8 @@ void key_input(FS &fs, const String &bad_script) {
   if (fs.exists(bad_script) && !bad_script.isEmpty()) {
     File payloadFile = fs.open(bad_script, "r");
     if (payloadFile) {
-      M5.Display.setCursor(5, 40);
-      M5.Display.println("from file!");
+      LB::setCursor(5, 40);
+      LB::println("from file!");
       String lineContent = "";
       String Command = "";
       char Cmd[15];
@@ -12993,9 +12996,9 @@ void key_input(FS &fs, const String &bad_script) {
       int line;       // Montre 3 commandes du payload sur l'écran
 
       Kb.releaseAll();
-      M5.Display.setTextSize(1);
-      M5.Display.setCursor(5, 5);
-      M5.Display.fillScreen(menuBackgroundColor);
+      LB::setTextSize(1);
+      LB::setCursor(5, 5);
+      LB::fillScreen(menuBackgroundColor);
       line = 0;
 
       while (payloadFile.available()) {
@@ -13011,13 +13014,13 @@ void key_input(FS &fs, const String &bad_script) {
             RepeatTmp = lineContent.substring(lineContent.indexOf(' ') + 1);
             if (RepeatTmp.toInt() == 0) {
               RepeatTmp = "1";
-              M5.Display.setTextColor(TFT_RED);
-              M5.Display.println("REPEAT argument NaN, repeating once");
+              LB::setTextColor(TFT_RED);
+              LB::println("REPEAT argument NaN, repeating once");
             }
           } else {
             RepeatTmp = "1";
-            M5.Display.setTextColor(TFT_RED);
-            M5.Display.println("REPEAT without argument, repeating once");
+            LB::setTextColor(TFT_RED);
+            LB::println("REPEAT without argument, repeating once");
           }
         } else {
           Command = lineContent.substring(0, lineContent.indexOf(' '));
@@ -13103,16 +13106,16 @@ void key_input(FS &fs, const String &bad_script) {
           Kb.releaseAll();
 
           if (line == 7) {
-            M5.Display.setCursor(5, 5);
-            M5.Display.fillScreen(menuBackgroundColor);
+            LB::setCursor(5, 5);
+            LB::fillScreen(menuBackgroundColor);
             line = 0;
           }
           line++;
 
           if (cmdFail == 57) {
-            M5.Display.setTextColor(TFT_RED);
-            M5.Display.print(Command);
-            M5.Display.println(" -> Not Supported, running as STRINGLN");
+            LB::setTextColor(TFT_RED);
+            LB::print(Command);
+            LB::println(" -> Not Supported, running as STRINGLN");
             if (Command != Argument) {
               Kb.print(Command);
               Kb.print(" ");
@@ -13121,16 +13124,16 @@ void key_input(FS &fs, const String &bad_script) {
               Kb.println(Command);
             }
           } else {
-            M5.Display.setTextColor(menuBackgroundColor);
-            M5.Display.println(Command);
+            LB::setTextColor(menuBackgroundColor);
+            LB::println(Command);
           }
-          M5.Display.setTextColor(menuTextUnFocusedColor);
-          M5.Display.println(Argument);
+          LB::setTextColor(menuTextUnFocusedColor);
+          LB::println(Argument);
 
           if (strcmp(Cmd, "REM") != 0) delay(DEF_DELAY);  //if command is not a comment, wait DEF_DELAY until next command (100ms)
         }
       }
-      M5.Display.setTextSize(1.5);
+      LB::setTextSize(1.5);
       payloadFile.close();
       Serial.println(F("Finished badusb payload execution..."));
     }
@@ -13193,7 +13196,7 @@ void showScriptOptions() {
     if (scriptOptions.empty()) {
         // Affichez un message à l'utilisateur ou exécutez une action par défaut
         Serial.println(F("Aucun script disponible."));
-        M5.Display.println("Aucun script disponible.");
+        LB::println("Aucun script disponible.");
         // Vous pouvez aussi exécuter une fonction par défaut ici, si nécessaire
     } else {
         loopOptions(scriptOptions, false, true, "Choose Script");
@@ -13204,9 +13207,9 @@ void showScriptOptions() {
 
 
 void runScript(const String &scriptName) {
-    M5.Display.fillScreen(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.println("Preparing");
+    LB::fillScreen(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::println("Preparing");
     delay(200);
 
     String bad_script = "/evil/BadUsbScript/" + scriptName;
@@ -13216,13 +13219,13 @@ void runScript(const String &scriptName) {
     }
     key_input(fs, bad_script);
 
-    M5.Display.println("Payload Sent");
+    LB::println("Payload Sent");
     delay(1000);
 }
 
 void badUSB() {
     Serial.println(F("BadUSB begin"));
-    M5.Display.fillScreen(menuBackgroundColor);
+    LB::fillScreen(menuBackgroundColor);
     std::vector<std::pair<String, std::function<void()>>> mainOptions = {
         {"Script on SD", []() { showScriptOptions(); }},
         {"Keyboard Layout", []() { showKeyboardLayoutOptions(); showScriptOptions();}}
@@ -13384,7 +13387,7 @@ void printHeader() {
 // -----------------------------------------------------------
 // Écran “General Information” (avec scroll)
 void displayGeneralInfo() {
-    M5.Display.clear();
+    LB::clear();
 
     int margin     = 5;
     int lineHeight = 10;
@@ -13396,16 +13399,16 @@ void displayGeneralInfo() {
     int y = margin;
 
     // Affiche latitude, longitude, satellites et total de réseaux détectés
-    M5.Display.setTextSize(1);
-    M5.Display.setCursor(x, y);
-    M5.Display.printf("Lat:%.3f|Lon:%.3f  Sat:%d  TotalN:%d",
+    LB::setTextSize(1);
+    LB::setCursor(x, y);
+    LB::printf("Lat:%.3f|Lon:%.3f  Sat:%d  TotalN:%d",
                       gps.location.lat(),
                       gps.location.lng(),
                       gps.satellites.value(),
                       totalNetworks);
     y += lineHeight;
     y += 1;
-    M5.Display.drawLine(margin, y, 240 - margin, y, taskbarDividerColor);
+    LB::drawLine(margin, y, 240 - margin, y, taskbarDividerColor);
     y += 2;
 
     // 1) On détermine d’abord combien de canaux ont boardSeen > 0
@@ -13428,17 +13431,17 @@ void displayGeneralInfo() {
             // si cette ligne est dans la plage à afficher
             if (lineIndex >= scrollOffset && displayed < MAX_DISPLAY_LINES) {
                 // Affiche numéro de canal
-                M5.Display.setCursor(x, y);
-                M5.Display.printf("%3d", ch);
+                LB::setCursor(x, y);
+                LB::printf("%3d", ch);
                 // Affiche compteur
-                M5.Display.setCursor(x + col1Width + separatorW, y);
-                M5.Display.printf("%3d", boardSeen[ch]);
+                LB::setCursor(x + col1Width + separatorW, y);
+                LB::printf("%3d", boardSeen[ch]);
                 // Affiche SSID (tronqué si trop long)
-                M5.Display.setCursor(x + col1Width + col2Width + 2*separatorW, y);
-                M5.Display.printf("%-12s", boardSSIDs[ch].c_str());
+                LB::setCursor(x + col1Width + col2Width + 2*separatorW, y);
+                LB::printf("%-12s", boardSSIDs[ch].c_str());
 
                 y += lineHeight;
-                M5.Display.drawLine(margin, y, 240 - margin, y, taskbarDividerColor);
+                LB::drawLine(margin, y, 240 - margin, y, taskbarDividerColor);
                 y += 2;
 
                 displayed++;
@@ -13450,14 +13453,14 @@ void displayGeneralInfo() {
 
     // (3) Affiche en bas la liste des 3 SSID récents
     y += 5;
-    M5.Display.setCursor(x, y);
-    M5.Display.print("Recent SSIDs:");
+    LB::setCursor(x, y);
+    LB::print("Recent SSIDs:");
     String combined = recentSSID + ", " + recentSSID1 + ", " + recentSSID2;
     y += lineHeight;
-    M5.Display.setCursor(x, y);
-    M5.Display.printf("%s", combined.c_str());
+    LB::setCursor(x, y);
+    LB::printf("%s", combined.c_str());
 
-    M5.Display.display();
+    LB::display();
 }
 
 // -----------------------------------------------------------
@@ -13467,61 +13470,61 @@ unsigned long displayInterval   = 1000;  // 1 s
 
 void displayReceivedData() {
     if (millis() - lastDisplayTime >= displayInterval) {
-        M5.Display.clear();
+        LB::clear();
         int y = 2;
         int lineHeight = 10;
         int spacing    = 2;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.println("Last data received:");
+        LB::setCursor(5, y);
+        LB::println("Last data received:");
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("MAC: ");
-        M5.Display.println(myData.bssid);
+        LB::setCursor(5, y);
+        LB::print("MAC: ");
+        LB::println(myData.bssid);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("SSID: ");
-        M5.Display.println(myData.ssid);
+        LB::setCursor(5, y);
+        LB::print("SSID: ");
+        LB::println(myData.ssid);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("Encryption: ");
-        M5.Display.println(myData.encryptionType);
+        LB::setCursor(5, y);
+        LB::print("Encryption: ");
+        LB::println(myData.encryptionType);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("Channel: ");
-        M5.Display.println(myData.channel);
+        LB::setCursor(5, y);
+        LB::print("Channel: ");
+        LB::println(myData.channel);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("RSSI: ");
-        M5.Display.println(myData.rssi);
+        LB::setCursor(5, y);
+        LB::print("RSSI: ");
+        LB::println(myData.rssi);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("Lat: ");
-        M5.Display.println(gps.location.lat(), 8);
+        LB::setCursor(5, y);
+        LB::print("Lat: ");
+        LB::println(gps.location.lat(), 8);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("Lon: ");
-        M5.Display.println(gps.location.lng(), 8);
+        LB::setCursor(5, y);
+        LB::print("Lon: ");
+        LB::println(gps.location.lng(), 8);
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("Altitude: ");
-        M5.Display.println(gps.altitude.meters());
+        LB::setCursor(5, y);
+        LB::print("Altitude: ");
+        LB::println(gps.altitude.meters());
         y += lineHeight + spacing;
 
-        M5.Display.setCursor(5, y);
-        M5.Display.print("HDOP: ");
-        M5.Display.println(gps.hdop.value());
+        LB::setCursor(5, y);
+        LB::print("HDOP: ");
+        LB::println(gps.hdop.value());
         y += lineHeight + spacing;
 
-        M5.Display.display();
+        LB::display();
         lastDisplayTime = millis();
     }
 }
@@ -13794,11 +13797,11 @@ void displayStatus(){
   for(size_t i = 0; i < NUM_CHANNELS; i++) total += received_frames[i];
 
   if(total != lastTotalReceived){
-    M5.Display.fillRect(0, 0, 240, 10, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.setTextSize(1);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
-    M5.Display.printf("Total Frames: %d", total);
+    LB::fillRect(0, 0, 240, 10, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::setTextSize(1);
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::printf("Total Frames: %d", total);
     lastTotalReceived = total;
   }
 
@@ -13816,29 +13819,29 @@ void displayStatus(){
     int x = col * w;
     int y = 10 + row * h;
 
-    M5.Display.fillRect(x, y, w, h, menuBackgroundColor);
-    M5.Display.drawRect(x, y, w, h, menuTextFocusedColor);
+    LB::fillRect(x, y, w, h, menuBackgroundColor);
+    LB::drawRect(x, y, w, h, menuTextFocusedColor);
 
     String t = "CH " + String(channelsList[i]) + ": " + String(received_frames[i]);
-    int tw = M5.Display.textWidth(t);
-    M5.Display.setCursor(x + (w - tw) / 2, y + (h - 6) / 2);
-    M5.Display.print(t);
+    int tw = LB::textWidth(t);
+    LB::setCursor(x + (w - tw) / 2, y + (h - 6) / 2);
+    LB::print(t);
 
     lastReceivedFrames[i] = received_frames[i];
   }
 
   /* --- Actualiser l'écran principal ------------------------ */
-  M5.Display.display();
+  LB::display();
 
   /* --- Bannière SSID en pied d'écran ----------------------- */
   static String lastShown = "";
   if(lastSSIDMasterSniffer[0] && lastShown != lastSSIDMasterSniffer){
     int y = 135 - 15; // bandeau de 10 px en bas
-    M5.Display.fillRect(0, y, 240, 10, menuBackgroundColor);
-    M5.Display.setCursor(5, y);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
-    M5.Display.printf("Last SSID : %s", lastSSIDMasterSniffer);
-    M5.Display.display();
+    LB::fillRect(0, y, 240, 10, menuBackgroundColor);
+    LB::setCursor(5, y);
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::printf("Last SSID : %s", lastSSIDMasterSniffer);
+    LB::display();
     lastShown = lastSSIDMasterSniffer;
   }
 }
@@ -13846,7 +13849,7 @@ void displayStatus(){
 /*──────────────────────── 9. Boucle SniffMaster ───────────────*/
 void sniffMaster(){
   exitSniffMaster=false;
-  M5.Display.clear(menuBackgroundColor);
+  LB::clear(menuBackgroundColor);
   Serial.println(F(">> SniffMaster v3 (queue RAM)"));
   enterDebounce();
 
@@ -13905,30 +13908,30 @@ void wifiVisualizer() {
 
     enterDebounce();
 
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextSize(1);
-    M5.Display.setTextFont(1);
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.setCursor(screenWidth / 2 - 30, screenHeight / 2 - 10);
-    M5.Display.printf("Scanning...");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextSize(1);
+    LB::setTextFont(1);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor(screenWidth / 2 - 30, screenHeight / 2 - 10);
+    LB::printf("Scanning...");
+    LB::display();
 
     static int colors[] = {TFT_WHITE, TFT_RED, TFT_PINK, TFT_ORANGE, TFT_YELLOW, TFT_GREENYELLOW, TFT_GREEN, TFT_DARKGREEN, TFT_CYAN, TFT_BLUE, TFT_NAVY, TFT_PURPLE, TFT_MAROON, TFT_MAGENTA};
 
     for (int i = 0; i <= 5; i++) {
         int yPosition = chartHeight - (i * chartHeight / 5) + 10;
-        M5.Display.drawLine(leftMargin - 5, yPosition, leftMargin, yPosition, menuSelectedBackgroundColor);
-        M5.Display.setCursor(5, yPosition - 5);
+        LB::drawLine(leftMargin - 5, yPosition, leftMargin, yPosition, menuSelectedBackgroundColor);
+        LB::setCursor(5, yPosition - 5);
         int scaleValue = (5 * i);
-        M5.Display.printf("%d", scaleValue);
+        LB::printf("%d", scaleValue);
     }
     for (int i = 1; i <= maxChannels; i++) {
         int xPosition = leftMargin + (i - 1) * (barWidth + spacing);
-        M5.Display.setCursor(xPosition + (barWidth / 2) - 4, screenHeight - 8);
-        M5.Display.setTextColor(colors[i+1], menuBackgroundColor);
-        M5.Display.printf("%d", i);
+        LB::setCursor(xPosition + (barWidth / 2) - 4, screenHeight - 8);
+        LB::setTextColor(colors[i+1], menuBackgroundColor);
+        LB::printf("%d", i);
     }
-    M5.Display.display();
+    LB::display();
 
     WiFi.mode(WIFI_STA);
     WiFi.scanNetworks(true);
@@ -13967,17 +13970,17 @@ void wifiVisualizer() {
             int scaleMax = ((maxCount + 4) / 5) * 5;
             if (scaleMax < 5) scaleMax = 5;
 
-            M5.Display.clear(menuBackgroundColor);
-            M5.Display.setTextSize(1);
-            M5.Display.setTextFont(1);
+            LB::clear(menuBackgroundColor);
+            LB::setTextSize(1);
+            LB::setTextFont(1);
 
-            M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
+            LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
             for (int i = 0; i <= 5; i++) {
                 int yPosition = chartHeight - (i * chartHeight / 5) + 10;
-                M5.Display.drawLine(leftMargin - 5, yPosition, screenWidth-5, yPosition, menuSelectedBackgroundColor);
-                M5.Display.setCursor(5, yPosition - 5);
+                LB::drawLine(leftMargin - 5, yPosition, screenWidth-5, yPosition, menuSelectedBackgroundColor);
+                LB::setCursor(5, yPosition - 5);
                 int scaleValue = (scaleMax * i) / 5;
-                M5.Display.printf("%d", scaleValue);
+                LB::printf("%d", scaleValue);
             }
 
             for (int i = 1; i <= maxChannels; i++) {
@@ -14008,22 +14011,22 @@ void wifiVisualizer() {
                 uint16_t shadowColor = (r << 11) | (g << 5) | b;
                 uint16_t barColor = colors[i];
 
-                M5.Display.fillRect(xPosition, screenHeight - barHeight - 10, barWidth, barHeight, barColor);
+                LB::fillRect(xPosition, screenHeight - barHeight - 10, barWidth, barHeight, barColor);
 
-                M5.Display.fillTriangle(
+                LB::fillTriangle(
                     xPosition + barWidth, screenHeight - barHeight - 10,
                     xPosition + barWidth + 4, screenHeight - barHeight - 14,
                     xPosition + barWidth + 4, screenHeight - 10, shadowColor
                 );
 
-                M5.Display.drawRect(xPosition, screenHeight - barHeight - 10, barWidth, barHeight, colors[i]);
+                LB::drawRect(xPosition, screenHeight - barHeight - 10, barWidth, barHeight, colors[i]);
 
-                M5.Display.setCursor(xPosition + (barWidth / 2) - 4, screenHeight - 8);
-                M5.Display.setTextColor(colors[i], menuBackgroundColor);
-                M5.Display.printf("%d", i);
+                LB::setCursor(xPosition + (barWidth / 2) - 4, screenHeight - 8);
+                LB::setTextColor(colors[i], menuBackgroundColor);
+                LB::printf("%d", i);
             }
 
-            M5.Display.display();
+            LB::display();
 
             WiFi.scanNetworks(true);
             scanInProgress = true;
@@ -14203,11 +14206,11 @@ void allTrafficSniffer() {
   esp_wifi_set_promiscuous_rx_cb(allTrafficCallback_snifferAll);
 
   Serial.println(F("Starting all traffic sniffer..."));
-  M5.Lcd.clear();
-  M5.Lcd.setTextColor(menuTextFocusedColor);
-  M5.Lcd.setCursor(3, 0);
-  M5.Lcd.println("Sniffing Raw on :");
-  M5.Lcd.println(filename);
+  LB::clear();
+  LB::setTextColor(menuTextFocusedColor);
+  LB::setCursor(3, 0);
+  LB::println("Sniffing Raw on :");
+  LB::println(filename);
 
   bool exitSniff = false;
   unsigned long lastKeyPressTime = 0;
@@ -14221,35 +14224,35 @@ void allTrafficSniffer() {
     unsigned long currentPressTime = millis();
     unsigned long currentTime = millis();
 
-    M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Lcd.setCursor(0, 25);
-    M5.Lcd.printf("     < [Channel]: %d > \n", currentChannel);
-    M5.Lcd.setCursor(0, 42);
-    M5.Lcd.printf("[Beacon]      : %d\n", beaconCount);
-    M5.Lcd.printf("[EAPOL]       : %d\n", eapolCount);
-    M5.Lcd.printf("[Deauth]      : %d\n", deauthCountSniff);
-    M5.Lcd.printf("[ProbeReq]    : %d\n", probeReqCount);
-    M5.Lcd.printf("[ProbeResp]   : %d\n", probeRespCount);
-    M5.Lcd.printf("[Total]       : %d\n", packetSavedCount);
-    M5.Lcd.setCursor(0, M5.Display.height() - 16);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor(0, 25);
+    LB::printf("     < [Channel]: %d > \n", currentChannel);
+    LB::setCursor(0, 42);
+    LB::printf("[Beacon]      : %d\n", beaconCount);
+    LB::printf("[EAPOL]       : %d\n", eapolCount);
+    LB::printf("[Deauth]      : %d\n", deauthCountSniff);
+    LB::printf("[ProbeReq]    : %d\n", probeReqCount);
+    LB::printf("[ProbeResp]   : %d\n", probeRespCount);
+    LB::printf("[Total]       : %d\n", packetSavedCount);
+    LB::setCursor(0, LB::height() - 16);
 
     // Cursor blinking every second
     if (currentTime - lastCursorBlinkTime >= 1000) {
       cursorVisible = !cursorVisible;
       lastCursorBlinkTime = currentTime;
     }
-    M5.Lcd.setTextColor(menuTextFocusedColor, TFT_BLACK);
-    M5.Lcd.printf(cursorVisible ? ">_" : "> ");
+    LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+    LB::printf(cursorVisible ? ">_" : "> ");
 
     // Show pause indicator
     if (isPaused) {
-      M5.Lcd.setCursor(M5.Lcd.width() - 70, M5.Lcd.height() - 12);
-      M5.Lcd.setTextColor(WHITE, RED);
-      M5.Lcd.print(" PAUSE ");
+      LB::setCursor(LB::width() - 70, LB::height() - 12);
+      LB::setTextColor(WHITE, RED);
+      LB::print(" PAUSE ");
     } else{
-      M5.Lcd.setCursor(M5.Lcd.width() - 80, M5.Lcd.height() - 12);
-      M5.Lcd.setTextColor(menuTextFocusedColor, TFT_BLACK);
-      M5.Lcd.print("        ");
+      LB::setCursor(LB::width() - 80, LB::height() - 12);
+      LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+      LB::print("        ");
     }
 
     // Channel change detection
@@ -14412,11 +14415,11 @@ void sniffNetwork() {
   esp_wifi_set_promiscuous_rx_cb(TrafficMITMCallback);
 
   Serial.println(F("Starting all traffic sniffer..."));
-  M5.Lcd.clear();
-  M5.Lcd.setTextColor(menuTextFocusedColor);
-  M5.Lcd.setCursor(3, 0);
-  M5.Lcd.println("Sniffing Raw on :");
-  M5.Lcd.println(filename);
+  LB::clear();
+  LB::setTextColor(menuTextFocusedColor);
+  LB::setCursor(3, 0);
+  LB::println("Sniffing Raw on :");
+  LB::println(filename);
 
   bool exitSniff = false;
   unsigned long lastKeyPressTime = 0;
@@ -14431,12 +14434,12 @@ void sniffNetwork() {
     
     if (getConnectedPeopleCount() == 0) {
       Serial.println(F("No stations connected, stopping sniffer and returning to menu..."));
-      M5.Lcd.clear();
-      M5.Lcd.setTextColor(RED);
+      LB::clear();
+      LB::setTextColor(RED);
       int centerX = 240 / 2 - (10 * strlen("No clients connected")) / 2;
       int centerY = 135 / 2 - 8;
-      M5.Lcd.setCursor(centerX, centerY);
-      M5.Lcd.println("No more clients...");
+      LB::setCursor(centerX, centerY);
+      LB::println("No more clients...");
       vTaskDelay(pdMS_TO_TICKS(2000));
       exitSniff = true;
       continue;
@@ -14445,17 +14448,17 @@ void sniffNetwork() {
     unsigned long currentPressTime = millis();
     unsigned long currentTime = millis();
 
-    M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Lcd.setCursor(0, 25);
-    M5.Lcd.printf("[Total]       : %d\n", packetSavedCount);
-    M5.Lcd.setCursor(0, M5.Display.height() - 16);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor(0, 25);
+    LB::printf("[Total]       : %d\n", packetSavedCount);
+    LB::setCursor(0, LB::height() - 16);
 
     if (currentTime - lastCursorBlinkTime >= 1000) {
       cursorVisible = !cursorVisible;
       lastCursorBlinkTime = currentTime;
     }
-    M5.Lcd.setTextColor(menuTextFocusedColor, TFT_BLACK);
-    M5.Lcd.printf(cursorVisible ? ">_" : "> ");
+    LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+    LB::printf(cursorVisible ? ">_" : "> ");
 
     if ((M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) || M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))) {
       exitSniff = true;
@@ -14509,7 +14512,7 @@ void logScanResult(String result) {
         String filePath = scanFolder + "/" + String(fileIndex) + ".txt";  // Create a new file path with the next index
         scanFile = SD.open(filePath, FILE_WRITE);  // Open the file for writing
         if (!scanFile) {
-            M5.Display.println("Failed to create scan file.");
+            LB::println("Failed to create scan file.");
             return;
         }
     }
@@ -14534,19 +14537,19 @@ void FullNetworkAnalysis(bool isWebCommand) {
     std::vector<IPAddress> hostslist;
 
     // Initial display configuration
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.setTextSize(1.5);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setTextSize(1.5);
 
     gatewayIP = WiFi.gatewayIP();
     subnetMask = WiFi.subnetMask();
 
     IPAddress network = WiFi.localIP();
     network[3] = 0;  // Use the base network address
-    M5.Display.clear();
+    LB::clear();
     int numHosts = 254 - subnetMask[3];  // Calculate the number of hosts
-    M5.Display.setCursor(5, M5.Display.height() / 2);
-    M5.Display.println("Probing " + String(numHosts) + " hosts with ARP");
-    M5.Display.println("       please wait...");
+    LB::setCursor(5, LB::height() / 2);
+    LB::println("Probing " + String(numHosts) + " hosts with ARP");
+    LB::println("       please wait...");
 
     bool foundHosts = false;
 
@@ -14573,7 +14576,7 @@ void FullNetworkAnalysis(bool isWebCommand) {
     }
 
     if (!foundHosts) {
-        M5.Display.println("No hosts found.");
+        LB::println("No hosts found.");
         delay(2000);
         scanInProgress = false;
         waitAndReturnToMenu("No hosts found.");
@@ -14583,9 +14586,9 @@ void FullNetworkAnalysis(bool isWebCommand) {
     }
 
     // Display the number of found hosts
-    M5.Display.clear();
-    M5.Display.setCursor(M5.Display.width() / 2 - 60, M5.Display.height() / 2);
-    M5.Display.println(String(hostslist.size()) + " hosts found");
+    LB::clear();
+    LB::setCursor(LB::width() / 2 - 60, LB::height() / 2);
+    LB::println(String(hostslist.size()) + " hosts found");
     delay(2000);
 
     // Scrolling display of the hosts and scanning their ports
@@ -14595,7 +14598,7 @@ void FullNetworkAnalysis(bool isWebCommand) {
     // Close the scan file after the scan is done
     if (scanFile) {
         scanFile.close();
-        M5.Display.println("Scan results saved successfully.");
+        LB::println("Scan results saved successfully.");
     }
 }
 
@@ -14650,7 +14653,7 @@ bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_
 void displayHostsAndScanPorts(const std::vector<IPAddress>& hostslist, int scanIndex, bool isWebCommand) {
     int displayStart = 0;
     int lineHeight = 12;
-    int maxLines = M5.Display.height() / lineHeight;
+    int maxLines = LB::height() / lineHeight;
     std::vector<String> scanResults;
     std::map<IPAddress, std::vector<int>> openPorts;
 
@@ -14718,7 +14721,7 @@ void displayHostsAndScanPorts(const std::vector<IPAddress>& hostslist, int scanI
 
 
     int currentHostIndex = 0;
-    M5.Display.setTextSize(1.5);
+    LB::setTextSize(1.5);
     bool needsDisplayUpdate = true;
 
     while (currentHostIndex < hostslist.size()) {
@@ -14796,7 +14799,7 @@ void displayHostsAndScanPorts(const std::vector<IPAddress>& hostslist, int scanI
           delay(30);
       }
       if (confirmPopup("Scrape websites? (Y/N)")) {
-          M5.Display.clear();
+          LB::clear();
           fetchWebsites(hostslist, openPorts, scanIndex);  // Appelle la fonction pour récupérer les sites
       }
     }
@@ -14807,14 +14810,14 @@ void displayHostsAndScanPorts(const std::vector<IPAddress>& hostslist, int scanI
 
 // Function to display scan results
 void displayResults(int displayStart, int maxLines, const std::vector<String>& scanResults) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
+    LB::clear();
+    LB::setCursor(5, 5);
 
     int totalLines = scanResults.size();
     int endLine = min(displayStart + maxLines, totalLines);
 
     for (int i = displayStart; i < endLine; i++) {
-        M5.Display.println(scanResults[i]);
+        LB::println(scanResults[i]);
     }
 }
 
@@ -14869,9 +14872,9 @@ void fetchWebsites(const std::vector<IPAddress>& hostslist, const std::map<IPAdd
 
             // Afficher le décompte centré en x et à la ligne y = 40
             String countDisplay = String(processedWebsites) + "/" + String(totalWebsites);
-            M5.Display.setCursor(110, 20);
-            M5.Display.print(countDisplay); 
-            M5.Display.display();
+            LB::setCursor(110, 20);
+            LB::print(countDisplay); 
+            LB::display();
 
             String url = protocol + host.toString() + ":" + String(port);
 
@@ -14925,28 +14928,28 @@ void saveWebsiteContent(String folderPath, String identifier, String content) {
     }
 
     // Effacer l'écran
-    M5.Display.clear();
+    LB::clear();
 
     // Calcul pour centrer le texte verticalement
-    int textHeight = M5.Display.fontHeight() * 2;  // Estimation pour deux lignes de texte
-    int startY = (M5.Display.height() - textHeight) / 2;
+    int textHeight = LB::fontHeight() * 2;  // Estimation pour deux lignes de texte
+    int startY = (LB::height() - textHeight) / 2;
 
     // Calcul pour centrer la première ligne
-    int statusTextWidth = M5.Display.textWidth(statusMessage);
-    int startXStatus = (M5.Display.width() - statusTextWidth) / 2;
+    int statusTextWidth = LB::textWidth(statusMessage);
+    int startXStatus = (LB::width() - statusTextWidth) / 2;
 
     // Afficher la première ligne centrée
-    M5.Lcd.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.setCursor(startXStatus, startY);
-    M5.Display.println(statusMessage);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::setCursor(startXStatus, startY);
+    LB::println(statusMessage);
 
     // Calcul pour centrer la deuxième ligne
-    int identifierTextWidth = M5.Display.textWidth(identifier);
-    int startXIdentifier = (M5.Display.width() - identifierTextWidth) / 2;
+    int identifierTextWidth = LB::textWidth(identifier);
+    int startXIdentifier = (LB::width() - identifierTextWidth) / 2;
 
     // Afficher la deuxième ligne centrée
-    M5.Display.setCursor(startXIdentifier, startY + M5.Display.fontHeight());
-    M5.Display.println(identifier);
+    LB::setCursor(startXIdentifier, startY + LB::fontHeight());
+    LB::println(identifier);
 }
 
 // Fonction pour lister les fichiers texte dans un dossier
@@ -14973,25 +14976,25 @@ void displayFileList(const std::vector<String>& files) {
     int displayStart = 0;
     int currentFileIndex = 0;
     int lineHeight = 12;
-    int maxLines = M5.Display.height() / lineHeight;
+    int maxLines = LB::height() / lineHeight;
     bool needsDisplayUpdate = true;
     enterDebounce();
     
     while (true) {
         if (needsDisplayUpdate) {
-            M5.Display.clear(TFT_BLACK);
+            LB::clear(TFT_BLACK);
             int endLine = min(displayStart + maxLines, (int)files.size());
             for (int i = displayStart; i < endLine; i++) {
                 if (i == currentFileIndex) {
-                    M5.Display.fillRect(0, (i - displayStart) * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-                    M5.Display.setTextColor(menuTextFocusedColor, menuSelectedBackgroundColor);
+                    LB::fillRect(0, (i - displayStart) * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+                    LB::setTextColor(menuTextFocusedColor, menuSelectedBackgroundColor);
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+                    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
                 }
-                M5.Display.setCursor(5, (i - displayStart) * lineHeight);
-                M5.Display.println(files[i]);
+                LB::setCursor(5, (i - displayStart) * lineHeight);
+                LB::println(files[i]);
             }
-            M5.Display.display();
+            LB::display();
             needsDisplayUpdate = false;
         }
 
@@ -15029,10 +15032,10 @@ void displayFileList(const std::vector<String>& files) {
 void viewFileContent(String filePath) {
     File file = SD.open(filePath);
     if (!file) {
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.println("Failed to open file: " + filePath);
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::println("Failed to open file: " + filePath);
+        LB::display();
         delay(2000);
         return;
     }
@@ -15047,21 +15050,21 @@ void viewFileContent(String filePath) {
     // Affichage avec défilement
     int displayStart = 0;
     int lineHeight = 10;
-    int maxLines = M5.Display.height() / lineHeight;
+    int maxLines = LB::height() / lineHeight;
     bool needsDisplayUpdate = true;
-    M5.Display.setTextSize(1.3);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setTextSize(1.3);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
     
     enterDebounce();
     while (true) {
         if (needsDisplayUpdate) {
-            M5.Display.clear(menuBackgroundColor);
+            LB::clear(menuBackgroundColor);
             int endLine = min(displayStart + maxLines, (int)fileLines.size());
             for (int i = displayStart; i < endLine; i++) {
-                M5.Display.setCursor(5, (i - displayStart) * lineHeight);
-                M5.Display.println(fileLines[i]);
+                LB::setCursor(5, (i - displayStart) * lineHeight);
+                LB::println(fileLines[i]);
             }
-            M5.Display.display();
+            LB::display();
             needsDisplayUpdate = false;
         }
 
@@ -15088,10 +15091,10 @@ void viewFileContent(String filePath) {
 void ListNetworkAnalysis() {
     std::vector<String> scanFiles = listScanFiles();
     if (scanFiles.empty()) {
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.println("No scan files found.");
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::println("No scan files found.");
+        LB::display();
         delay(2000);
         return;
     }
@@ -15129,8 +15132,8 @@ void reverseTCPTunnel() {
   
   createCaptivePortal();
   
-  M5.Display.clear();
-  M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+  LB::clear();
+  LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
   WiFiClient client;
   
   bool running = true;
@@ -15138,9 +15141,9 @@ void reverseTCPTunnel() {
     handleDnsRequestSerial();
     M5Cardputer.update();
     
-    M5.Display.clear();
-    M5.Display.setCursor(20, M5.Display.height() / 2);
-    M5.Display.println("Attempting to connect...");
+    LB::clear();
+    LB::setCursor(20, LB::height() / 2);
+    LB::println("Attempting to connect...");
     
     unsigned long previousAttemptTime = 0;
     const unsigned long attemptInterval = 5000;
@@ -15153,9 +15156,9 @@ void reverseTCPTunnel() {
         // Check for return to menu
         if (isBackspacePressed()) {
           running = false;
-          M5.Display.clear();
-          M5.Display.setCursor(20, M5.Display.height() / 2);
-          M5.Display.println("Returning to menu...");
+          LB::clear();
+          LB::setCursor(20, LB::height() / 2);
+          LB::println("Returning to menu...");
           break;
         }
 
@@ -15163,26 +15166,26 @@ void reverseTCPTunnel() {
             previousAttemptTime = millis();
 
             if (client.connect(tcp_host.c_str(), tcp_port)) {
-                M5.Display.clear();
-                M5.Display.setCursor(20, M5.Display.height() / 2);
-                M5.Display.println("Connection established.");
+                LB::clear();
+                LB::setCursor(20, LB::height() / 2);
+                LB::println("Connection established.");
                 attemptingConnection = false;
             } else {
                 if (WiFi.status() != WL_CONNECTED) {
                   WiFi.begin(ssid.c_str(), password.c_str());
                 }
-                M5.Display.clear();
-                M5.Display.setCursor(20, M5.Display.height() / 2);
-                M5.Display.println("Trying to connect...");
+                LB::clear();
+                LB::setCursor(20, LB::height() / 2);
+                LB::println("Trying to connect...");
             }
         }
     }
 
     if (!running) break;
 
-    M5.Display.clear();
-    M5.Display.setCursor(30, M5.Display.height() / 2);
-    M5.Display.println("TCP tunnel Connected.");
+    LB::clear();
+    LB::setCursor(30, LB::height() / 2);
+    LB::println("TCP tunnel Connected.");
 
     while (client.connected() && running) {
       M5Cardputer.update();
@@ -15198,9 +15201,9 @@ void reverseTCPTunnel() {
     }
 
     client.stop();
-    M5.Display.clear();
-    M5.Display.setCursor(20, M5.Display.height() / 2);
-    M5.Display.println("Connection closed.");
+    LB::clear();
+    LB::setCursor(20, LB::height() / 2);
+    LB::println("Connection closed.");
     delay(1000); // Short delay for user to read the information
   }
   waitAndReturnToMenu("Return to menu.");
@@ -15418,7 +15421,7 @@ void rogueDHCP(RogueDhcpMode mode) {
     return;
   }
 
-  M5.Display.clear(menuBackgroundColor);
+  LB::clear(menuBackgroundColor);
   Serial.println(F("Rogue DHCP running..."));
   updateDisplay("DHCP running...");
 
@@ -15730,21 +15733,21 @@ void updateDisplay(const char* message) {
   currentLineRogue = (currentLineRogue + 1) % maxLinesRogue;
 
   // Clear the screen
-  M5.Display.clear(menuBackgroundColor);
+  LB::clear(menuBackgroundColor);
 
   // Display the last lines
-  M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+  LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
   int y = 10;
   for (int i = 0; i < maxLinesRogue; i++) {
     int index = (currentLineRogue - i - 1 + maxLinesRogue) % maxLinesRogue;
     if (!displayLinesRogue[index].isEmpty()) {
-      M5.Display.setCursor(5, y);
-      M5.Display.println(displayLinesRogue[index]);
+      LB::setCursor(5, y);
+      LB::println(displayLinesRogue[index]);
       y += 12;
     }
   }
 
-  M5.Display.display();
+  LB::display();
 }
 
 
@@ -15813,15 +15816,15 @@ void saveCurrentNetworkConfig() {
     Serial.print(F("DNS: "));
     Serial.println(currentDNS);
 
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Current network saved:");
-    M5.Display.printf("IP: %s\n", currentIPStarvation.toString().c_str());
-    M5.Display.printf("Subnet: %s\n", currentSubnet.toString().c_str());
-    M5.Display.printf("Gateway: %s\n", currentGateway.toString().c_str());
-    M5.Display.printf("DNS: %s\n", currentDNS.toString().c_str());
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::println("Current network saved:");
+    LB::printf("IP: %s\n", currentIPStarvation.toString().c_str());
+    LB::printf("Subnet: %s\n", currentSubnet.toString().c_str());
+    LB::printf("Gateway: %s\n", currentGateway.toString().c_str());
+    LB::printf("DNS: %s\n", currentDNS.toString().c_str());
+    LB::display();
     delay(2000);
 }
 
@@ -15829,41 +15832,41 @@ void disconnectWiFi() {
     WiFi.disconnect(true);
     Serial.println(F("WiFi disconnected."));
     
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("WiFi disconnected.");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::println("WiFi disconnected.");
+    LB::display();
     delay(1000);
 }
 
 void configureStaticIP() {
     if (!WiFi.config(currentIPStarvation, currentGateway, currentSubnet, currentDNS)) {
         Serial.println(F("Failed to configure static IP."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Failed to configure\n static IP.");
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Failed to configure\n static IP.");
+        LB::display();
         delay(2000);
     } else {
         Serial.println(F("Static IP configured successfully."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Static IP configured \nsuccessfully.");
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Static IP configured \nsuccessfully.");
+        LB::display();
         delay(1000);
     }
 }
 
 void reconnectWiFi(int networkIndex) {
     Serial.println(F("Reconnecting to WiFi..."));
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Reconnecting to WiFi...");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::println("Reconnecting to WiFi...");
+    LB::display();
     
     if (getWifiSecurity(networkIndex) == "Open") {
         Serial.println(F("Network is open, no password required."));
@@ -15876,13 +15879,13 @@ void reconnectWiFi(int networkIndex) {
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(F("."));
-        M5.Display.print(".");
-        M5.Display.display();
+        LB::print(".");
+        LB::display();
     }
 
     Serial.println(F("\nConnected to WiFi."));
-    M5.Display.println("\nConnected to WiFi.");
-    M5.Display.display();
+    LB::println("\nConnected to WiFi.");
+    LB::display();
     delay(1000);
 }
 
@@ -15890,12 +15893,12 @@ void reconnectWiFi(int networkIndex) {
 
 void detectDHCPServer() {
     unsigned long startMillis = millis();
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Detecting DHCP server...");
-    M5.Display.println("Press ENTER to cancel");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::println("Detecting DHCP server...");
+    LB::println("Press ENTER to cancel");
+    LB::display();
     dhcpServerDetected = false;
 
     while (millis() - startMillis < 16000) { // Maximum wait time of 16 seconds
@@ -15904,10 +15907,10 @@ void detectDHCPServer() {
 
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
             Serial.println(F("Detection cancelled by user"));
-            M5.Display.clear(menuBackgroundColor);
-            M5.Display.setCursor(5, 5);
-            M5.Display.printf("Detection cancelled");
-            M5.Display.display();
+            LB::clear(menuBackgroundColor);
+            LB::setCursor(5, 5);
+            LB::printf("Detection cancelled");
+            LB::display();
             delay(2000);
             return;
         }
@@ -15935,8 +15938,8 @@ void detectDHCPServer() {
                 }
                 
                 Serial.printf("DHCP server detected: %s\n", dhcpServerIP.toString().c_str());
-                M5.Display.printf("DHCP server found:\n%s\n", dhcpServerIP.toString().c_str());
-                M5.Display.display();
+                LB::printf("DHCP server found:\n%s\n", dhcpServerIP.toString().c_str());
+                LB::display();
                 dhcpServerDetected = true;
                 delay(2000);
                 return;
@@ -15949,11 +15952,11 @@ void detectDHCPServer() {
         if (!dhcpServerDetected) {
           dhcpServerIP = currentGateway;
           Serial.println(F("No DHCP server detected. Using gateway as fallback."));
-          M5.Display.clear(BLACK);
-          M5.Display.println("No DHCP server found.");
-          M5.Display.println("Using gateway as fallback:");
-          M5.Display.printf("Gateway: %s\n", dhcpServerIP.toString().c_str());
-          M5.Display.display();
+          LB::clear(BLACK);
+          LB::println("No DHCP server found.");
+          LB::println("Using gateway as fallback:");
+          LB::printf("Gateway: %s\n", dhcpServerIP.toString().c_str());
+          LB::display();
           delay(2000);
         }
 }
@@ -15980,12 +15983,12 @@ void startDHCPStarvation() {
     saveCurrentNetworkConfig();
     if (totalIPs == 0) {
         Serial.println(F("Error: Total IPs calculated as zero."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Error: Total IPs\ncalculated as zero.\nsettings to 255");
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Error: Total IPs\ncalculated as zero.\nsettings to 255");
         totalIPs == 255;
-        M5.Display.display();
+        LB::display();
         delay(2000);
     }
     disconnectWiFi();
@@ -15995,41 +15998,41 @@ void startDHCPStarvation() {
 
     if (!udp.begin(68)) {
         Serial.println(F("Error: Failed to initialize UDP socket on port 68."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Error: Failed to init \nUDP socket");
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Error: Failed to init \nUDP socket");
+        LB::display();
         delay(2000);
         return;
     }
 
     Serial.println(F("System initialized. Ready to detect DHCP server..."));
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("System initialized");
-    M5.Display.println("Starting DHCP detection...");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 5);
+    LB::println("System initialized");
+    LB::println("Starting DHCP detection...");
+    LB::display();
     delay(1000);
 
     detectDHCPServer();
     if (dhcpServerDetected) {
         Serial.println(F("DHCP server detected. Starting DHCP Starvation attack..."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Starvation running on:");
-        M5.Display.printf("DHCP server:\n%s\n", dhcpServerIP.toString().c_str());
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Starvation running on:");
+        LB::printf("DHCP server:\n%s\n", dhcpServerIP.toString().c_str());
+        LB::display();
     } else {
         Serial.println(F("No DHCP server detected. Trying with broadcast."));
-        M5.Display.clear(menuBackgroundColor);
-        M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        M5.Display.setCursor(5, 5);
-        M5.Display.println("Starvation running on:");
-        M5.Display.printf("Unknow DHCP server");
-        M5.Display.display();
+        LB::clear(menuBackgroundColor);
+        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+        LB::setCursor(5, 5);
+        LB::println("Starvation running on:");
+        LB::printf("Unknow DHCP server");
+        LB::display();
     }
 
     uint16_t i = 0;
@@ -16039,8 +16042,8 @@ void startDHCPStarvation() {
                 
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
             Serial.println(F("Attack stopped by user"));
-            M5.Display.println("Attack stopped");
-            M5.Display.display();
+            LB::println("Attack stopped");
+            LB::display();
             delay(1000);
             break;
         }
@@ -16051,41 +16054,41 @@ void startDHCPStarvation() {
         float progress = (float)ackCount / totalIPs;
         percentage = (int)(progress * 100.0);
        // Update display with statistics
-        M5.Display.fillRect(0, 40, M5.Display.width(), 40, menuBackgroundColor);
-        M5.Display.setCursor(5, 40);
-        M5.Display.printf("Pool percentage: %d%%\n", percentage);
-        M5.Display.printf("Send Discover: %d\n", discoverCount);
-        M5.Display.printf("Received Offer: %d\n", offerCount);
-        M5.Display.printf("Send Request: %d\n", requestCount);
-        M5.Display.printf("Received ACK: %d\n", ackCount);
-        M5.Display.printf("Received NAK: %d\n", nakCount);
-        M5.Display.print("Last IP:");
-        M5.Display.print(lastAssignedIP.toString().c_str());
-        M5.Display.print("        ");
-        M5.Display.display();
+        LB::fillRect(0, 40, LB::width(), 40, menuBackgroundColor);
+        LB::setCursor(5, 40);
+        LB::printf("Pool percentage: %d%%\n", percentage);
+        LB::printf("Send Discover: %d\n", discoverCount);
+        LB::printf("Received Offer: %d\n", offerCount);
+        LB::printf("Send Request: %d\n", requestCount);
+        LB::printf("Received ACK: %d\n", ackCount);
+        LB::printf("Received NAK: %d\n", nakCount);
+        LB::print("Last IP:");
+        LB::print(lastAssignedIP.toString().c_str());
+        LB::print("        ");
+        LB::display();
         i++;
     }
     if (nakCount >= NAKNumberStarvation ){
             Serial.println(F("The number of NAK suggest a successfull Starvation."));
-            M5.Display.clear(menuBackgroundColor);
-            M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-            M5.Display.setCursor(5, 30);
-            M5.Display.println("DHCP Starvation Stopped.\n\nThe number of NAK suggest\na successfull DHCP \nStarvation !!!");
-            M5.Display.display();
+            LB::clear(menuBackgroundColor);
+            LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+            LB::setCursor(5, 30);
+            LB::println("DHCP Starvation Stopped.\n\nThe number of NAK suggest\na successfull DHCP \nStarvation !!!");
+            LB::display();
             delay(4000);
     }
     Serial.println(F("DHCP Starvation attack completed."));
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 30);
-    M5.Display.println("DHCP Starvation Stopped.");
-    M5.Display.printf("Pool percentage: %d%%\n", percentage);
-    M5.Display.printf("Total Discover: %d\n", discoverCount);
-    M5.Display.printf("Total Offer: %d\n", offerCount);
-    M5.Display.printf("Total Request: %d\n", requestCount);
-    M5.Display.printf("Total ACK: %d\n", ackCount);
-    M5.Display.printf("Total NAK: %d\n", nakCount);
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 30);
+    LB::println("DHCP Starvation Stopped.");
+    LB::printf("Pool percentage: %d%%\n", percentage);
+    LB::printf("Total Discover: %d\n", discoverCount);
+    LB::printf("Total Offer: %d\n", offerCount);
+    LB::printf("Total Request: %d\n", requestCount);
+    LB::printf("Total ACK: %d\n", ackCount);
+    LB::printf("Total NAK: %d\n", nakCount);
+    LB::display();
     delay(4000);
     waitAndReturnToMenu("Return to menu");
 }
@@ -16245,9 +16248,9 @@ void sendDHCPDiscover(uint8_t *mac) {
     Serial.println(F("Sent DHCP Discover with Host Name + Options..."));
   } else {
     Serial.println(F("Failed to send DHCP Discover."));
-    M5.Display.setCursor(5, M5.Display.height() - 40);
-    M5.Display.println("Failed to send DHCP Discover");
-    M5.Display.display();
+    LB::setCursor(5, LB::height() - 40);
+    LB::println("Failed to send DHCP Discover");
+    LB::display();
   }
 }
 
@@ -16355,9 +16358,9 @@ void sendDHCPRequest(uint8_t *mac, IPAddress offeredIP, IPAddress dhcpServerIP) 
     Serial.println(F("Sent DHCP Request with Host Name + Options..."));
   } else {
     Serial.println(F("Failed to send DHCP Request."));
-    M5.Display.setCursor(5, M5.Display.height() - 40);
-    M5.Display.println("Failed to send DHCP Request");
-    M5.Display.display();
+    LB::setCursor(5, LB::height() - 40);
+    LB::println("Failed to send DHCP Request");
+    LB::display();
   }
 }
 
@@ -16467,7 +16470,7 @@ void rogueDHCPAuto() {
 
   udp.begin(localUdpPort);
 
-  M5.Display.clear(menuBackgroundColor);
+  LB::clear(menuBackgroundColor);
   Serial.println(F("Rogue DHCP running..."));
   updateDisplay("DHCP running...");
 
@@ -16524,17 +16527,17 @@ void DHCPAttackAuto(){
     DHCPDNSExplain = true;
   }
   if (DHCPDNSExplain){
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 20);
-    M5.Display.println("Step 1 : DHCP Starvation.");
-    M5.Display.println("Send multiple fake new");
-    M5.Display.println("client to saturate the");
-    M5.Display.println("the pool of available");
-    M5.Display.println("IP address that DHCP can"); 
-    M5.Display.println("provide. NAK = Starvation");
-    M5.Display.println("Press Enter to start");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 20);
+    LB::println("Step 1 : DHCP Starvation.");
+    LB::println("Send multiple fake new");
+    LB::println("client to saturate the");
+    LB::println("the pool of available");
+    LB::println("IP address that DHCP can"); 
+    LB::println("provide. NAK = Starvation");
+    LB::println("Press Enter to start");
+    LB::display();
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
       M5Cardputer.update();
@@ -16544,17 +16547,17 @@ void DHCPAttackAuto(){
   startDHCPStarvation();
   enterDebounce();
   if (DHCPDNSExplain){
-      M5.Display.clear(menuBackgroundColor);
-      M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-      M5.Display.setCursor(5, 20);
-      M5.Display.println("Step 2 : Rogue DHCP.");
-      M5.Display.println("The Original DHCP cant");
-      M5.Display.println("provide new IP so we");
-      M5.Display.println("now answering any DHCP");
-      M5.Display.println("request with hijacked");
-      M5.Display.println("DNS that at evil IP.");
-      M5.Display.println("Press Enter to start");
-      M5.Display.display();
+      LB::clear(menuBackgroundColor);
+      LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+      LB::setCursor(5, 20);
+      LB::println("Step 2 : Rogue DHCP.");
+      LB::println("The Original DHCP cant");
+      LB::println("provide new IP so we");
+      LB::println("now answering any DHCP");
+      LB::println("request with hijacked");
+      LB::println("DNS that at evil IP.");
+      LB::println("Press Enter to start");
+      LB::display();
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
       M5Cardputer.update();
@@ -16564,17 +16567,17 @@ void DHCPAttackAuto(){
   rogueDHCPAuto();
   enterDebounce();
   if (DHCPDNSExplain){
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 20);
-    M5.Display.println("Step 3 : Start the Web");
-    M5.Display.println("server with DNS Spoofing.");
-    M5.Display.println("Start the portal to");
-    M5.Display.println("provide page and DNS.");
-    M5.Display.println("The DNS spoof any request");
-    M5.Display.println("to redirect to the evil.");
-    M5.Display.println("Press Enter to start");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 20);
+    LB::println("Step 3 : Start the Web");
+    LB::println("server with DNS Spoofing.");
+    LB::println("Start the portal to");
+    LB::println("provide page and DNS.");
+    LB::println("The DNS spoof any request");
+    LB::println("to redirect to the evil.");
+    LB::println("Press Enter to start");
+    LB::display();
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
       M5Cardputer.update();
@@ -16584,15 +16587,15 @@ void DHCPAttackAuto(){
   createCaptivePortal();
   enterDebounce();
   if (DHCPDNSExplain){
-    M5.Display.clear(menuBackgroundColor);
-    M5.Display.setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    M5.Display.setCursor(5, 20);
-    M5.Display.println("Step 4 : Change DNS IP.");
-    M5.Display.println("Changing DNS IP with");
-    M5.Display.println("local IP address to");
-    M5.Display.println("provide Spoffed DNS query.");
-    M5.Display.println("Press Enter to change");
-    M5.Display.display();
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, 20);
+    LB::println("Step 4 : Change DNS IP.");
+    LB::println("Changing DNS IP with");
+    LB::println("local IP address to");
+    LB::println("provide Spoffed DNS query.");
+    LB::println("Press Enter to change");
+    LB::display();
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
       M5Cardputer.update();
@@ -16640,12 +16643,12 @@ bool validateBaseIP(const String& baseIP) {
 
 String getNetworkBase() {
     String baseIP = "";
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Enter base IP (192.168.1):");
-    M5.Display.setCursor(5, 50);
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::setCursor(5, 5);
+    LB::println("Enter base IP (192.168.1):");
+    LB::setCursor(5, 50);
 
     while (true) {
         baseIP = getUserInput(); // Reuses your `getUserInput` function
@@ -16662,12 +16665,12 @@ String getNetworkBase() {
         if (validateBaseIP(baseIP)) {
             return baseIP;
         } else {
-            M5.Display.setCursor(5, 80);
-            M5.Display.println("Invalid format! Retry.");
+            LB::setCursor(5, 80);
+            LB::println("Invalid format! Retry.");
             delay(2000);
-            M5.Display.clear();
-            M5.Display.setCursor(5, 5);
-            M5.Display.println("Enter base IP (192.168.1):");
+            LB::clear();
+            LB::setCursor(5, 5);
+            LB::println("Enter base IP (192.168.1):");
         }
     }
 }
@@ -16685,10 +16688,10 @@ void detectPrinter() {
     sprintf(base_ip, "%s.", baseIP.c_str());
 
     Serial.println("[INFO] Network base IP: " + String(base_ip));
-    M5.Display.clear();
-    M5.Display.setCursor(5, 20);
-    M5.Display.println("Scanning for printers...");
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, 20);
+    LB::println("Scanning for printers...");
+    LB::display();
 
     detectedPrinters.clear();
 
@@ -16708,28 +16711,28 @@ void detectPrinter() {
 
         // Progress update
         if (i % 10 == 0) {
-            M5.Display.setCursor(5, 40);
-            M5.Display.printf("Scanned %d/254 IPs...\n", i);
-            M5.Display.display();
+            LB::setCursor(5, 40);
+            LB::printf("Scanned %d/254 IPs...\n", i);
+            LB::display();
         }
     }
 
     // Final result
-    M5.Display.clear();
+    LB::clear();
     if (detectedPrinters.empty()) {
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("No printers detected.");
-        M5.Display.println("Returning to menu...");
-        M5.Display.display();
+        LB::setCursor(5, 20);
+        LB::println("No printers detected.");
+        LB::println("Returning to menu...");
+        LB::display();
         Serial.println(F("[INFO] No printers detected."));
     } else {
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("Printers found:");
+        LB::setCursor(5, 20);
+        LB::println("Printers found:");
         for (const auto &printerIP : detectedPrinters) {
             Serial.println(" - " + printerIP.toString());
-            M5.Display.println(printerIP.toString());
+            LB::println(printerIP.toString());
         }
-        M5.Display.display();
+        LB::display();
     }
 
     delay(2000);
@@ -16750,10 +16753,10 @@ void printFile() {
 
     // Check for necessary files
     if (!SD.exists(filePath)) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("File not found:");
-        M5.Display.println(filePath);
+        LB::clear();
+        LB::setCursor(5, 20);
+        LB::println("File not found:");
+        LB::println(filePath);
         waitAndReturnToMenu("return to menu");
         return;
     }
@@ -16787,12 +16790,12 @@ void printFile() {
 
     // Check if there are printers to process
     if (printerIPs.empty()) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("No printers detected");
-        M5.Display.println("or configured.");
-        M5.Display.println("Returning to menu...");
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 20);
+        LB::println("No printers detected");
+        LB::println("or configured.");
+        LB::println("Returning to menu...");
+        LB::display();
         delay(2000);
         waitAndReturnToMenu("return to menu");
         return;
@@ -16801,10 +16804,10 @@ void printFile() {
     // Confirm operation with the user
     String message = "Attack " + String(printerIPs.size()) + " printers?";
     if (!confirmPopup(message)) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("Operation cancelled by user.");
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 20);
+        LB::println("Operation cancelled by user.");
+        LB::display();
         delay(2000);
         waitAndReturnToMenu("return to menu");
         return;
@@ -16813,12 +16816,12 @@ void printFile() {
     // Open the file to print
     File file = SD.open(filePath);
     if (!file) {
-        M5.Display.clear();
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("Failed to open file:");
-        M5.Display.println(filePath);
-        M5.Display.println("Returning to menu...");
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 20);
+        LB::println("Failed to open file:");
+        LB::println(filePath);
+        LB::println("Returning to menu...");
+        LB::display();
         delay(2000);
         waitAndReturnToMenu("return to menu");
         return;
@@ -16835,11 +16838,11 @@ void printFile() {
         }
 
         // Display current status on the screen
-        M5.Display.clear();
-        M5.Display.setCursor(5, 20);
-        M5.Display.println("Printing to:");
-        M5.Display.println(printerIP.toString());
-        M5.Display.display();
+        LB::clear();
+        LB::setCursor(5, 20);
+        LB::println("Printing to:");
+        LB::println(printerIP.toString());
+        LB::display();
         delay(200);
 
         // Reset file position
@@ -16858,11 +16861,11 @@ void printFile() {
     file.close();
 
     // Confirm operation completion
-    M5.Display.clear();
-    M5.Display.setCursor(5, 20);
-    M5.Display.println("Print job completed");
-    M5.Display.println("on all printers!");
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, 20);
+    LB::println("Print job completed");
+    LB::println("on all printers!");
+    LB::display();
     delay(2000);
     waitAndReturnToMenu("return to menu");
 }
@@ -17151,7 +17154,7 @@ bool sendSNMPRequest(IPAddress printerIP, const char* oid, String& response) {
 void checkPrinterStatus() {
     int displayStart = 0;
     int lineHeight = 12;
-    int maxLines = M5.Display.height() / lineHeight;
+    int maxLines = LB::height() / lineHeight;
     bool needsDisplayUpdate = true;
 
     if (WiFi.localIP().toString() == "0.0.0.0") {
@@ -17316,12 +17319,12 @@ WiFiServer honeypotServer(honeypotPort);
 void startHoneypot() {
     honeypotServer.begin();
     Serial.println("Fake Telnet service started on port " + String(honeypotPort));
-    M5.Display.clear(); // Effacer l'écran
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, 5);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
-    M5.Display.println("Honeypot Started !");
-    M5.Display.println("Waiting interaction...");
+    LB::clear(); // Effacer l'écran
+    LB::setTextSize(1.5);
+    LB::setCursor(5, 5);
+    LB::setTextColor(menuTextUnFocusedColor);
+    LB::println("Honeypot Started !");
+    LB::println("Waiting interaction...");
     while (true) {
         M5Cardputer.update();
         honeypotLoop();   
@@ -17396,17 +17399,17 @@ void logHoneypotCommand(String clientIP, String command) {
 
 // -- Helper function to redraw the screen with all logs in the buffer --
 void redrawScreenWithLogs() {
-    M5.Display.clear(); // Effacer l'écran
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, 5);
-    M5.Display.setTextColor(menuTextUnFocusedColor);
+    LB::clear(); // Effacer l'écran
+    LB::setTextSize(1.5);
+    LB::setCursor(5, 5);
+    LB::setTextColor(menuTextUnFocusedColor);
     
     // Afficher les logs du buffer dans l'ordre
     int startIndex = currentLogIndex; // Commencer par la position actuelle dans le buffer
     for (int i = 0; i < MAX_LOG_LINES; i++) {
         int index = (startIndex + i) % MAX_LOG_LINES;
         if (logBuffer[index] != "") { // Ignorer les lignes vides (au démarrage)
-            M5.Display.println(logBuffer[index]);
+            LB::println(logBuffer[index]);
         }
     }
 }
@@ -18102,10 +18105,10 @@ void sdToUsb() {
   USB.begin();
 
   // Affichage sur l'écran
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.setCursor(5, 5);
-  M5.Display.println("Mounting SDCard on USB, please wait...");
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextSize(1);
+  LB::setCursor(5, 5);
+  LB::println("Mounting SDCard on USB, please wait...");
 
   // Attente active jusqu'à ce que l'USB soit monté et stable
   // On attend que tud_mounted() retourne true de manière continue pendant 1 seconde
@@ -18288,17 +18291,17 @@ void captureAssociatedBeacon(uint8_t *bssidTarget) {
 }
 
 void displayAPInfo(String ssid, String bssid, String security, int32_t rssi, int32_t channel) {
-  M5.Lcd.clear();
-  M5.Lcd.setCursor(0, 10);
-  M5.Lcd.setTextSize(1.5);
+  LB::clear();
+  LB::setCursor(0, 10);
+  LB::setTextSize(1.5);
 
-  M5.Lcd.println("== AP Information ==");
-  M5.Lcd.printf("Channel: %d\n", channel);
-  M5.Lcd.printf("SSID:%s\n", ssid.c_str());
-  M5.Lcd.printf("MAC:%s\n", bssid.c_str());
-  M5.Lcd.printf("Security:%s\n", security.c_str());
-  M5.Lcd.printf("RSSI: %d dBm\n", rssi);
-  M5.Lcd.printf("EAPOL: %d", nombreDeEAPOLAuto);
+  LB::println("== AP Information ==");
+  LB::printf("Channel: %d\n", channel);
+  LB::printf("SSID:%s\n", ssid.c_str());
+  LB::printf("MAC:%s\n", bssid.c_str());
+  LB::printf("Security:%s\n", security.c_str());
+  LB::printf("RSSI: %d dBm\n", rssi);
+  LB::printf("EAPOL: %d", nombreDeEAPOLAuto);
 }
 
 void extractBSSID(const uint8_t* payload, uint16_t frameControl, uint8_t* bssid) {
@@ -18377,9 +18380,9 @@ void autoDeauther() {
   char bufBSSID[64];
   char Buf[50];
 
-  M5Cardputer.Display.fillScreen(TFT_BLACK);
-  M5Cardputer.Display.setCursor(0, 0);
-  M5Cardputer.Display.setTextSize(1.5);
+  LB::fillScreen(TFT_BLACK);
+  LB::setCursor(0, 0);
+  LB::setTextSize(1.5);
 
   // Load whitelist from config so KarmaAutoWhitelist applies to AutoDeauther
   // Uses the same config key: KarmaAutoWhitelist=SSID1,SSID2,pa*tern
@@ -18475,16 +18478,16 @@ void autoDeauther() {
       channel++;
       if (channel > maxChannel) channel = 1;
 
-      M5.Lcd.clear();
-      M5.Lcd.setCursor(10, 10);
-      M5.Lcd.printf("Current Channel: %d", channel);
-      M5.Lcd.println(" ");
-      M5.Lcd.println(" ");
-      M5.Lcd.println(" ");
-      M5.Lcd.println(" ");
-      M5.Lcd.println(" ");
-      M5.Lcd.println(" ");
-      M5.Lcd.printf("EAPOL: %d", nombreDeEAPOLAuto);
+      LB::clear();
+      LB::setCursor(10, 10);
+      LB::printf("Current Channel: %d", channel);
+      LB::println(" ");
+      LB::println(" ");
+      LB::println(" ");
+      LB::println(" ");
+      LB::println(" ");
+      LB::println(" ");
+      LB::printf("EAPOL: %d", nombreDeEAPOLAuto);
     }
     delay(10);  // petite pause CPU
   }
@@ -18509,38 +18512,38 @@ void runMouseJiggler() {
   USB.begin();  
   Mouse.begin();
 
-  M5.Display.clear();
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(70, 50);
-  M5.Display.println("Jiggling...");
+  LB::clear();
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setCursor(70, 50);
+  LB::println("Jiggling...");
 
   // Affichage du délai et du mouvement
   auto displayInfo = []() {
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.fillRect(0, 0, M5.Display.width(), 24, BLACK);  // Ajusté pour deux lignes
-    M5.Display.setCursor(50, 0);
-    M5.Display.printf("< Delay:%lums >     ", delayBetweenMoves);
-    M5.Display.setCursor(50, 20);
-    M5.Display.printf("^  Move:%dpx  v    ", moveAmount);  };
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::fillRect(0, 0, LB::width(), 24, BLACK);  // Ajusté pour deux lignes
+    LB::setCursor(50, 0);
+    LB::printf("< Delay:%lums >     ", delayBetweenMoves);
+    LB::setCursor(50, 20);
+    LB::printf("^  Move:%dpx  v    ", moveAmount);  };
 
   // Animation lapin
   auto drawBunny = [](int frame) {
-    M5.Display.fillRect(0, 100, M5.Display.width(), 48, BLACK);
+    LB::fillRect(0, 100, LB::width(), 48, BLACK);
     if (frame == 1) {
-      M5.Display.setCursor(40, 100);
-      M5.Display.println("()-() (\\__/)");
-      M5.Display.setCursor(30, 112);
-      M5.Display.println("  \\\"/  (o.o )");
-      M5.Display.setCursor(30, 124);
-      M5.Display.println("   `   <   <");
+      LB::setCursor(40, 100);
+      LB::println("()-() (\\__/)");
+      LB::setCursor(30, 112);
+      LB::println("  \\\"/  (o.o )");
+      LB::setCursor(30, 124);
+      LB::println("   `   <   <");
     } else {
-      M5.Display.setCursor(80, 100);
-      M5.Display.println(" (\\__/) ()-()");
-      M5.Display.setCursor(70, 112);
-      M5.Display.println("  ( o.o)  \\\"/");
-      M5.Display.setCursor(70, 124);
-      M5.Display.println("   >   >   ` ");
+      LB::setCursor(80, 100);
+      LB::println(" (\\__/) ()-()");
+      LB::setCursor(70, 112);
+      LB::println("  ( o.o)  \\\"/");
+      LB::setCursor(70, 124);
+      LB::println("   >   >   ` ");
     }
   };
 
@@ -18625,12 +18628,12 @@ void startEvilTwin(int index) {
     createCaptivePortal(); // Faux AP lancé
     WiFi.mode(WIFI_MODE_APSTA);
     
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("== Evil Twin Mode ==");
-    M5.Display.println("SSID : " + targetSSID);
-    M5.Display.println("Channel : " + String(targetChannel));
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setCursor(5, 10);
+    LB::println("== Evil Twin Mode ==");
+    LB::println("SSID : " + targetSSID);
+    LB::println("Channel : " + String(targetChannel));
 
     int packetCount = 0;
     unsigned long lastUpdate = 0;
@@ -18648,10 +18651,10 @@ void startEvilTwin(int index) {
             packetCount ++;
             int clients = getConnectedPeopleCount();
 
-            M5.Display.fillRect(0, 60, 240, 40, menuBackgroundColor);
-            M5.Display.setCursor(5, 60);
-            M5.Display.printf("Deauth : %d\n", packetCount);
-            M5.Display.printf("Client : %d\n", clients);
+            LB::fillRect(0, 60, 240, 40, menuBackgroundColor);
+            LB::setCursor(5, 60);
+            LB::printf("Deauth : %d\n", packetCount);
+            LB::printf("Client : %d\n", clients);
 
             lastUpdate = millis();
         }
@@ -18781,21 +18784,21 @@ void addMessage(const char* m) {
 
 // rafraîchit l’écran
 void drawChatWindow() {
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setTextColor(TFT_GREEN);
-    M5.Display.setCursor(5, 5);
-    M5.Display.printf("Connected: %d", nodesCount);
+    LB::fillScreen(TFT_BLACK);
+    LB::setTextColor(TFT_GREEN);
+    LB::setCursor(5, 5);
+    LB::printf("Connected: %d", nodesCount);
 
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.setCursor(5, 10);
+    LB::setTextColor(TFT_WHITE);
+    LB::setCursor(5, 10);
 
     const int lines = 13;
     int start = (messageCount < lines) ? 0 : (messageHead + 20 - lines) % 20;
     for (int i = 0; i < min(lines, messageCount); ++i) {
         int idx = (start + i) % 20;
-        M5.Display.println(messages[idx].content);
+        LB::println(messages[idx].content);
     }
-    M5.Display.display();
+    LB::display();
 }
 
 /* ---------- Traitement d’un paquet en attente ---------- */
@@ -18973,25 +18976,25 @@ void handleKeyboard() {
     }
 
     /* Ligne d’édition */
-    M5.Display.fillRect(0, 120, 240, 16, TFT_NAVY);
-    M5.Display.setCursor(5, 120);
-    M5.Display.setTextColor(TFT_YELLOW);
-    M5.Display.print("> ");
-    M5.Display.print(inputBuffer);
+    LB::fillRect(0, 120, 240, 16, TFT_NAVY);
+    LB::setCursor(5, 120);
+    LB::setTextColor(TFT_YELLOW);
+    LB::print("> ");
+    LB::print(inputBuffer);
 }
 
 // ----- Fonction principale -----
 void EvilChatMesh() {
     M5.begin();
-    M5.Display.setTextSize(1);
-    M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.fillScreen(TFT_BLACK);
+    LB::setTextSize(1);
+    LB::setTextColor(TFT_WHITE);
+    LB::fillScreen(TFT_BLACK);
 
     WiFi.disconnect(true); delay(100);
     WiFi.mode(WIFI_STA);
 
     if (esp_now_init() != ESP_OK) {
-        M5.Display.println("ESP‑NOW init failed"); return;
+        LB::println("ESP‑NOW init failed"); return;
     }
     esp_now_register_recv_cb(OnDataRecvChat);
 
@@ -19552,17 +19555,17 @@ void addDetectionPoint() {
 }
 void showWaitingAnimation() {
   static float angle = 0.0f;
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   // texte d’état
-  d.setTextSize(1.5);
-  d.setTextColor(TFT_WHITE, TFT_BLACK);
-  d.setCursor(5, 5);
-  d.print("Waiting for LLMNR or NBNS");
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(5, 5);
+  LB::print("Waiting for LLMNR or NBNS");
 
   // position et rayon du radar
-  int screenW = d.width();
-  int screenH = d.height();
+  int screenW = LB::width();
+  int screenH = LB::height();
   int cx = screenW / 2;
   int cy = RADAR_R + RADAR_MARGIN + 10;
   int r  = RADAR_R;
@@ -19573,21 +19576,21 @@ void showWaitingAnimation() {
   currentAngle = angle;
 
   // fond
-  d.fillCircle(cx, cy, r + 2, TFT_BLACK);
+  LB::fillCircle(cx, cy, r + 2, TFT_BLACK);
 
   // cercles concentriques
-  d.drawCircle(cx, cy, r,         TFT_DARKGREY);
-  d.drawCircle(cx, cy, r * 2 / 3, TFT_DARKGREY);
-  d.drawCircle(cx, cy, r / 3,     TFT_DARKGREY);
+  LB::drawCircle(cx, cy, r,         TFT_DARKGREY);
+  LB::drawCircle(cx, cy, r * 2 / 3, TFT_DARKGREY);
+  LB::drawCircle(cx, cy, r / 3,     TFT_DARKGREY);
 
   // croix (traits horizontaux et verticaux)
-  d.drawLine(cx - r, cy, cx + r, cy, TFT_DARKGREY);
-  d.drawLine(cx, cy - r, cx, cy + r, TFT_DARKGREY);
+  LB::drawLine(cx - r, cy, cx + r, cy, TFT_DARKGREY);
+  LB::drawLine(cx, cy - r, cx, cy + r, TFT_DARKGREY);
 
   // ligne de balayage
   int x2 = cx + cosf(angle) * r;
   int y2 = cy + sinf(angle) * r;
-  d.drawLine(cx, cy, x2, y2, TFT_GREEN);
+  LB::drawLine(cx, cy, x2, y2, TFT_GREEN);
 
   // mise à jour de l’angle
   angle += 0.1f;
@@ -19602,7 +19605,7 @@ void showWaitingAnimation() {
       uint8_t(255 * fade),
       uint8_t(47  * fade)
     );
-    d.fillCircle(p.x, p.y, 3, col);
+    LB::fillCircle(p.x, p.y, 3, col);
     if (--p.ttl <= 0) {
       for (int j = i; j < detCount - 1; j++)
         detections[j] = detections[j + 1];
@@ -19612,22 +19615,22 @@ void showWaitingAnimation() {
   }
 
   int yPos = screenH - 12;      // position verticale de la ligne
-  d.fillRect(0, yPos, screenW, 12, TFT_BLACK);
+  LB::fillRect(0, yPos, screenW, 12, TFT_BLACK);
 
   // --- Affichage “Asked” ---
-  d.setTextSize(1);
-  d.setTextColor(TFT_WHITE, TFT_BLACK);
-  d.setCursor(2, yPos);
-  d.print("Request: ");
-  d.print(lastQueryName);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(2, yPos);
+  LB::print("Request: ");
+  LB::print(lastQueryName);
 }
 
 void showActiveAnimation() {
   static float angle = 0.0f;
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   // petit radar en coin
-  int screenW      = d.width();
+  int screenW      = LB::width();
   const int smallR = 15;
   const int margin = 4;
   int cx = screenW - smallR - margin;
@@ -19640,19 +19643,19 @@ void showActiveAnimation() {
   currentAngle = angle;
 
   // fond et cercle fixe
-  d.fillCircle(cx, cy, r + 1, TFT_BLACK);
-  d.drawCircle(cx, cy, r,         TFT_DARKGREY);
-  d.drawCircle(cx, cy, r * 2 / 3, TFT_DARKGREY);
-  d.drawCircle(cx, cy, r / 3,     TFT_DARKGREY);
+  LB::fillCircle(cx, cy, r + 1, TFT_BLACK);
+  LB::drawCircle(cx, cy, r,         TFT_DARKGREY);
+  LB::drawCircle(cx, cy, r * 2 / 3, TFT_DARKGREY);
+  LB::drawCircle(cx, cy, r / 3,     TFT_DARKGREY);
 
   // croix (traits horizontaux et verticaux)
-  d.drawLine(cx - r, cy, cx + r, cy, TFT_DARKGREY);
-  d.drawLine(cx, cy - r, cx, cy + r, TFT_DARKGREY);
+  LB::drawLine(cx - r, cy, cx + r, cy, TFT_DARKGREY);
+  LB::drawLine(cx, cy - r, cx, cy + r, TFT_DARKGREY);
 
   // balayage
   int x2 = cx + cosf(angle) * r;
   int y2 = cy + sinf(angle) * r;
-  d.drawLine(cx, cy, x2, y2, TFT_GREEN);
+  LB::drawLine(cx, cy, x2, y2, TFT_GREEN);
 
   angle += 0.15f;
   if (angle >= 2 * PI) angle -= 2 * PI;
@@ -19666,7 +19669,7 @@ void showActiveAnimation() {
       uint8_t(255 * fade),
       uint8_t(47  * fade)
     );
-    d.fillCircle(p.x, p.y, 2, col);
+    LB::fillCircle(p.x, p.y, 2, col);
     if (--p.ttl <= 0) {
       for (int j = i; j < detCount - 1; j++)
         detections[j] = detections[j + 1];
@@ -19678,44 +19681,44 @@ void showActiveAnimation() {
 
 
 void updateHashUI() {
-  auto& d = M5Cardputer.Display;
-  d.fillScreen(BLACK);
+  // Display calls use LB:: (LegacyBridge)
+  LB::fillScreen(BLACK);
 
   // 1) NTLM count
-  d.setTextSize(1.3);
-  d.setTextColor(WHITE, BLACK);
-  d.setCursor(5, 5);
-  d.print("NTLM: ");
-  d.setTextSize(2);
-  d.print(hashCount);
+  LB::setTextSize(1.3);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setCursor(5, 5);
+  LB::print("NTLM: ");
+  LB::setTextSize(2);
+  LB::print(hashCount);
 
   // 2) User
-  d.setTextSize(1.3);
-  d.setCursor(5, 30);
-  d.print("User: ");
-  d.setTextSize(2);
-  d.print(lastUser);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 30);
+  LB::print("User: ");
+  LB::setTextSize(2);
+  LB::print(lastUser);
 
   // 3) Domain
-  d.setTextSize(1.3);
-  d.setCursor(5, 55);
-  d.print("Domain: ");
-  d.setTextSize(2);
-  d.print(lastDomain);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 55);
+  LB::print("Domain: ");
+  LB::setTextSize(2);
+  LB::print(lastDomain);
 
   // 4) Client (hostname)
-  d.setTextSize(1.3);
-  d.setCursor(5, 80);
-  d.print("Client: ");
-  d.setTextSize(2);
-  d.print(lastClient);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 80);
+  LB::print("Client: ");
+  LB::setTextSize(2);
+  LB::print(lastClient);
 
   // 5) Query (NBNS/LLMNR + name)
-  d.setTextSize(1.3);
-  d.setCursor(5, 105);
-  d.print(lastQueryProtocol + ": ");
-  d.setTextSize(2);
-  d.print(lastQueryName);
+  LB::setTextSize(1.3);
+  LB::setCursor(5, 105);
+  LB::print(lastQueryProtocol + ": ");
+  LB::setTextSize(2);
+  LB::print(lastQueryName);
 }
 
 // Décodage NetBIOS "A..P" (32 octets) -> "NAME<XX>"
@@ -19756,8 +19759,8 @@ unsigned long lastAnim = 0;
 
 
 void responder() {
-  M5.Lcd.fillScreen(BLACK);
-  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+  LB::fillScreen(BLACK);
+  LB::setTextColor(WHITE, BLACK);
   hashCount = 0;
   // Démarrer l'écoute NBNS (UDP 137)
   if (!nbnsUDP.begin(NBNS_PORT)) {
@@ -20240,17 +20243,17 @@ void previewTextFile(const char *path) {
   while (true) {
     if (refresh) {
       // Effacer la zone de preview
-      M5.Display.fillRect(areaX, areaY, areaW, areaH, TFT_BLACK);
+      LB::fillRect(areaX, areaY, areaW, areaH, TFT_BLACK);
 
       // Afficher l’en‐tête avec le nom du fichier (en jaune)
-      M5.Display.setCursor(5, areaY);
-      M5.Display.setTextColor(TFT_YELLOW);
-      M5.Display.print("Fichier: ");
-      M5.Display.println(filename);
-      M5.Display.drawLine(areaX, areaY + 12, areaW, areaY + 12, TFT_DARKGREY);
+      LB::setCursor(5, areaY);
+      LB::setTextColor(TFT_YELLOW);
+      LB::print("Fichier: ");
+      LB::println(filename);
+      LB::drawLine(areaX, areaY + 12, areaW, areaY + 12, TFT_DARKGREY);
 
       // Corps du texte : afficher nRows lignes à partir de previewTopLine
-      M5.Display.setTextColor(TFT_LIGHTGREY);
+      LB::setTextColor(TFT_LIGHTGREY);
       for (int row = 0; row < nRows; ++row) {
         int idx = previewTopLine + row;
         if (idx >= (int)lines.size()) break;
@@ -20268,8 +20271,8 @@ void previewTextFile(const char *path) {
           sub = sub.substring(0, nCols);
         }
 
-        M5.Display.setCursor(5, areaY + 14 + row * lineHeight);
-        M5.Display.println(sub);
+        LB::setCursor(5, areaY + 14 + row * lineHeight);
+        LB::println(sub);
       }
       refresh = false;
     }
@@ -20329,7 +20332,7 @@ void previewTextFile(const char *path) {
 
 void fileManager() {
   fmIsOperationInProgress = true;
-  M5.Lcd.fillScreen(BLACK);
+  LB::fillScreen(BLACK);
 
   while (true) {
     /* -------- lister le contenu du répertoire courant -------- */
@@ -20359,12 +20362,12 @@ void fileManager() {
     while (true) {
       /* -------- rafraîchissement écran -------- */
       if (refresh) {
-        M5.Display.fillRect(0, 13, 240, 122, TFT_BLACK);
-        M5.Display.setCursor(5, 13);
-        M5.Display.setTextColor(TFT_YELLOW);
-        M5.Display.print("DIR: ");
-        M5.Display.println(fmCurrentPath);
-        M5.Display.drawLine(0, 25, 240, 25, TFT_DARKGREY);
+        LB::fillRect(0, 13, 240, 122, TFT_BLACK);
+        LB::setCursor(5, 13);
+        LB::setTextColor(TFT_YELLOW);
+        LB::print("DIR: ");
+        LB::println(fmCurrentPath);
+        LB::drawLine(0, 25, 240, 25, TFT_DARKGREY);
 
         for (int i = 0; i < fmMaxVisibleItems; ++i) {
           int idx = fmTopVisibleIndex + i;
@@ -20375,16 +20378,16 @@ void fileManager() {
 
           int y = 28 + i * 11;
           if (idx == fmFileCursor) {
-            M5.Display.fillRect(0, y, 240, 11, menuSelectedBackgroundColor);
-            M5.Display.setTextColor(menuTextFocusedColor);
+            LB::fillRect(0, y, 240, 11, menuSelectedBackgroundColor);
+            LB::setTextColor(menuTextFocusedColor);
           } else if (isFolder[idx]) {
-            M5.Display.setTextColor(TFT_CYAN);
+            LB::setTextColor(TFT_CYAN);
           } else {
-            M5.Display.setTextColor(TFT_LIGHTGREY);
+            LB::setTextColor(TFT_LIGHTGREY);
           }
 
-          M5.Display.setCursor(5, y);
-          M5.Display.println(name);
+          LB::setCursor(5, y);
+          LB::println(name);
         }
         refresh = false;
       }
@@ -20583,7 +20586,7 @@ void flushDisplayIfNeeded() {
   if (!screenDirty) return;
   uint32_t now = millis();
   if (now < nextFlushMs) return;
-  M5Cardputer.Display.display();
+  LB::display();
   screenDirty = false;
   nextFlushMs = now + FLUSH_INTERVAL_MS;
 }
@@ -20606,10 +20609,10 @@ void drainUART() {
  *  Rendu complet de la fenêtre (utilisé seulement lors du scroll ou saut)  
  * -------------------------------------------------------------------------- */
 void renderScreen() {
-  M5Cardputer.Display.clear();
-  M5Cardputer.Display.setTextSize(1);
-  M5Cardputer.Display.setTextColor(WHITE, BLACK);
-  M5Cardputer.Display.setCursor(0, 0);
+  LB::clear();
+  LB::setTextSize(1);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setCursor(0, 0);
 
   int maxTop = max(0, static_cast<int>(logBuf.size()) - screenRows);
   viewTop    = constrain(viewTop, 0, maxTop);
@@ -20617,13 +20620,13 @@ void renderScreen() {
   for (int row = 0; row < screenRows; ++row) {
     int idx = viewTop + row;
     if (idx < (int)logBuf.size())
-      M5Cardputer.Display.println(logBuf[idx]);
+      LB::println(logBuf[idx]);
     else if (idx == (int)logBuf.size())
-      M5Cardputer.Display.println(curLine);
+      LB::println(curLine);
     else
-      M5Cardputer.Display.println();
+      LB::println();
   }
-  M5Cardputer.Display.display();    // flush immédiat pour un redraw total
+  LB::display();    // flush immédiat pour un redraw total
   screenDirty = false;              // écran propre
   nextFlushMs = millis() + FLUSH_INTERVAL_MS;
 }
@@ -20633,13 +20636,13 @@ void renderScreen() {
  *  Affichage incrémental (curseur déjà en bas) – *sans flush immédiat*
  * -------------------------------------------------------------------------- */
 inline void fastPrintNoFlush(const String& s) {
-  if (s == "\n")   M5Cardputer.Display.println();
-  else               M5Cardputer.Display.print(s);
+  if (s == "\n")   LB::println();
+  else               LB::print(s);
 
   // Si le curseur est sorti de l’écran, on scrolle d’un glyphH
-  if (M5Cardputer.Display.getCursorY() >= M5Cardputer.Display.height()) {
-    M5Cardputer.Display.scroll(0, -glyphH);
-    M5Cardputer.Display.setCursor(0, M5Cardputer.Display.height() - glyphH);
+  if (LB::getCursorY() >= LB::height()) {
+    LB::scroll(0, -glyphH);
+    LB::setCursor(0, LB::height() - glyphH);
   }
   markDirty(); // flush différé
 }
@@ -20690,18 +20693,18 @@ void pushChar(uint8_t c) {
 
 void drawBaudMenu(int idx) {
   const int MENU_SZ = NB_BAUD + 1;
-  M5Cardputer.Display.clear();
-  M5Cardputer.Display.setTextSize(1);
-  M5Cardputer.Display.setCursor(0, 0);
-  M5Cardputer.Display.setTextColor(WHITE, BLACK);
-  M5Cardputer.Display.println(F("Choose baudrate :"));
+  LB::clear();
+  LB::setTextSize(1);
+  LB::setCursor(0, 0);
+  LB::setTextColor(WHITE, BLACK);
+  LB::println(F("Choose baudrate :"));
 
   for (int i = 0; i < MENU_SZ; ++i) {
-    M5Cardputer.Display.print((i == idx) ? F("> ") : F("  "));
-    if (i == 0)   M5Cardputer.Display.println(F("Auto-detect"));
-    else          M5Cardputer.Display.printf("%d bps\n", BAUD_LIST[i - 1]);
+    LB::print((i == idx) ? F("> ") : F("  "));
+    if (i == 0)   LB::println(F("Auto-detect"));
+    else          LB::printf("%d bps\n", BAUD_LIST[i - 1]);
   }
-  M5Cardputer.Display.display();
+  LB::display();
   screenDirty = false;
   nextFlushMs = millis() + FLUSH_INTERVAL_MS;
 }
@@ -20730,19 +20733,19 @@ int detectBaud() {
   static const char spin[4] = {'|','/','-','\\'};
   uint8_t spinIdx = 0;
 
-  M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);   // <<< corrigeait M5.Display.*
-  M5Cardputer.Display.setTextSize(1);
-  M5Cardputer.Display.setTextColor(WHITE, BLACK);
-  M5Cardputer.Display.print(F("Scanning baud "));
-  int spinX = M5Cardputer.Display.getCursorX();
-  int spinY = M5Cardputer.Display.getCursorY();
-  M5Cardputer.Display.display();
+  LB::clear();
+  LB::setCursor(0, 0);   // <<< corrigeait LB::*
+  LB::setTextSize(1);
+  LB::setTextColor(WHITE, BLACK);
+  LB::print(F("Scanning baud "));
+  int spinX = LB::getCursorX();
+  int spinY = LB::getCursorY();
+  LB::display();
 
   for (int rate : BAUD_LIST) {
-    M5Cardputer.Display.setCursor(spinX, spinY);
-    M5Cardputer.Display.print(spin[spinIdx++ & 3]);
-    M5Cardputer.Display.display();
+    LB::setCursor(spinX, spinY);
+    LB::print(spin[spinIdx++ & 3]);
+    LB::display();
     M5Cardputer.update();
     if (M5.getBoard() == m5::board_t::board_M5CardputerADV) {
       uartAuto.begin(rate, SERIAL_8N1, 13, 15);
@@ -20763,10 +20766,10 @@ int detectBaud() {
     uartAuto.end();
 
     if (total > 30 && printable * 100 / total > 60) {
-      M5Cardputer.Display.setCursor(spinX, spinY); M5Cardputer.Display.print(' ');
-      M5Cardputer.Display.setCursor(0, 10);
-      M5Cardputer.Display.printf("\u2192 %d bps", rate); // flèche → Unicode (peut être ignorée si police non supportée)
-      M5Cardputer.Display.display();
+      LB::setCursor(spinX, spinY); LB::print(' ');
+      LB::setCursor(0, 10);
+      LB::printf("\u2192 %d bps", rate); // flèche → Unicode (peut être ignorée si police non supportée)
+      LB::display();
       delay(400);
       return rate;
     }
@@ -20802,13 +20805,13 @@ void startUARTShell() {
     Serial.println("Unknown board type");
   }
   /* ---------- Hauteur glyph + lignes visibles ---------- */
-  M5Cardputer.Display.setTextSize(1);                 // police « Small »
+  LB::setTextSize(1);                 // police « Small »
   #if defined(M5GFX_VERSION)
-    glyphH = M5Cardputer.Display.fontHeight();          // API récente
+    glyphH = LB::fontHeight();          // API récente
   #else
     glyphH = 8;                                        // valeur par défaut
   #endif
-  screenRows = M5Cardputer.Display.height() / glyphH;
+  screenRows = LB::height() / glyphH;
 
   /* ---------- Reset tampon + bandeau ---------- */
   logBuf.clear();  curLine = "";
@@ -20880,7 +20883,7 @@ void startUARTShell() {
         curLine.remove(curLine.length() - 1, 1);
 
       if (followEnd) {
-        M5Cardputer.Display.print("\b \b");
+        LB::print("\b \b");
         markDirty();
       } else {
         renderScreen();
@@ -21198,22 +21201,22 @@ static const int UI_CONTENT_H = UI_H - UI_HEADER_H;
 int uiMaxLines() { return max(1, UI_CONTENT_H / UI_TEXTSIZE); }
 bool g_scanFromSD = false;
 void uiPrintAt(int16_t x, int16_t y, const String& s, uint16_t color) {
-  M5.Display.setTextColor(color, TFT_BLACK);
-  M5.Display.setCursor(x, y);
-  M5.Display.print(s);
+  LB::setTextColor(color, TFT_BLACK);
+  LB::setCursor(x, y);
+  LB::print(s);
 }
 
 void uiDrawHeader() {
-  M5.Display.fillRect(0, 0, UI_W, UI_HEADER_H, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
+  LB::fillRect(0, 0, UI_W, UI_HEADER_H, TFT_BLACK);
+  LB::setTextSize(1.5);
   uiPrintAt(0, 0, "CCTV ToolKit", menuTextFocusedColor);
   uiPrintAt(0, UI_TEXTSIZE, "Target: " + _ui.ip.toString(), menuTextUnFocusedColor);
   uiPrintAt(0, UI_TEXTSIZE * 2, "Phase: " + _ui.phase, menuTextFocusedColor);
 }
 
 void uiDrawContent() {
-  M5.Display.fillRect(0, UI_CONTENT_Y, UI_W, UI_CONTENT_H, TFT_BLACK);
-  M5.Display.setTextSize(1);
+  LB::fillRect(0, UI_CONTENT_Y, UI_W, UI_CONTENT_H, TFT_BLACK);
+  LB::setTextSize(1);
   int linesToShow = min((int)_ui.lines.size(), uiMaxLines());
   int start = (int)_ui.lines.size() - linesToShow;
   for (int i = 0; i < linesToShow; ++i) {
@@ -21224,7 +21227,7 @@ void uiDrawContent() {
 void uiRefresh(int pct = -1, const String& label = "") {
   uiDrawHeader();
   uiDrawContent();
-  M5.Display.display();
+  LB::display();
 }
 std::vector<String> loginCandidates;
 void uiBeginHost(const IPAddress& ip) {
@@ -21249,7 +21252,7 @@ void uiAppend(const String& line, bool alsoInReport = true) {
   _ui.lines.push_back(line);
   if (alsoInReport) _ui.report += line + "\n";
   uiDrawContent();
-  M5.Display.display();
+  LB::display();
 }
 
 void uiEndHostAndSave() {
@@ -21301,26 +21304,26 @@ const char* items[itemCount] = {
     M5Cardputer.update();
 
     if (need) {
-      M5.Display.clear();
-      M5.Display.setTextSize(1.5);
-      M5.Display.setCursor(5, 5);
-      M5.Display.setTextColor(menuTextFocusedColor, menuBackgroundColor);
-      M5.Display.println("CCTV ToolKit - Mode");
-      M5.Display.println("--------------------------");
+      LB::clear();
+      LB::setTextSize(1.5);
+      LB::setCursor(5, 5);
+      LB::setTextColor(menuTextFocusedColor, menuBackgroundColor);
+      LB::println("CCTV ToolKit - Mode");
+      LB::println("--------------------------");
       for (int i = 0; i < itemCount; ++i) {
         if (i == index) {
-          M5.Display.setTextColor(menuTextFocusedColor);
-          M5.Display.fillRect(0, 30 + i*16, M5.Display.width(), 16, menuSelectedBackgroundColor);
+          LB::setTextColor(menuTextFocusedColor);
+          LB::fillRect(0, 30 + i*16, LB::width(), 16, menuSelectedBackgroundColor);
         } else {
-          M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+          LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
         }
-        M5.Display.setCursor(6, 30 + i*16);
-        M5.Display.println(items[i]);
+        LB::setCursor(6, 30 + i*16);
+        LB::println(items[i]);
       }
-      M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-      M5.Display.setCursor(5, M5.Display.height()-10);
-      M5.Display.println(" ^/ v / ENTER / BACKSPACE");
-      M5.Display.display();
+      LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+      LB::setCursor(5, LB::height()-10);
+      LB::println(" ^/ v / ENTER / BACKSPACE");
+      LB::display();
       need = false;
     }
 
@@ -21336,19 +21339,19 @@ const char* items[itemCount] = {
 
 
 bool promptIPv4(IPAddress& out) {
-  M5.Display.clear();
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5, 10);
-  M5.Display.println("Entrer IP (ex: 8.8.8.8)");
-  M5.Display.display();
+  LB::clear();
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setCursor(5, 10);
+  LB::println("Entrer IP (ex: 8.8.8.8)");
+  LB::display();
 
   String s = getUserInput();
   if (!out.fromString(s)) {
-    M5.Display.clear();
-    M5.Display.setCursor(5, 10);
-    M5.Display.println("IP Adress invalid.");
-    M5.Display.display();
+    LB::clear();
+    LB::setCursor(5, 10);
+    LB::println("IP Adress invalid.");
+    LB::display();
     delay(1200);
     return false;
   }
@@ -21400,17 +21403,17 @@ void local_scan_CCTV() {
   enterDebounce();
   hostslistCCTV.clear();
 
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setTextSize(1.5);
 
   IPAddress subnetMask = WiFi.subnetMask();
   IPAddress network = WiFi.localIP(); network[3] = 0;
 
-  M5.Display.clear();
+  LB::clear();
   int numHosts = 254 - subnetMask[3];
-  M5.Display.setCursor(5, M5.Display.height() / 2);
-  M5.Display.println("Probing " + String(numHosts) + " hosts with ARP");
-  M5.Display.println("       please wait...");
+  LB::setCursor(5, LB::height() / 2);
+  LB::println("Probing " + String(numHosts) + " hosts with ARP");
+  LB::println("       please wait...");
 
   char base_ip[16];
   sprintf(base_ip, "%d.%d.%d.", network[0], network[1], network[2]);
@@ -21432,7 +21435,7 @@ void local_scan_CCTV() {
   }
 
   if (!foundHosts) {
-    M5.Display.println("No hosts found.");
+    LB::println("No hosts found.");
     delay(1500);
     waitAndReturnToMenu("No hosts found.");
     return;
@@ -22189,9 +22192,9 @@ void ensureCCTVDir() {
 
 
 void uiText(int x, int y, const char* s, uint32_t fg = TFT_WHITE, uint32_t bg = TFT_BLACK) {
-  M5.Display.setTextColor(fg, bg);
-  M5.Display.setCursor(x, y);
-  M5.Display.print(s);
+  LB::setTextColor(fg, bg);
+  LB::setCursor(x, y);
+  LB::print(s);
 }
 
 void detectStreams(IPAddress ip, const std::vector<uint16_t>& ports) {
@@ -22428,7 +22431,7 @@ AFTER_RTSP_PORT_SCAN:
         Serial.printf("[x] %s  (400 Bad Request)\n", url.c_str());
         logScanResult("[400] " + url);
         http.end();
-        M5.Display.fillRect(0, 0, M5.Display.height(), 10, TFT_BLACK);
+        LB::fillRect(0, 0, LB::height(), 10, TFT_BLACK);
         uiText(2, 0, "400 Bad Request", TFT_RED);
         delay(1000);
         return;
@@ -22535,7 +22538,7 @@ void processCCTVHost(const IPAddress& ip) {
   }
 
   // Header line on TFT (small, concise)
-  M5.Display.setTextSize(1);
+  LB::setTextSize(1);
   uiAppend("Targeting " + ip.toString() + " -> " + (brand.length()?brand:"(unknown)"), false);
 
   // 3) Fingerprint + CVE
@@ -22633,12 +22636,12 @@ void scanCCTVCamerasFromFile() {
     return;
   }
 
-  M5.Display.clear();
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5, 5);
-  M5.Display.println("Loading IPs from SD…");
-  M5.Display.println(CCTV_FILE);
-  M5.Display.display();
+  LB::clear();
+  LB::setTextSize(1.5);
+  LB::setCursor(5, 5);
+  LB::println("Loading IPs from SD…");
+  LB::println(CCTV_FILE);
+  LB::display();
 
   std::vector<IPAddress> list;
   if (!loadIPsFromSD(CCTV_FILE, list)) {
@@ -22860,15 +22863,15 @@ void ensureSpriteSize(int w, int h) {
   }
 }
 void drawTopBar(const String& left, float fps) {
-  M5.Display.fillRect(0, 0, SCREEN_W, TOPBAR_H, TFT_BLACK);
-  M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-  M5.Display.setCursor(5, 1);
-  M5.Display.print(left);
+  LB::fillRect(0, 0, SCREEN_W, TOPBAR_H, TFT_BLACK);
+  LB::setTextColor(TFT_CYAN, TFT_BLACK);
+  LB::setCursor(5, 1);
+  LB::print(left);
   char f[20]; snprintf(f, sizeof(f), "%.1f FPS", fps);
-  int tw = M5.Display.textWidth(f);
-  M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  M5.Display.setCursor(SCREEN_W - tw - 2, 1);
-  M5.Display.print(f);
+  int tw = LB::textWidth(f);
+  LB::setTextColor(TFT_YELLOW, TFT_BLACK);
+  LB::setCursor(SCREEN_W - tw - 2, 1);
+  LB::print(f);
 }
 
 
@@ -22912,9 +22915,9 @@ void drawScaledJpg(fs::FS& fs, const char* filepath) {
   const int   cx = viewX + viewW / 2;
   const int   cy = viewY + viewH / 2;
 
-  M5.Display.setClipRect(viewX, viewY, viewW, viewH);
+  LB::setClipRect(viewX, viewY, viewW, viewH);
   g_spr.pushRotateZoom(&M5.Display, cx, cy, 0.0f, zx, zy);
-  M5.Display.clearClipRect();
+  LB::clearClipRect();
 
   g_spr.deleteSprite();
 }
@@ -23020,13 +23023,13 @@ String buildUrl(const StreamItem& s, const char* res, int comp) {
 
 // ====== MENU (rendu sur changement uniquement) ======
 void menuDrawStatic() {
-  M5.Display.fillScreen(TFT_BLACK);
+  LB::fillScreen(TFT_BLACK);
   uiText(2, 2, "MJPEG Viewer - MENU", TFT_CYAN);
   uiText(2, 58, "ENTER: Lancer   LEFT/RIGHT: Flux", TFT_YELLOW);
   uiText(2, 70, "R: Res  UP/DOWN: Comp  BACKSPACE: Retour", TFT_YELLOW);
 }
 void menuDrawFields(int streamIdx, int resIdx, int comp) {
-  M5.Display.fillRect(0, 18, SCREEN_W, 36, TFT_BLACK);
+  LB::fillRect(0, 18, SCREEN_W, 36, TFT_BLACK);
   uiPrintf(2, 18, TFT_WHITE, "Flux:  [%d/%d] %s", streamIdx + 1, streamCount(), g_streams[streamIdx].name.c_str());
   uiPrintf(2, 30, TFT_WHITE, "Res.:  %s  (touche R)", RES_LIST[resIdx]);
   uiPrintf(2, 42, TFT_WHITE, "Comp.: %d  (UP/DOWN)", comp);
@@ -23041,7 +23044,7 @@ bool runMenu() {
 
   // Aucun flux -> attendre BACKSPACE pour remonter
   if (streamCount() == 0) {
-    M5.Display.fillScreen(TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
     uiText(2, 2, "MJPEG Viewer - MENU", TFT_CYAN);
     uiText(2, 18, "Aucun flux. Verifie SD:/evil/CCTV/CCTV_live.txt", TFT_RED);
     uiText(2, 30, "BACKSPACE: Retour / ` : Quit", TFT_YELLOW);
@@ -23122,7 +23125,7 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
     client.setTimeout(1);
 
     // statut discret sous la barre
-    M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+    LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
     uiText(2, TOPBAR_H, "Connexion flux...", TFT_WHITE);
 
     // ---- TCP connect ----
@@ -23182,7 +23185,7 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
         client.stop();
         String statusLine = String(line);
         statusLine.trim();
-        M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+        LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
         uiText(2, TOPBAR_H, (statusLine + " -> retour menu").c_str(), TFT_RED);
         delay(1200);
         return true;
@@ -23190,7 +23193,7 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
     }
     if (reconnect) {
       client.stop();
-      M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+      LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
       uiText(2, TOPBAR_H, "Reconnexion...", TFT_YELLOW);
       delay(250);
       continue;
@@ -23247,7 +23250,7 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
     }
     if (reconnect) {
       client.stop();
-      M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+      LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
       uiText(2, TOPBAR_H, "Reconnexion...", TFT_YELLOW);
       delay(250);
       continue;
@@ -23293,14 +23296,14 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
     }
     if (reconnect) {
       client.stop();
-      M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+      LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
       uiText(2, TOPBAR_H, "Reconnexion...", TFT_YELLOW);
       delay(250);
       continue;
     }
 
     // Nettoie la zone "statut"
-    M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+    LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
 
     // FPS state & topbar
     uint32_t fpsT0 = millis();
@@ -23476,7 +23479,7 @@ bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* p
           M5Cardputer.Keyboard.isKeyPressed('`')) {
         return true;
       }
-      M5.Display.fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
+      LB::fillRect(0, TOPBAR_H, SCREEN_W, 10, TFT_BLACK);
       uiText(2, TOPBAR_H, "Reconnexion...", TFT_YELLOW);
 
       for (uint16_t t = 0; t < 250; t += 20) {
@@ -23508,7 +23511,7 @@ void runCCTV_MJPEGViewer() {
     return; // retour au menu principal
   }
   enterDebounce();
-  M5.Display.setTextSize(1);
+  LB::setTextSize(1);
 
   bool spiffs_ok = false;
   bool sd_ok = true;
@@ -23735,11 +23738,11 @@ const char* authToTextHC(wifi_auth_mode_t m) {
   }
 }
 void drawSpycamScreenHC(const char* text, bool alert) {
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5,0);
-  M5.Display.setTextColor(alert ? TFT_RED : menuTextUnFocusedColor);
-  M5.Display.println(text);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setCursor(5,0);
+  LB::setTextColor(alert ? TFT_RED : menuTextUnFocusedColor);
+  LB::println(text);
   if (alert) {
     M5.Speaker.tone(1200, 220);
     pixels.setPixelColor(0, pixels.Color(255, 0, 0)); pixels.show();
@@ -23792,14 +23795,14 @@ bool isSpyByOUIHC(const char* oui, char* reasonOut, size_t reasonLen) {
 // 5) FONCTION PRINCIPALE
 // =========================
 void scanCCTV_SpyDectection() {
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(menuTextUnFocusedColor);
-  M5.Display.setCursor(5, 5);
-  M5.Display.println("SpyCam Scan (HC)...");
-  M5.Display.setTextSize(1.5);
-  M5.Display.println("ENTER/BACK: exit");
-  M5.Display.display();
+  LB::fillScreen(menuBackgroundColor);
+  LB::setTextSize(1.5);
+  LB::setTextColor(menuTextUnFocusedColor);
+  LB::setCursor(5, 5);
+  LB::println("SpyCam Scan (HC)...");
+  LB::setTextSize(1.5);
+  LB::println("ENTER/BACK: exit");
+  LB::display();
 
   spycamScanningHC = true;
   lastWifiScanHC = 0; lastUiHC = 0;
@@ -23863,11 +23866,11 @@ void scanCCTV_SpyDectection() {
     delay(20);
   }
 
-  M5.Display.fillScreen(menuBackgroundColor);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setCursor(5, M5.Display.height()/2);
-  M5.Display.println("Stopping SpyCam scan...");
-  M5.Display.display();
+  LB::fillScreen(menuBackgroundColor);
+  LB::setTextSize(1.5);
+  LB::setCursor(5, LB::height()/2);
+  LB::println("Stopping SpyCam scan...");
+  LB::display();
   delay(700);
   waitAndReturnToMenu("Return to menu");
 }
@@ -23876,12 +23879,12 @@ void scanCCTV_SpyDectection() {
 
 void scanCCTVCameras() {
   if (WiFi.localIP().toString() == "0.0.0.0") {
-    M5.Display.fillScreen(menuBackgroundColor);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, M5.Display.height()/2);
-    M5.Display.println("Not connected...");
-    M5.Display.println("Only SpyCam detector");
-    M5.Display.display();
+    LB::fillScreen(menuBackgroundColor);
+    LB::setTextSize(1.5);
+    LB::setCursor(5, LB::height()/2);
+    LB::println("Not connected...");
+    LB::println("Only SpyCam detector");
+    LB::display();
     delay(1000);
   }
 
@@ -23969,47 +23972,47 @@ Crack NTLMv2
 // =======================
 void drawNTLMInitUser(const String &user) {
   // Efface tout l'écran
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
-  M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-  M5.Display.setCursor(5, 20);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
+  LB::setTextColor(TFT_CYAN, TFT_BLACK);
+  LB::setCursor(5, 20);
 
   // Affiche le nom utilisateur en cours
   String shortUser = user;
   if (shortUser.length() > 36) {
     shortUser = shortUser.substring(0, 33) + "...";
   }
-  M5.Display.println("User: " + shortUser);
+  LB::println("User: " + shortUser);
 
   // Réserve la ligne suivante pour compteur
-  M5.Display.setCursor(5, 40);
-  M5.Display.println("Tried: 0");
+  LB::setCursor(5, 40);
+  LB::println("Tried: 0");
 }
 
 void drawNTLMTries(uint32_t tried) {
   // Met à jour uniquement la ligne "Tried"
-  M5.Display.fillRect(0, 40, 240, 12, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(5, 40);
-  M5.Display.print("Tried: ");
-  M5.Display.println(tried);
+  LB::fillRect(0, 40, 240, 12, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(5, 40);
+  LB::print("Tried: ");
+  LB::println(tried);
 }
 
 void drawNTLMResult(const String &msg, bool success = false) {
   // Résultat final pour cet utilisateur
   int y = 75; // ↓ descendu pour ne pas chevaucher le H/s
 
-  M5.Display.fillRect(0, y, 240, 12, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
-  M5.Display.setTextColor(success ? TFT_GREEN : TFT_RED, TFT_BLACK);
-  M5.Display.setCursor(5, y);
+  LB::fillRect(0, y, 240, 12, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
+  LB::setTextColor(success ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  LB::setCursor(5, y);
 
   String shortMsg = msg;
-  M5.Display.println(shortMsg);
+  LB::println(shortMsg);
 
   Serial.println(msg);
 }
@@ -24062,23 +24065,23 @@ void drawProgressBar(uint32_t current, uint32_t total) {
   int filled = (int)((current * barWidth) / total);
 
   // fond noir
-  M5.Display.fillRect(x, y, barWidth, barHeight, TFT_BLACK);
+  LB::fillRect(x, y, barWidth, barHeight, TFT_BLACK);
 
   // partie remplie en vert
-  M5.Display.fillRect(x, y, filled, barHeight, TFT_GREEN);
-  M5.Display.drawRect(x, y, barWidth, barHeight, TFT_WHITE);
+  LB::fillRect(x, y, filled, barHeight, TFT_GREEN);
+  LB::drawRect(x, y, barWidth, barHeight, TFT_WHITE);
 }
 
 void drawHashrate(uint32_t hps) {
   // Met à jour uniquement la ligne Hash/s
-  M5.Display.fillRect(0, 55, 240, 12, TFT_BLACK);
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextFont(1);
-  M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  M5.Display.setCursor(5, 55);
-  M5.Display.print("Speed: ");
-  M5.Display.print(hps);
-  M5.Display.println(" H/s");
+  LB::fillRect(0, 55, 240, 12, TFT_BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextFont(1);
+  LB::setTextColor(TFT_YELLOW, TFT_BLACK);
+  LB::setCursor(5, 55);
+  LB::print("Speed: ");
+  LB::print(hps);
+  LB::println(" H/s");
 }
 
 // =======================
@@ -24098,11 +24101,11 @@ void crackNTLMv2() {
     Serial.println("[WARN] /evil/NTLM/ntlm_hashes.txt is empty!");
     hf.close();
 
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setCursor(20, 50);
-    M5.Display.setTextSize(1);
-    M5.Display.setTextColor(TFT_RED, TFT_BLACK);
-    M5.Display.println("ntlm_hashes.txt is empty!");
+    LB::fillScreen(TFT_BLACK);
+    LB::setCursor(20, 50);
+    LB::setTextSize(1);
+    LB::setTextColor(TFT_RED, TFT_BLACK);
+    LB::println("ntlm_hashes.txt is empty!");
     delay(2000);
 
     waitAndReturnToMenu("Back To Main Menu");
@@ -24308,73 +24311,73 @@ void drawCleanerUI(const char* title,
                           uint16_t titleColor = TFT_GREEN)
 {
   // Fond
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextFont(1);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextFont(1);
 
   // Header (compact style)
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(titleColor, TFT_BLACK);
-  M5.Display.setCursor(0, 2);
-  M5.Display.println(title);
+  LB::setTextSize(1.5);
+  LB::setTextColor(titleColor, TFT_BLACK);
+  LB::setCursor(0, 2);
+  LB::println(title);
 
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setCursor(0, 18);
-  M5.Display.println(subtitle);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(0, 18);
+  LB::println(subtitle);
 
   // Progress bar
   int barX = 10, barY = 36, barW = 220, barH = 10;
-  M5.Display.drawRect(barX, barY, barW, barH, TFT_DARKGREY);
+  LB::drawRect(barX, barY, barW, barH, TFT_DARKGREY);
   if (percent < 0) percent = 0;
   if (percent > 100) percent = 100;
   int fillW = (barW - 2) * percent / 100;
-  M5.Display.fillRect(barX + 1, barY + 1, fillW, barH - 2, TFT_GREEN);
+  LB::fillRect(barX + 1, barY + 1, fillW, barH - 2, TFT_GREEN);
 
   // Percent text
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(menuTextFocusedColor, TFT_BLACK);
-  M5.Display.setCursor(barX, barY + 14);
-  M5.Display.printf("Progress: %d%%", percent);
+  LB::setTextSize(1);
+  LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+  LB::setCursor(barX, barY + 14);
+  LB::printf("Progress: %d%%", percent);
 
   // Stats (compact)
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setCursor(0, 62);
-  M5.Display.printf("Total  : %lu\n", (unsigned long)st.totalLines);
-  M5.Display.printf("Kept   : %lu\n", (unsigned long)st.keptLines);
-  M5.Display.printf("Dup    : %lu\n", (unsigned long)st.dupLines);
-  M5.Display.printf("Invalid: %lu\n", (unsigned long)st.invalidLines);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(0, 62);
+  LB::printf("Total  : %lu\n", (unsigned long)st.totalLines);
+  LB::printf("Kept   : %lu\n", (unsigned long)st.keptLines);
+  LB::printf("Dup    : %lu\n", (unsigned long)st.dupLines);
+  LB::printf("Invalid: %lu\n", (unsigned long)st.invalidLines);
 
   // Hint
   if (showCancelHint) {
-    M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Display.setCursor(0, 122);
-    M5.Display.print("BACKSPACE: abort");
+    LB::setTextColor(TFT_YELLOW, TFT_BLACK);
+    LB::setCursor(0, 122);
+    LB::print("BACKSPACE: abort");
   }
 
-  M5.Display.display();
+  LB::display();
 }
 
 void drawResultUI(bool ok, const CleanStats& st) {
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextFont(1);
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextFont(1);
 
-  M5.Display.setTextSize(1.5);
-  M5.Display.setTextColor(ok ? TFT_GREEN : TFT_RED, TFT_BLACK);
-  M5.Display.setCursor(0, 10);
-  M5.Display.println(ok ? "Cleanup done!" : "Cleanup failed!");
+  LB::setTextSize(1.5);
+  LB::setTextColor(ok ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  LB::setCursor(0, 10);
+  LB::println(ok ? "Cleanup done!" : "Cleanup failed!");
 
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  M5.Display.setCursor(0, 40);
-  M5.Display.printf("Total  : %lu\n", (unsigned long)st.totalLines);
-  M5.Display.printf("Kept   : %lu\n", (unsigned long)st.keptLines);
-  M5.Display.printf("Dup    : %lu\n", (unsigned long)st.dupLines);
-  M5.Display.printf("Invalid: %lu\n", (unsigned long)st.invalidLines);
+  LB::setTextSize(1);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(0, 40);
+  LB::printf("Total  : %lu\n", (unsigned long)st.totalLines);
+  LB::printf("Kept   : %lu\n", (unsigned long)st.keptLines);
+  LB::printf("Dup    : %lu\n", (unsigned long)st.dupLines);
+  LB::printf("Invalid: %lu\n", (unsigned long)st.invalidLines);
 
-  M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  M5.Display.setCursor(0, 122);
-  M5.Display.print("ENTER: back");
+  LB::setTextColor(TFT_YELLOW, TFT_BLACK);
+  LB::setCursor(0, 122);
+  LB::print("ENTER: back");
 
-  M5.Display.display();
+  LB::display();
 }
 
 // Nettoyage low-RAM + UI progress + annulation
@@ -24809,21 +24812,21 @@ void selectTypesUI() {
     }
 
     if (needRedraw) {
-      auto& d = M5Cardputer.Display;
-      d.fillScreen(BLACK);
-      d.setTextSize(1.5);
-      d.setTextColor(TFT_WHITE, BLACK);
+      // Display calls use LB:: (LegacyBridge)
+      LB::fillScreen(BLACK);
+      LB::setTextSize(1.5);
+      LB::setTextColor(TFT_WHITE, BLACK);
 
       // Ligne Select All
-      d.setCursor(0, 0);
-      if (cursor == 0) d.print(">"); else d.print(" ");
-      d.printf("%s Select All\n", selectAll ? "[X]" : "[ ]");
+      LB::setCursor(0, 0);
+      if (cursor == 0) LB::print(">"); else LB::print(" ");
+      LB::printf("%s Select All\n", selectAll ? "[X]" : "[ ]");
 
       // Liste des types
       for (int i = 0; i < kTypeCount; i++) {
-        d.setCursor(0, (i+1)*13);
-        if (cursor == i+1) d.print(">"); else d.print(" ");
-        d.printf("%s %s", gTypeEnabled[i] ? "[X]" : "[ ]", shortType(kTypes[i]).c_str());
+        LB::setCursor(0, (i+1)*13);
+        if (cursor == i+1) LB::print(">"); else LB::print(" ");
+        LB::printf("%s %s", gTypeEnabled[i] ? "[X]" : "[ ]", shortType(kTypes[i]).c_str());
       }
 
       // maj état ancien
@@ -24868,41 +24871,41 @@ void prepareDevices() {
 
 // === UI sur Cardputer ===
 void updateFakeSSDPUI() {
-  auto& d = M5Cardputer.Display;
-  d.fillScreen(BLACK);
+  // Display calls use LB:: (LegacyBridge)
+  LB::fillScreen(BLACK);
 
-  d.setTextSize(2);
-  d.setTextColor(TFT_GREEN, BLACK);
-  d.setCursor(5, 5);
-  d.print("Poisoning SSDP");
+  LB::setTextSize(2);
+  LB::setTextColor(TFT_GREEN, BLACK);
+  LB::setCursor(5, 5);
+  LB::print("Poisoning SSDP");
 
-  d.setTextSize(1);
-  d.setTextColor(WHITE, BLACK);
-  d.setCursor(5, 30);
-  d.print("M-SEARCH recv: ");
-  d.setTextSize(2);
-  d.print(ssdpSearchCount);
+  LB::setTextSize(1);
+  LB::setTextColor(WHITE, BLACK);
+  LB::setCursor(5, 30);
+  LB::print("M-SEARCH recv: ");
+  LB::setTextSize(2);
+  LB::print(ssdpSearchCount);
 
-  d.setTextSize(1);
-  d.setCursor(0, 50);
-  d.print(lastSSDPService);
+  LB::setTextSize(1);
+  LB::setCursor(0, 50);
+  LB::print(lastSSDPService);
 
-  d.setTextSize(1);
-  d.setCursor(5, 70);
-  d.print("SSDP sent: ");
-  d.setTextSize(2);
-  d.print(ssdpSentCount);
+  LB::setTextSize(1);
+  LB::setCursor(5, 70);
+  LB::print("SSDP sent: ");
+  LB::setTextSize(2);
+  LB::print(ssdpSentCount);
 
-  d.setTextSize(1);
-  d.setCursor(5, 100);
-  d.print("Client: ");
-  d.setTextSize(2);
-  d.print(lastSSDPClient);
+  LB::setTextSize(1);
+  LB::setCursor(5, 100);
+  LB::print("Client: ");
+  LB::setTextSize(2);
+  LB::print(lastSSDPClient);
 
-  d.setTextSize(1);
-  d.setTextColor(TFT_DARKGREY, BLACK);
-  d.setCursor(5, d.height()-12);
-  d.print("Press BACKSPACE to exit");
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_DARKGREY, BLACK);
+  LB::setCursor(5, LB::height()-12);
+  LB::print("Press BACKSPACE to exit");
 }
 
 #include "lwip/igmp.h"
@@ -24910,11 +24913,11 @@ void fakeSSDP() {
   inMenu = false;
 
   // 1) Nombre de devices
-  M5Cardputer.Display.fillScreen(BLACK);
-  M5Cardputer.Display.setTextSize(1.5);
-  M5Cardputer.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5Cardputer.Display.setCursor(0, 0);
-  M5Cardputer.Display.print("How many devices? (1-300)");
+  LB::fillScreen(BLACK);
+  LB::setTextSize(1.5);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(0, 0);
+  LB::print("How many devices? (1-300)");
   String input = getUserInput();
   int val = input.toInt();
   if (val < 1) val = 1;
@@ -24927,11 +24930,11 @@ void fakeSSDP() {
   if (useSD) {
     loadDeviceNames();
   } else {
-    M5Cardputer.Display.fillScreen(BLACK);
-    M5Cardputer.Display.setTextSize(1.5);
-    M5Cardputer.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5Cardputer.Display.setCursor(0, 0);
-    M5Cardputer.Display.print("Custom name?");
+    LB::fillScreen(BLACK);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::setCursor(0, 0);
+    LB::print("Custom name?");
     String customName = getUserInput();
     gNames.clear(); gNames.emplace_back();
     strncpy(gNames[0].data(), customName.c_str(), NAME_MAX_LEN);
@@ -25145,16 +25148,16 @@ const int scrollOffsetSkyjack = lineHeight;
 void drawSkyjackStatus(const char* msg) {
   if (skyjackCursorY + lineHeight > maxY) {
     // Scroll vers le haut
-    M5.Display.scroll(0, -scrollOffsetSkyjack);
+    LB::scroll(0, -scrollOffsetSkyjack);
     skyjackCursorY -= scrollOffsetSkyjack;
     // Nettoyer la nouvelle ligne du bas
-    M5.Display.fillRect(0, skyjackCursorY, 240, lineHeight, TFT_BLACK);
+    LB::fillRect(0, skyjackCursorY, 240, lineHeight, TFT_BLACK);
   }
 
-  M5.Display.setCursor(5, skyjackCursorY);
-  M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.println(">> " + String(msg));
+  LB::setCursor(5, skyjackCursorY);
+  LB::setTextColor(TFT_GREEN, TFT_BLACK);
+  LB::setTextSize(1);
+  LB::println(">> " + String(msg));
   skyjackCursorY += lineHeight;
 
   Serial.println("[SkyJack] " + String(msg));
@@ -25188,10 +25191,10 @@ void sendATCommandToDrone(WiFiClient& client, const String& command) {
 }
 
 void skyjackDroneMode() {
-  M5.Display.clear();
-  M5.Display.setCursor(5, 20);
-  M5.Display.setTextSize(1.7);
-  M5.Display.setTextColor(TFT_GREEN);
+  LB::clear();
+  LB::setCursor(5, 20);
+  LB::setTextSize(1.7);
+  LB::setTextColor(TFT_GREEN);
   drawSkyjackStatus(">> SKYJACK MODE <<");
 
   // Étape 1 : Scan WiFi forcé canal par canal
@@ -25446,37 +25449,37 @@ const int T_FL_X = 6,   T_FL_Y = 78, T_FL_H = 24;
 const int T_IO_X = 84,  T_IO_Y = 78, T_IO_W = 150, T_IO_H = 24;
 
 void ddDrawHeader(const char* title) {
-  M5.Display.fillRect(0, 0, 240, 18, TFT_DARKCYAN);
-  M5.Display.drawFastHLine(0, 18, 240, TFT_BLACK);
-  M5.Display.setTextColor(TFT_BLACK, TFT_DARKCYAN);
-  M5.Display.setTextSize(1);
-  M5.Display.setCursor(6, 4); M5.Display.print(title);
+  LB::fillRect(0, 0, 240, 18, TFT_DARKCYAN);
+  LB::drawFastHLine(0, 18, 240, TFT_BLACK);
+  LB::setTextColor(TFT_BLACK, TFT_DARKCYAN);
+  LB::setTextSize(1);
+  LB::setCursor(6, 4); LB::print(title);
 }
 
 void ddDrawTextLine(int x, int y, const char* label, const char* value) {
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-  M5.Display.setCursor(x, y); M5.Display.print(label);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(x + 56, y); M5.Display.print(value);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_CYAN, TFT_BLACK);
+  LB::setCursor(x, y); LB::print(label);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(x + 56, y); LB::print(value);
 }
 
 void ddDrawTileFrame(int x, int y, int w, int h, const char* caption) {
-  M5.Display.drawRoundRect(x, y, w, h, 5, TFT_DARKGREY);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-  M5.Display.setCursor(x + 6, y + 4); M5.Display.print(caption);
+  LB::drawRoundRect(x, y, w, h, 5, TFT_DARKGREY);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_CYAN, TFT_BLACK);
+  LB::setCursor(x + 6, y + 4); LB::print(caption);
   int clearY = y + 13;
-  M5.Display.fillRect(x + 1, clearY, w - 2, h - (clearY - y) - 2, TFT_BLACK);
+  LB::fillRect(x + 1, clearY, w - 2, h - (clearY - y) - 2, TFT_BLACK);
 }
 
 void ddDrawSparkline(int x, int y, int w, int h,
                      uint8_t* hist, int len, int head,
                      uint16_t color, bool clear = true) {
   if (clear) {
-    M5.Display.fillRect(x, y, w, h, TFT_BLACK);
-    for (int gx = 0; gx < w; gx += 16) M5.Display.drawFastVLine(x + gx, y, h, TFT_DARKGREY);
-    for (int gy = 0; gy < h; gy += 10) M5.Display.drawFastHLine(x, y + gy, w, TFT_DARKGREY);
+    LB::fillRect(x, y, w, h, TFT_BLACK);
+    for (int gx = 0; gx < w; gx += 16) LB::drawFastVLine(x + gx, y, h, TFT_DARKGREY);
+    for (int gy = 0; gy < h; gy += 10) LB::drawFastHLine(x, y + gy, w, TFT_DARKGREY);
   }
 
   if (len < 2) return;
@@ -25490,14 +25493,14 @@ void ddDrawSparkline(int x, int y, int w, int h,
     int v   = hist[idx];
     int px  = x + (i * (w - 1)) / (len - 1);
     int py  = y + h - 1 - (v * (h - 1)) / 100;
-    M5.Display.drawLine(prevX, prevY, px, py, color);
+    LB::drawLine(prevX, prevY, px, py, color);
     prevX = px; prevY = py;
   }
 }
 
 
 void ddDashboardInit(const char* ssid, const String& ip) {
-  M5.Display.fillScreen(TFT_BLACK);
+  LB::fillScreen(TFT_BLACK);
   ddDrawHeader("WiFi Dead Drop");
 
   ddDrawTextLine(6, 22, "SSID", ssid);
@@ -25509,10 +25512,10 @@ void ddDashboardInit(const char* ssid, const String& ip) {
   ddDrawTileFrame(6,   78, 72, 24, "Files");
   ddDrawTileFrame(84,  78, 150,24, "IO KB/s (up/down)");
 
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-  M5.Display.setCursor(6,   106); M5.Display.print("Clients");
-  M5.Display.setCursor(126, 106); M5.Display.print("Throughput");
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_CYAN, TFT_BLACK);
+  LB::setCursor(6,   106); LB::print("Clients");
+  LB::setCursor(126, 106); LB::print("Throughput");
 
   // Clients graph
   ddDrawSparkline(6,   115, 108, 18, ddClientsHist, DD_HIST_LEN, ddHistHead, TFT_GREEN, true);
@@ -25524,10 +25527,10 @@ void ddDashboardInit(const char* ssid, const String& ip) {
 
 inline void ddDrawValueInTile(int x, int y, int w, int h, const char* txt) {
   int clearY = y + 13;
-  M5.Display.fillRect(x + 1, clearY, w - 2, h - (clearY - y) - 2, TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(x + 6, y + h - 10); M5.Display.print(txt);
+  LB::fillRect(x + 1, clearY, w - 2, h - (clearY - y) - 2, TFT_BLACK);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_WHITE, TFT_BLACK);
+  LB::setCursor(x + 6, y + h - 10); LB::print(txt);
 }
 
 void ddUpdateTileClients(int v) {
@@ -26092,30 +26095,30 @@ int menuSelectList(const std::vector<String>& items, const char* title) {
     int lastTop = -1;
     int lastIndex = -1;
 
-    M5.Display.clear();
-    M5.Display.setTextSize(1.5);
-    M5.Display.setCursor(5, 5);
-    M5.Display.println(title);
+    LB::clear();
+    LB::setTextSize(1.5);
+    LB::setCursor(5, 5);
+    LB::println(title);
 
     while (true) {
         M5Cardputer.update();
 
         if (index != lastIndex || top != lastTop) {
-            M5.Display.fillRect(0, 20, M5.Display.width(), M5.Display.height() - 20, TFT_BLACK);
+            LB::fillRect(0, 20, LB::width(), LB::height() - 20, TFT_BLACK);
 
             for (int i = 0; i < visibleLines; ++i) {
                 int itemIdx = top + i;
                 if (itemIdx >= items.size()) break;
 
                 if (itemIdx == index) {
-                    M5.Display.fillRect(0, 20 + i * lineHeight, M5.Display.width(), lineHeight, menuSelectedBackgroundColor);
-                    M5.Display.setTextColor(menuTextFocusedColor);
+                    LB::fillRect(0, 20 + i * lineHeight, LB::width(), lineHeight, menuSelectedBackgroundColor);
+                    LB::setTextColor(menuTextFocusedColor);
                 } else {
-                    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+                    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
                 }
 
-                M5.Display.setCursor(5, 20 + i * lineHeight);
-                M5.Display.println(items[itemIdx]);
+                LB::setCursor(5, 20 + i * lineHeight);
+                LB::println(items[itemIdx]);
             }
 
             lastIndex = index;
@@ -26414,12 +26417,12 @@ String getExternalWANIP() {
 
 void upnpAllHostsAllPorts(const std::vector<IPAddress>& hosts) {
     enterDebounce();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println("FULL AUTO NAT MODE");
-    M5.Display.println("------------------");
+    LB::clear();
+    LB::setCursor(5, 0);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::println("FULL AUTO NAT MODE");
+    LB::println("------------------");
 
     static const uint16_t portsToTest[] = {
         80,81,82,88,443,4443,8000,8008,8080,8081,8443,8888,
@@ -26432,7 +26435,7 @@ void upnpAllHostsAllPorts(const std::vector<IPAddress>& hosts) {
 
     uint16_t extBase = 50001;
     uint32_t mapCount = 0;
-    int cursorY = M5.Display.getCursorY();
+    int cursorY = LB::getCursorY();
 
     IPAddress selfIP = WiFi.localIP();
 
@@ -26461,13 +26464,13 @@ void upnpAllHostsAllPorts(const std::vector<IPAddress>& hosts) {
 
             Serial.println("[MAP] " + line);
 
-            M5.Display.setCursor(5, cursorY);
-            M5.Display.println(line);
+            LB::setCursor(5, cursorY);
+            LB::println(line);
             cursorY += 13;
 
             if (cursorY > 120) {
-                M5.Display.clear();
-                M5.Display.setCursor(5, 0);
+                LB::clear();
+                LB::setCursor(5, 0);
                 cursorY = 0;
             }
 
@@ -26482,13 +26485,13 @@ void upnpAllHostsAllPorts(const std::vector<IPAddress>& hosts) {
 
     // Résumé
     String wan = getExternalWANIP();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.println("DONE.");
-    M5.Display.println("WAN IP:");
-    M5.Display.println(wan);
-    M5.Display.println("Mapped: " + String(mapCount));
+    LB::clear();
+    LB::setCursor(5, 0);
+    LB::setTextSize(1.5);
+    LB::println("DONE.");
+    LB::println("WAN IP:");
+    LB::println(wan);
+    LB::println("Mapped: " + String(mapCount));
     delay(4000);
 
     waitAndReturnToMenu("Auto NAT done");
@@ -26510,11 +26513,11 @@ void upnpTargetNATWorkflow() {
     sprintf(base_ip, "%d.%d.%d.", net[0], net[1], net[2]);
 
     // Affichage initial
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.println("Starting ARP scan...");
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::setTextSize(1.5);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::println("Starting ARP scan...");
     delay(600);
 
     // ARP passif et table
@@ -26522,11 +26525,11 @@ void upnpTargetNATWorkflow() {
     read_arp_table(base_ip, 1, 254, hosts);
 
     // Booster ARP actif
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
-    M5.Display.setTextSize(1);
-    M5.Display.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    M5.Display.println("Scanning ARP...");
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::setTextSize(1);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::println("Scanning ARP...");
 
     int line = 1;
     for (int i = 1; i <= 254; i++) {
@@ -26539,11 +26542,11 @@ void upnpTargetNATWorkflow() {
             if (!exists) {
                 hosts.push_back(currentIP);
                 Serial.println("[ARP] Found: " + currentIP.toString());
-                M5.Display.setCursor(5, line * 10);
-                M5.Display.println(currentIP.toString());
+                LB::setCursor(5, line * 10);
+                LB::println(currentIP.toString());
                 line++;
                 if (line >= 12) {
-                    M5.Display.clear();
+                    LB::clear();
                     line = 1;
                 }
             }
@@ -26601,9 +26604,9 @@ void upnpTargetNATWorkflow() {
             Serial.println("[UPnP] Using existing portal on port 80 (direct).");
         } else {
             enterDebounce();
-            M5.Display.clear();
-            M5.Display.setCursor(5, 5);
-            M5.Display.println("Proxy local port (ex: 81)");
+            LB::clear();
+            LB::setCursor(5, 5);
+            LB::println("Proxy local port (ex: 81)");
             String localPortStr = getUserInput("Proxy local port (ex: 8080):");
             uint16_t localPort = localPortStr.toInt();
             if (localPort == 0 || localPort > 65535) {
@@ -26652,9 +26655,9 @@ void upnpTargetNATWorkflow() {
 
     // 🔸 Demande du port externe à mapper
     enterDebounce();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("Set external port:");
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::println("Set external port:");
     String p = getUserInput("External port:");
     uint16_t externalPort = p.toInt();
     if (externalPort == 0 || externalPort > 65535) {
@@ -26663,12 +26666,12 @@ void upnpTargetNATWorkflow() {
     }
 
     // 🔸 Envoi de la requête UPnP
-    M5.Display.clear();
-    M5.Display.setCursor(5, 5);
-    M5.Display.println("NAT via UPnP...");
-    M5.Display.println("Target: " + targetIP.toString());
-    M5.Display.println("Internal: " + String(internalPort));
-    M5.Display.println("External: " + String(externalPort));
+    LB::clear();
+    LB::setCursor(5, 5);
+    LB::println("NAT via UPnP...");
+    LB::println("Target: " + targetIP.toString());
+    LB::println("Internal: " + String(internalPort));
+    LB::println("External: " + String(externalPort));
 
     Serial.println("[UPnP] Requesting NAT for: " + targetIP.toString());
     Serial.println("[UPnP] Internal port: " + String(internalPort));
@@ -26678,9 +26681,9 @@ void upnpTargetNATWorkflow() {
 
     if (success) {
         String wanIP = getExternalWANIP();
-        M5.Display.clear();
-        M5.Display.setCursor(5, 0);
-        M5.Display.println("Exposed on:\n " + wanIP + ":" + String(externalPort));
+        LB::clear();
+        LB::setCursor(5, 0);
+        LB::println("Exposed on:\n " + wanIP + ":" + String(externalPort));
         delay(5000);
         waitAndReturnToMenu((wanIP + ":" + String(externalPort)).c_str());
     } else {
@@ -26723,12 +26726,12 @@ void listUPnPMappings() {
     }
 
     enterDebounce();
-    M5.Display.clear();
-    M5.Display.setCursor(5, 0);
-    M5.Display.setTextSize(1.5);
-    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-    M5.Display.println("Listing UPnP");
-    M5.Display.println("---------------------");
+    LB::clear();
+    LB::setCursor(5, 0);
+    LB::setTextSize(1.5);
+    LB::setTextColor(TFT_WHITE, TFT_BLACK);
+    LB::println("Listing UPnP");
+    LB::println("---------------------");
 
     String controlURL;
     IPAddress routerIP;
@@ -26742,7 +26745,7 @@ void listUPnPMappings() {
 
     String path = controlURL.substring(controlURL.indexOf('/', 7));
     int index = 0;
-    int cursorY = M5.Display.getCursorY();
+    int cursorY = LB::getCursorY();
     char xmlBuffer[1024];     // buffer statique pour réponse
     char lineBuffer[64];      // buffer pour affichage
 
@@ -26807,13 +26810,13 @@ void listUPnPMappings() {
 
         Serial.println("[UPnP MAP] " + String(lineBuffer));
 
-        M5.Display.setCursor(5, cursorY);
-        M5.Display.println(lineBuffer);
+        LB::setCursor(5, cursorY);
+        LB::println(lineBuffer);
         cursorY += 13;
 
         if (cursorY > 120) {
-            M5.Display.clear();
-            M5.Display.setCursor(5, 0);
+            LB::clear();
+            LB::setCursor(5, 0);
             cursorY = 0;
         }
 
@@ -26825,8 +26828,8 @@ void listUPnPMappings() {
         }
     }
         cursorY += 13;
-        M5.Display.setCursor(5, cursorY);
-        M5.Display.println("- End -");
+        LB::setCursor(5, cursorY);
+        LB::println("- End -");
 
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
         M5Cardputer.update();
@@ -27074,16 +27077,16 @@ void eapMon_addHit(const char mac[18], const char imsi[17]) {
 
 
 void eapMon_drawHeader() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
-  d.fillRect(0, 0, 240, 12, taskbarBackgroundColor);
-  d.fillRect(0, 12, 240, 1, taskbarDividerColor);
+  LB::fillRect(0, 0, 240, 12, taskbarBackgroundColor);
+  LB::fillRect(0, 12, 240, 1, taskbarDividerColor);
 
-  d.setTextSize(1);
-  d.setTextColor(taskbarTextColor, taskbarBackgroundColor);
+  LB::setTextSize(1);
+  LB::setTextColor(taskbarTextColor, taskbarBackgroundColor);
 
-  d.setCursor(2, 2);
-  d.print("EAP-SIM IMSI Catcher");
+  LB::setCursor(2, 2);
+  LB::print("EAP-SIM IMSI Catcher");
 }
 
 
@@ -27093,97 +27096,97 @@ void eapMon_drawHeader() {
 
 
 void eapMon_drawCards() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
   const int y0 = 14, h = 46;
 
   // Unique
-  d.drawRect(2, y0, 116, h, menuSelectedBackgroundColor);
-  d.setTextSize(1);
-  d.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  d.setCursor(8, y0 + 6);
-  d.print("UNIQUE IMSI");
-  d.setTextSize(2);
-  d.setTextColor(menuTextFocusedColor, TFT_BLACK);
-  d.setCursor(8, y0 + 20);
-  d.print((int)eapMon_count);
+  LB::drawRect(2, y0, 116, h, menuSelectedBackgroundColor);
+  LB::setTextSize(1);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(8, y0 + 6);
+  LB::print("UNIQUE IMSI");
+  LB::setTextSize(2);
+  LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+  LB::setCursor(8, y0 + 20);
+  LB::print((int)eapMon_count);
 
   // Total
-  d.drawRect(122, y0, 116, h, menuSelectedBackgroundColor);
-  d.setTextSize(1);
-  d.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  d.setCursor(128, y0 + 6);
-  d.print("TOTAL IMSI");
-  d.setTextSize(2);
-  d.setTextColor(menuTextFocusedColor, TFT_BLACK);
-  d.setCursor(128, y0 + 20);
-  d.print((unsigned long)eapMon_totalEap);
+  LB::drawRect(122, y0, 116, h, menuSelectedBackgroundColor);
+  LB::setTextSize(1);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(128, y0 + 6);
+  LB::print("TOTAL IMSI");
+  LB::setTextSize(2);
+  LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+  LB::setCursor(128, y0 + 20);
+  LB::print((unsigned long)eapMon_totalEap);
 }
 
 void eapMon_drawStatusBar() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   // Petite status bar sous les cartes : y=60..69
   const int Y = 60;
   const int H = 10;
 
-  d.fillRect(0, Y, 240, H, TFT_BLACK);
-  d.drawFastHLine(0, Y, 240, TFT_DARKGREY);
+  LB::fillRect(0, Y, 240, H, TFT_BLACK);
+  LB::drawFastHLine(0, Y, 240, TFT_DARKGREY);
 
-  d.setTextSize(1);
-  d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  d.setCursor(2, Y + 2);
-  d.print("Status:");
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_DARKGREY, TFT_BLACK);
+  LB::setCursor(2, Y + 2);
+  LB::print("Status:");
 
   char buf[32];
   if (eapMon_autoChannel) snprintf(buf, sizeof(buf), "CH:%d AUTO", eapMon_channel);
   else                   snprintf(buf, sizeof(buf), "CH:%d",      eapMon_channel);
 
-  d.setTextColor(menuTextFocusedColor, TFT_BLACK);
-  int tw = d.textWidth(buf);
-  d.setCursor(240 - tw - 2, Y + 2);
-  d.print(buf);
+  LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+  int tw = LB::textWidth(buf);
+  LB::setCursor(240 - tw - 2, Y + 2);
+  LB::print(buf);
 
   markDirty();
 }
 
 void eapMon_drawLastSeen() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   const int Y = 70;
   const int H = 18;
 
-  d.fillRect(0, Y, 240, H, TFT_BLACK);
-  d.setTextSize(1);
-  d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  d.setCursor(2, Y + 2);
-  d.print("Last:");
+  LB::fillRect(0, Y, 240, H, TFT_BLACK);
+  LB::setTextSize(1);
+  LB::setTextColor(TFT_DARKGREY, TFT_BLACK);
+  LB::setCursor(2, Y + 2);
+  LB::print("Last:");
 
   if (eapMon_count == 0) {
-    d.setCursor(40, Y + 2);
-    d.print("waiting...");
+    LB::setCursor(40, Y + 2);
+    LB::print("waiting...");
     return;
   }
 
   const uint16_t lastIdx = (eapMon_wr + EAPMON_MAX_HITS - 1) % EAPMON_MAX_HITS;
 
-  d.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-  d.setCursor(40, Y + 2);
-  d.print(eapMon_hits[lastIdx].mac);
+  LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+  LB::setCursor(40, Y + 2);
+  LB::print(eapMon_hits[lastIdx].mac);
 
-  d.setTextColor(menuTextFocusedColor, TFT_BLACK);
-  d.setCursor(40, Y + 11);
-  d.print(eapMon_hits[lastIdx].imsi);
+  LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+  LB::setCursor(40, Y + 11);
+  LB::print(eapMon_hits[lastIdx].imsi);
 }
 
 
 void eapMon_drawList() {
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   const int Y = 88;
   const int H = 44;
 
-  d.fillRect(0, Y, 240, H, TFT_BLACK);
-  d.setTextSize(1);
+  LB::fillRect(0, Y, 240, H, TFT_BLACK);
+  LB::setTextSize(1);
 
   int y = Y + 1;
 
@@ -27192,22 +27195,22 @@ void eapMon_drawList() {
 
   for (int i = eapMon_viewStart; i < end; i++) {
     const uint16_t idx = (eapMon_wr + EAPMON_MAX_HITS - eapMon_count + i) % EAPMON_MAX_HITS;
-    d.setCursor(2, y);
-    d.setTextColor(menuTextUnFocusedColor, TFT_BLACK);
-    d.print(eapMon_hits[idx].mac);
-    d.setCursor(140, y);
-    d.setTextColor(menuTextFocusedColor, TFT_BLACK);
-    d.print(eapMon_hits[idx].imsi);
+    LB::setCursor(2, y);
+    LB::setTextColor(menuTextUnFocusedColor, TFT_BLACK);
+    LB::print(eapMon_hits[idx].mac);
+    LB::setCursor(140, y);
+    LB::setTextColor(menuTextFocusedColor, TFT_BLACK);
+    LB::print(eapMon_hits[idx].imsi);
     y += 11;
   }
 
   if (eapMon_count > eapMon_maxLines) {
-    d.drawRect(236, Y, 3, H, TFT_DARKGREY);
+    LB::drawRect(236, Y, 3, H, TFT_DARKGREY);
     float frac = (float)eapMon_viewStart / (float)(eapMon_count - eapMon_maxLines);
     if (frac < 0) frac = 0;
     if (frac > 1) frac = 1;
     int knobY = Y + (int)((H - 10) * frac);
-    d.fillRect(237, knobY, 1, 10, menuTextFocusedColor);
+    LB::fillRect(237, knobY, 1, 10, menuTextFocusedColor);
   }
 }
 
@@ -27221,13 +27224,13 @@ void eapMon_drawIdleAnim() {
   lastAnimMs = now;
   phase = (phase + 1) % 20;
 
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
   const int x0 = 40, y0 = 100, w = 160, h = 6;
-  d.drawRect(x0, y0, w, h, TFT_DARKGREY);
-  d.fillRect(x0 + 1, y0 + 1, w - 2, h - 2, TFT_BLACK);
+  LB::drawRect(x0, y0, w, h, TFT_DARKGREY);
+  LB::fillRect(x0 + 1, y0 + 1, w - 2, h - 2, TFT_BLACK);
   int barW = 18;
   int pos  = (int)((w - 2 - barW) * (phase / 19.0f));
-  d.fillRect(x0 + 1 + pos, y0 + 1, barW, h - 2, menuTextFocusedColor);
+  LB::fillRect(x0 + 1 + pos, y0 + 1, barW, h - 2, menuTextFocusedColor);
   markDirty();
 }
 
@@ -27267,10 +27270,10 @@ void eapMon_renderIfNeeded() {
     return;
   }
 
-  auto& d = M5Cardputer.Display;
+  // Display calls use LB:: (LegacyBridge)
 
   if (eapMon_dirty) {
-    d.fillScreen(TFT_BLACK);
+    LB::fillScreen(TFT_BLACK);
     eapMon_drawHeader();
 
     // Forcer redraw status bar au premier paint
@@ -27546,19 +27549,19 @@ void ow_printClippedSSID_px(const String &s, int maxPixelW) {
   while (p[len] != '\0') len++;
 
   if (len <= maxChars) {
-    M5.Display.print(s);
+    LB::print(s);
     return;
   }
 
   if (maxChars == 1) {
-    M5.Display.print(".");
+    LB::print(".");
     return;
   }
 
   for (int i = 0; i < maxChars - 1; i++) {
-    M5.Display.print(p[i]);
+    LB::print(p[i]);
   }
-  M5.Display.print(".");
+  LB::print(".");
 }
 
 /* ===== NEW: clip SSID to pixel width on a Canvas (no allocations) ===== */
@@ -27598,14 +27601,14 @@ void ow_printClippedSSID(const String &s) {
   while (p[len] != '\0') len++;
 
   if (len <= maxChars) {
-    M5.Display.print(s);
+    LB::print(s);
     return;
   }
 
   for (int i = 0; i < maxChars - 1; i++) {
-    M5.Display.print(p[i]);
+    LB::print(p[i]);
   }
-  M5.Display.print(".");
+  LB::print(".");
 }
 
 /* ================== UI sprite init/free ================== */
@@ -27823,10 +27826,10 @@ void ow_purgeOld() {
 /* ================== UI FRAME (draw once) ================== */
 void ow_drawFrame() {
   // Global background
-  M5.Display.fillRect(0, 0, 240, 135, menuBackgroundColor);
+  LB::fillRect(0, 0, 240, 135, menuBackgroundColor);
 
   // divider
-  M5.Display.drawFastVLine(OW_PANEL_X, 0, OW_SCREEN_H, taskbarDividerColor);
+  LB::drawFastVLine(OW_PANEL_X, 0, OW_SCREEN_H, taskbarDividerColor);
 
   // ---- Right panel: 4 equal boxes ----
   const int pad = 2;
@@ -27841,18 +27844,18 @@ void ow_drawFrame() {
   for (int b = 0; b < 4; b++) {
     int h = boxH;
     if (b == 3) h += remH; // last box takes remainder (prevents 1px drift)
-    M5.Display.drawRect(OW_PANEL_X + 2, y, OW_PANEL_W - 4, h, taskbarDividerColor);
+    LB::drawRect(OW_PANEL_X + 2, y, OW_PANEL_W - 4, h, taskbarDividerColor);
     y += h + gap;
   }
 
   // ---- Taskbar left only (evil-ish) ----
-  M5.Display.fillRect(0, 0, OW_LIST_W, OW_TASKBAR_H, taskbarBackgroundColor);
-  M5.Display.fillRect(0, OW_TASKBAR_H, OW_LIST_W, 2, taskbarDividerColor);
+  LB::fillRect(0, 0, OW_LIST_W, OW_TASKBAR_H, taskbarBackgroundColor);
+  LB::fillRect(0, OW_TASKBAR_H, OW_LIST_W, 2, taskbarDividerColor);
 
-  M5.Display.setTextSize(1.0);
-  M5.Display.setTextColor(taskbarTextColor, taskbarBackgroundColor);
-  M5.Display.setCursor(5, 3);
-  M5.Display.print("Open WiFi Finder");
+  LB::setTextSize(1.0);
+  LB::setTextColor(taskbarTextColor, taskbarBackgroundColor);
+  LB::setCursor(5, 3);
+  LB::print("Open WiFi Finder");
 
 }
 
