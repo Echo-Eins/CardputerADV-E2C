@@ -2706,7 +2706,7 @@ void showWifiList() {
       const int lines = LIST_HEIGHT / ROW_H;
       int listStartIndex = clampi(currentListIndex - lines/2, 0, max(0, numSsid - lines));
 
-      M5.Display.setFont(&fonts::Font0);
+      LB::setFont(&fonts::Font0);
       LB::setTextSize(1);
 
       for (int row = 0; row < lines; ++row) {
@@ -20901,7 +20901,7 @@ void startUARTShell() {
         curLine += char(c);
 
         if (followEnd) {
-          M5Cardputer.Display.write(c);
+          LB::write(c);
           markDirty();
         } else {
           renderScreen();

@@ -257,6 +257,12 @@ void LegacyBridge::setTextFont(uint8_t font) {
     }
 }
 
+void LegacyBridge::setFont(const lgfx::IFont* font) {
+    // Direct passthrough — font pointer can't be queued
+    s_state.directCalls++;
+    M5.Display.setFont(font);
+}
+
 void LegacyBridge::print(const char* text) {
     if (text == nullptr) return;
 
@@ -463,6 +469,14 @@ void LegacyBridge::drawChar(char c, int16_t x, int16_t y) {
         M5.Display.setCursor(x, y);
         M5.Display.print(c);
     }
+}
+
+void LegacyBridge::write(uint8_t c) {
+    // Direct passthrough — write() advances cursor internally
+    s_state.directCalls++;
+    M5.Display.write(c);
+    s_state.cursorX = M5.Display.getCursorX();
+    s_state.cursorY = M5.Display.getCursorY();
 }
 
 // ============================================================================

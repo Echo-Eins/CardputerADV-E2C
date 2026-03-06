@@ -131,9 +131,9 @@ bool HardwareDisplay::_initialized = false;
 void HardwareDisplay::init() {
     if (_initialized) return;
 
-    _config.width = M5.Display.width();
-    _config.height = M5.Display.height();
-    _config.rotation = M5.Display.getRotation();
+    _config.width = LB::width();
+    _config.height = LB::height();
+    _config.rotation = LB::getRotation();
     _initialized = true;
 }
 

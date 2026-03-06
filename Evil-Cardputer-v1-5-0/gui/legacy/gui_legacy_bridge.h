@@ -187,6 +187,9 @@ public:
     // Set text font
     static void setTextFont(uint8_t font);
 
+    // Set text font (pointer variant, e.g. &fonts::Font0)
+    static void setFont(const lgfx::IFont* font);
+
     // Print text (advances cursor)
     static void print(const char* text);
     static void print(const String& text);
@@ -228,6 +231,9 @@ public:
     // Draw right-aligned string
     static void drawRightString(const char* text, int16_t x, int16_t y);
     static void drawRightString(const String& text, int16_t x, int16_t y);
+
+    // Write single byte to display (raw character output)
+    static void write(uint8_t c);
 
     // Draw single character
     static void drawChar(char c, int16_t x, int16_t y);
