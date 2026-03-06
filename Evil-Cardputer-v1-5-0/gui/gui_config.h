@@ -31,8 +31,9 @@ constexpr uint32_t FRAMEBUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * (DISPLAY_
 // ============================================================================
 
 // Number of commands in the ring buffer (must be power of 2)
-// 256 commands * ~32 bytes = ~8KB SRAM
-constexpr size_t QUEUE_SIZE = 256;
+// 512 commands * ~32 bytes = ~16KB SRAM
+// (increased from 256 to handle heavy UI functions like DHCP starvation)
+constexpr size_t QUEUE_SIZE = 512;
 
 // Mask for efficient modulo (QUEUE_SIZE - 1)
 constexpr size_t QUEUE_MASK = QUEUE_SIZE - 1;

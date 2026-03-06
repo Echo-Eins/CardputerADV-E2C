@@ -19600,7 +19600,7 @@ void showWaitingAnimation() {
   for (int i = 0; i < detCount; i++) {
     auto& p = detections[i];
     float fade = float(p.ttl) / DET_TTL;
-    uint16_t col = d.color565(
+    uint16_t col = LB::color565(
       uint8_t(173 * fade),
       uint8_t(255 * fade),
       uint8_t(47  * fade)
@@ -19664,7 +19664,7 @@ void showActiveAnimation() {
   for (int i = 0; i < detCount; i++) {
     auto& p = detections[i];
     float fade = float(p.ttl) / DET_TTL;
-    uint16_t col = d.color565(
+    uint16_t col = LB::color565(
       uint8_t(173 * fade),
       uint8_t(255 * fade),
       uint8_t(47  * fade)

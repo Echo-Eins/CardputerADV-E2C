@@ -123,8 +123,15 @@ bool LegacyBridge::pushToQueue(const RenderOp& op) {
     if (success) {
         s_state.queuedCalls++;
     } else {
-        s_state.droppedCalls++;
-        GUI_LOG_ERROR("LegacyBridge: queue full, dropped call");
+        // Queue full — brief wait then retry once before dropping
+        vTaskDelay(pdMS_TO_TICKS(1));
+        success = renderQueue().push(op);
+        if (success) {
+            s_state.queuedCalls++;
+        } else {
+            s_state.droppedCalls++;
+            GUI_LOG_ERROR("LegacyBridge: queue full after retry, dropped call");
+        }
     }
     return success;
 }
@@ -132,24 +139,25 @@ bool LegacyBridge::pushToQueue(const RenderOp& op) {
 void LegacyBridge::updateCursorAfterPrint(const char* text) {
     if (text == nullptr) return;
 
-    // Estimate cursor movement (simplified - actual depends on font metrics)
-    int len = strlen(text);
-    int charWidth = 6 * s_state.font.getSize();  // Approximate char width
-
-    // Check for newlines
-    const char* nl = strchr(text, '\n');
+    // Use textWidth() for accurate pixel-based cursor tracking
+    const char* nl = strrchr(text, '\n');
     if (nl) {
-        // Move to start of next line
-        s_state.cursorX = 0;
-        s_state.cursorY += s_state.font.getSize() * 10;  // Approximate line height
+        // After last newline, cursor X is width of remaining text
+        s_state.cursorX = textWidth(nl + 1);
+        // Count newlines for Y advancement
+        for (const char* p = text; *p; ++p) {
+            if (*p == '\n') {
+                s_state.cursorY += fontHeight();
+            }
+        }
     } else {
-        s_state.cursorX += len * charWidth;
+        s_state.cursorX += textWidth(text);
     }
 }
 
 void LegacyBridge::updateCursorNewline() {
     s_state.cursorX = 0;
-    s_state.cursorY += s_state.font.getSize() * 10;  // Approximate line height
+    s_state.cursorY += fontHeight();
 }
 
 // ============================================================================
@@ -397,10 +405,17 @@ void LegacyBridge::printf(const char* format, ...) {
 }
 
 int LegacyBridge::textWidth(const char* text) {
-    // Always use M5.Display for measurement (sync operation)
-    M5.Display.setTextSize(s_state.font.getSize());
-    M5.Display.setTextFont(s_state.font.font);
-    return M5.Display.textWidth(text);
+    // Use a 1x1 off-screen sprite for thread-safe text measurement
+    // (avoids SPI bus contention with renderer on Core 0)
+    static LGFX_Sprite measureSprite(&M5.Display);
+    static bool spriteCreated = false;
+    if (!spriteCreated) {
+        measureSprite.createSprite(1, 1);
+        spriteCreated = true;
+    }
+    measureSprite.setTextSize(s_state.font.getSize());
+    measureSprite.setTextFont(s_state.font.font);
+    return measureSprite.textWidth(text);
 }
 
 int LegacyBridge::textWidth(const String& text) {
@@ -408,9 +423,16 @@ int LegacyBridge::textWidth(const String& text) {
 }
 
 int LegacyBridge::fontHeight() {
-    M5.Display.setTextSize(s_state.font.getSize());
-    M5.Display.setTextFont(s_state.font.font);
-    return M5.Display.fontHeight();
+    // Use a 1x1 off-screen sprite for thread-safe font measurement
+    static LGFX_Sprite measureSprite(&M5.Display);
+    static bool spriteCreated = false;
+    if (!spriteCreated) {
+        measureSprite.createSprite(1, 1);
+        spriteCreated = true;
+    }
+    measureSprite.setTextSize(s_state.font.getSize());
+    measureSprite.setTextFont(s_state.font.font);
+    return measureSprite.fontHeight();
 }
 
 void LegacyBridge::drawString(const char* text, int16_t x, int16_t y) {

@@ -148,6 +148,11 @@ public:
     // Clear screen with black
     static void clear();
 
+    // Clear screen with specified color
+    static void clear(Color color) { fillScreen(color); }
+    static void clear(uint16_t color) { fillScreen(static_cast<Color>(color)); }
+    static void clear(int color) { fillScreen(static_cast<Color>(static_cast<uint16_t>(color))); }
+
     // Fill entire screen with color
     static void fillScreen(Color color);
     static void fillScreen(uint16_t color) { fillScreen(static_cast<Color>(color)); }
@@ -182,6 +187,7 @@ public:
 
     // Set text size
     static void setTextSize(float size);
+    static void setTextSize(double size) { setTextSize(static_cast<float>(size)); }
     static void setTextSize(int size) { setTextSize(static_cast<float>(size)); }
 
     // Set text font
@@ -198,6 +204,7 @@ public:
     static void print(long value);
     static void print(unsigned long value);
     static void print(float value, int decimals = 2);
+    static void print(double value, int decimals = 2) { print(static_cast<float>(value), decimals); }
     static void print(char c);
 
     // Print text with newline
@@ -208,6 +215,7 @@ public:
     static void println(long value);
     static void println(unsigned long value);
     static void println(float value, int decimals = 2);
+    static void println(double value, int decimals = 2) { println(static_cast<float>(value), decimals); }
     static void println();  // Just newline
 
     // Formatted print
@@ -339,6 +347,11 @@ public:
 
     // Get current rotation
     static uint8_t getRotation();
+
+    // Convert RGB to RGB565 color
+    static uint16_t color565(uint8_t r, uint8_t g, uint8_t b) {
+        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+    }
 
     // ========================================================================
     // Clipping

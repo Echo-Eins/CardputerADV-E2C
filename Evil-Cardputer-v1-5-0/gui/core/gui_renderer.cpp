@@ -255,8 +255,16 @@ void Renderer::renderLoop() {
         // Measure execution time
         uint32_t startUs = esp_timer_get_time();
 
-        // Execute the command
+        // Execute the command — route to framebuffer when double-buffered
+#if GUI_DOUBLE_BUFFER
+        if (m_renderMode == RenderMode::DoubleBuffered) {
+            executeCommandToFramebuffer(op);
+        } else {
+            executeCommand(op);
+        }
+#else
         executeCommand(op);
+#endif
 
         // Update timing stats
         uint32_t elapsedUs = esp_timer_get_time() - startUs;
