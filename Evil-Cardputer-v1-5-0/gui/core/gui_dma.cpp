@@ -369,6 +369,11 @@ void DisplayUpdater::pushRegion(const Rect& region) {
     // Clamp region to display bounds
     int16_t x = std::max<int16_t>(0, region.x);
     int16_t y = std::max<int16_t>(0, region.y);
+
+    // Bail out if origin is already beyond the screen — prevents
+    // unsigned underflow in the subtraction below.
+    if (x >= Config::DISPLAY_WIDTH || y >= Config::DISPLAY_HEIGHT) return;
+
     uint16_t w = std::min<uint16_t>(region.width, Config::DISPLAY_WIDTH - x);
     uint16_t h = std::min<uint16_t>(region.height, Config::DISPLAY_HEIGHT - y);
 

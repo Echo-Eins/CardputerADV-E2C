@@ -292,8 +292,8 @@ void LegacyBridge::print(const char* text) {
             op.data.text.bg = s_state.textBgColor;
             op.data.text.font = s_state.font;
             op.data.text.textLen = static_cast<uint8_t>(chunkLen);
-            strncpy(op.data.text.text, text + offset, 12);
-            op.data.text.text[11] = '\0';
+            memcpy(op.data.text.text, text + offset, chunkLen);
+            op.data.text.text[chunkLen] = '\0';
 
             pushToQueue(op);
 

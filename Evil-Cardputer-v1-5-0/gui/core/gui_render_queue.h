@@ -13,6 +13,9 @@
  * Memory layout:
  * - SRAM: Queue metadata + ring buffer (~8KB)
  * - Commands are copied, not referenced (safe for stack-allocated data)
+ * - EXCEPTION: DrawBitmap and DrawJpeg store raw pointers to external data.
+ *   The caller MUST keep the pointed-to buffer alive until the render queue
+ *   has processed the command (e.g. use static/global buffers or call sync()).
  */
 
 #ifndef GUI_RENDER_QUEUE_H
@@ -140,12 +143,14 @@ struct RenderOpChar {
 };
 
 // DrawBitmap data (16 bytes)
+// WARNING: stores raw pointer — caller must keep data alive until processed!
 struct RenderOpBitmap {
     Rect rect;              // 8 bytes
-    const uint16_t* data;   // 4/8 bytes (pointer)
+    const uint16_t* data;   // 4/8 bytes (pointer, NOT owned)
 };
 
 // DrawJpeg data (20 bytes)
+// WARNING: stores raw pointer — caller must keep data alive until processed!
 struct RenderOpJpeg {
     Point pos;              // 4 bytes
     const uint8_t* data;    // 4/8 bytes (pointer)
@@ -444,8 +449,11 @@ namespace RenderOps {
         op.data.text.font = FontConfig::make();
 
         size_t len = strlen(text);
-        op.data.text.textLen = static_cast<uint8_t>(len > 12 ? 12 : len);
-        strncpy(op.data.text.text, text, 12);
+        // Reserve last byte for null-terminator: max 11 visible chars
+        uint8_t copyLen = static_cast<uint8_t>(len > 11 ? 11 : len);
+        op.data.text.textLen = copyLen;
+        memcpy(op.data.text.text, text, copyLen);
+        op.data.text.text[copyLen] = '\0';
         return op;
     }
 
