@@ -15968,6 +15968,31 @@ int percentage = 0;
 bool NAKFlagStarvation = false;
 int NAKNumberStarvation = 50;
 
+// Helper: show a DHCP status message (clear screen + message + display)
+static void drawDHCPStatus(const char* msg, int cursorY = 5) {
+    LB::clear(menuBackgroundColor);
+    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
+    LB::setCursor(5, cursorY);
+    LB::println(msg);
+    LB::display();
+}
+
+// Helper: show DHCP starvation progress statistics
+static void drawDHCPProgress(int pct, int disc, int offer, int req, int ack, int nak, const IPAddress& lastIP) {
+    LB::fillRect(0, 40, LB::width(), 40, menuBackgroundColor);
+    LB::setCursor(5, 40);
+    LB::printf("Pool percentage: %d%%\n", pct);
+    LB::printf("Send Discover: %d\n", disc);
+    LB::printf("Received Offer: %d\n", offer);
+    LB::printf("Send Request: %d\n", req);
+    LB::printf("Received ACK: %d\n", ack);
+    LB::printf("Received NAK: %d\n", nak);
+    LB::print("Last IP:");
+    LB::print(lastIP.toString().c_str());
+    LB::print("        ");
+    LB::display();
+}
+
 void startDHCPStarvation() {
       if (WiFi.localIP().toString() == "0.0.0.0") {
         waitAndReturnToMenu("Not connected...");
@@ -15983,12 +16008,8 @@ void startDHCPStarvation() {
     saveCurrentNetworkConfig();
     if (totalIPs == 0) {
         Serial.println(F("Error: Total IPs calculated as zero."));
-        LB::clear(menuBackgroundColor);
-        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        LB::setCursor(5, 5);
-        LB::println("Error: Total IPs\ncalculated as zero.\nsettings to 255");
-        totalIPs == 255;
-        LB::display();
+        drawDHCPStatus("Error: Total IPs\ncalculated as zero.\nsettings to 255");
+        totalIPs = 255;
         delay(2000);
     }
     disconnectWiFi();
@@ -15998,22 +16019,13 @@ void startDHCPStarvation() {
 
     if (!udp.begin(68)) {
         Serial.println(F("Error: Failed to initialize UDP socket on port 68."));
-        LB::clear(menuBackgroundColor);
-        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        LB::setCursor(5, 5);
-        LB::println("Error: Failed to init \nUDP socket");
-        LB::display();
+        drawDHCPStatus("Error: Failed to init \nUDP socket");
         delay(2000);
         return;
     }
 
     Serial.println(F("System initialized. Ready to detect DHCP server..."));
-    LB::clear(menuBackgroundColor);
-    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    LB::setCursor(5, 5);
-    LB::println("System initialized");
-    LB::println("Starting DHCP detection...");
-    LB::display();
+    drawDHCPStatus("System initialized\nStarting DHCP detection...");
     delay(1000);
 
     detectDHCPServer();
@@ -16027,12 +16039,7 @@ void startDHCPStarvation() {
         LB::display();
     } else {
         Serial.println(F("No DHCP server detected. Trying with broadcast."));
-        LB::clear(menuBackgroundColor);
-        LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-        LB::setCursor(5, 5);
-        LB::println("Starvation running on:");
-        LB::printf("Unknow DHCP server");
-        LB::display();
+        drawDHCPStatus("Starvation running on:\nUnknow DHCP server");
     }
 
     uint16_t i = 0;
@@ -16053,28 +16060,12 @@ void startDHCPStarvation() {
 
         float progress = (float)ackCount / totalIPs;
         percentage = (int)(progress * 100.0);
-       // Update display with statistics
-        LB::fillRect(0, 40, LB::width(), 40, menuBackgroundColor);
-        LB::setCursor(5, 40);
-        LB::printf("Pool percentage: %d%%\n", percentage);
-        LB::printf("Send Discover: %d\n", discoverCount);
-        LB::printf("Received Offer: %d\n", offerCount);
-        LB::printf("Send Request: %d\n", requestCount);
-        LB::printf("Received ACK: %d\n", ackCount);
-        LB::printf("Received NAK: %d\n", nakCount);
-        LB::print("Last IP:");
-        LB::print(lastAssignedIP.toString().c_str());
-        LB::print("        ");
-        LB::display();
+        drawDHCPProgress(percentage, discoverCount, offerCount, requestCount, ackCount, nakCount, lastAssignedIP);
         i++;
     }
     if (nakCount >= NAKNumberStarvation ){
             Serial.println(F("The number of NAK suggest a successfull Starvation."));
-            LB::clear(menuBackgroundColor);
-            LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-            LB::setCursor(5, 30);
-            LB::println("DHCP Starvation Stopped.\n\nThe number of NAK suggest\na successfull DHCP \nStarvation !!!");
-            LB::display();
+            drawDHCPStatus("DHCP Starvation Stopped.\n\nThe number of NAK suggest\na successfull DHCP \nStarvation !!!", 30);
             delay(4000);
     }
     Serial.println(F("DHCP Starvation attack completed."));
@@ -16521,86 +16512,62 @@ void rogueDHCPAuto() {
 }
 
 
-void DHCPAttackAuto(){
-  bool DHCPDNSExplain = false;
-  if (confirmPopup("Some explanation ?")){
-    DHCPDNSExplain = true;
-  }
-  if (DHCPDNSExplain){
-    LB::clear(menuBackgroundColor);
-    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    LB::setCursor(5, 20);
-    LB::println("Step 1 : DHCP Starvation.");
-    LB::println("Send multiple fake new");
-    LB::println("client to saturate the");
-    LB::println("the pool of available");
-    LB::println("IP address that DHCP can"); 
-    LB::println("provide. NAK = Starvation");
-    LB::println("Press Enter to start");
-    LB::display();
+// Helper: show DHCP explain step and wait for ENTER
+static void showDHCPExplainStep(const char* text) {
+    drawDHCPStatus(text, 20);
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
       M5Cardputer.update();
       delay(100);
     }
+}
+
+void DHCPAttackAuto(){
+  bool DHCPDNSExplain = confirmPopup("Some explanation ?");
+
+  if (DHCPDNSExplain){
+    showDHCPExplainStep(
+      "Step 1 : DHCP Starvation.\n"
+      "Send multiple fake new\n"
+      "client to saturate the\n"
+      "the pool of available\n"
+      "IP address that DHCP can\n"
+      "provide. NAK = Starvation\n"
+      "Press Enter to start");
   }
   startDHCPStarvation();
   enterDebounce();
   if (DHCPDNSExplain){
-      LB::clear(menuBackgroundColor);
-      LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-      LB::setCursor(5, 20);
-      LB::println("Step 2 : Rogue DHCP.");
-      LB::println("The Original DHCP cant");
-      LB::println("provide new IP so we");
-      LB::println("now answering any DHCP");
-      LB::println("request with hijacked");
-      LB::println("DNS that at evil IP.");
-      LB::println("Press Enter to start");
-      LB::display();
-    while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
-      M5.update();
-      M5Cardputer.update();
-      delay(100);
-    }
+    showDHCPExplainStep(
+      "Step 2 : Rogue DHCP.\n"
+      "The Original DHCP cant\n"
+      "provide new IP so we\n"
+      "now answering any DHCP\n"
+      "request with hijacked\n"
+      "DNS that at evil IP.\n"
+      "Press Enter to start");
   }
   rogueDHCPAuto();
   enterDebounce();
   if (DHCPDNSExplain){
-    LB::clear(menuBackgroundColor);
-    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    LB::setCursor(5, 20);
-    LB::println("Step 3 : Start the Web");
-    LB::println("server with DNS Spoofing.");
-    LB::println("Start the portal to");
-    LB::println("provide page and DNS.");
-    LB::println("The DNS spoof any request");
-    LB::println("to redirect to the evil.");
-    LB::println("Press Enter to start");
-    LB::display();
-    while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
-      M5.update();
-      M5Cardputer.update();
-      delay(100);
-    }
+    showDHCPExplainStep(
+      "Step 3 : Start the Web\n"
+      "server with DNS Spoofing.\n"
+      "Start the portal to\n"
+      "provide page and DNS.\n"
+      "The DNS spoof any request\n"
+      "to redirect to the evil.\n"
+      "Press Enter to start");
   }
   createCaptivePortal();
   enterDebounce();
   if (DHCPDNSExplain){
-    LB::clear(menuBackgroundColor);
-    LB::setTextColor(menuTextUnFocusedColor, menuBackgroundColor);
-    LB::setCursor(5, 20);
-    LB::println("Step 4 : Change DNS IP.");
-    LB::println("Changing DNS IP with");
-    LB::println("local IP address to");
-    LB::println("provide Spoffed DNS query.");
-    LB::println("Press Enter to change");
-    LB::display();
-    while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
-      M5.update();
-      M5Cardputer.update();
-      delay(100);
-    }
+    showDHCPExplainStep(
+      "Step 4 : Change DNS IP.\n"
+      "Changing DNS IP with\n"
+      "local IP address to\n"
+      "provide Spoffed DNS query.\n"
+      "Press Enter to change");
   }
   switchDNS();
 }
