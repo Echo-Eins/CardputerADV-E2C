@@ -183,10 +183,11 @@ bool DmaTransfer::startPartialTransfer(const uint16_t* buffer,
 
     // Set window and transfer
     M5.Display.setAddrWindow(x, y, width, height);
-    M5.Display.pushPixelsDMA(buffer, width * height);
+    uint32_t pixelCount = static_cast<uint32_t>(width) * height;
+    M5.Display.pushPixelsDMA(buffer, pixelCount);
     M5.Display.waitDMA();
 
-    handleTransferComplete(true);
+    handleTransferComplete(true, pixelCount * sizeof(uint16_t));
     return true;
 }
 
@@ -206,13 +207,14 @@ void DmaTransfer::waitComplete(uint32_t timeoutMs) {
     }
 }
 
-void DmaTransfer::handleTransferComplete(bool success) {
+void DmaTransfer::handleTransferComplete(bool success, uint32_t bytesTransferred) {
     uint32_t elapsedUs = esp_timer_get_time() - m_transferStartUs;
 
     // Update statistics
     if (success) {
         m_stats.transferCount++;
-        m_stats.bytesTransferred += Config::FRAMEBUFFER_SIZE;
+        m_stats.bytesTransferred += bytesTransferred > 0
+            ? bytesTransferred : Config::FRAMEBUFFER_SIZE;
         m_stats.totalTransferTimeUs += elapsedUs;
         if (elapsedUs > m_stats.maxTransferTimeUs) {
             m_stats.maxTransferTimeUs = elapsedUs;

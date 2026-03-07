@@ -867,8 +867,9 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
                 m_canvas.setCursor(c.pos.x, c.pos.y);
                 m_canvas.print(c.ch);
 #if GUI_DIRTY_TRACKING
+                int16_t cw = m_canvas.textWidth(String(c.ch));
                 int16_t ch = m_canvas.fontHeight();
-                DirtyRegionTracker::instance().markDirty(c.pos.x, c.pos.y, ch, ch);
+                DirtyRegionTracker::instance().markDirty(c.pos.x, c.pos.y, cw, ch);
 #endif
             }
             break;

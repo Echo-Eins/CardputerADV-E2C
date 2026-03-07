@@ -13,6 +13,9 @@
 #include <cstring>
 #include <Arduino.h>
 
+// Spinlock protecting the shared measurement sprite (N6 fix)
+static portMUX_TYPE s_measureLock = portMUX_INITIALIZER_UNLOCKED;
+
 namespace GUI {
 
 // ============================================================================
@@ -297,9 +300,12 @@ void LegacyBridge::print(const char* text) {
 
             pushToQueue(op);
 
-            // Estimate cursor advancement
-            int charWidth = 6 * s_state.font.getSize();
-            s_state.cursorX += chunkLen * charWidth;
+            // Estimate cursor advancement using actual font metrics
+            portENTER_CRITICAL(&s_measureLock);
+            int chunkWidth = getMeasureSprite(s_state.font).textWidth(
+                op.data.text.text);
+            portEXIT_CRITICAL(&s_measureLock);
+            s_state.cursorX += chunkWidth;
 
             offset += chunkLen;
         }
@@ -404,18 +410,25 @@ void LegacyBridge::printf(const char* format, ...) {
     print(buf);
 }
 
-int LegacyBridge::textWidth(const char* text) {
-    // Use a 1x1 off-screen sprite for thread-safe text measurement
-    // (avoids SPI bus contention with renderer on Core 0)
-    static LGFX_Sprite measureSprite(&M5.Display);
-    static bool spriteCreated = false;
-    if (!spriteCreated) {
-        measureSprite.createSprite(1, 1);
-        spriteCreated = true;
+// Shared measurement sprite — protected by s_measureLock for cross-core safety
+static LGFX_Sprite s_measureSprite(&M5.Display);
+static bool s_measureSpriteCreated = false;
+
+static LGFX_Sprite& getMeasureSprite(const FontConfig& font) {
+    if (!s_measureSpriteCreated) {
+        s_measureSprite.createSprite(1, 1);
+        s_measureSpriteCreated = true;
     }
-    measureSprite.setTextSize(s_state.font.getSize());
-    measureSprite.setTextFont(s_state.font.font);
-    return measureSprite.textWidth(text);
+    s_measureSprite.setTextSize(font.getSize());
+    s_measureSprite.setTextFont(font.font);
+    return s_measureSprite;
+}
+
+int LegacyBridge::textWidth(const char* text) {
+    portENTER_CRITICAL(&s_measureLock);
+    int w = getMeasureSprite(s_state.font).textWidth(text);
+    portEXIT_CRITICAL(&s_measureLock);
+    return w;
 }
 
 int LegacyBridge::textWidth(const String& text) {
@@ -423,16 +436,10 @@ int LegacyBridge::textWidth(const String& text) {
 }
 
 int LegacyBridge::fontHeight() {
-    // Use a 1x1 off-screen sprite for thread-safe font measurement
-    static LGFX_Sprite measureSprite(&M5.Display);
-    static bool spriteCreated = false;
-    if (!spriteCreated) {
-        measureSprite.createSprite(1, 1);
-        spriteCreated = true;
-    }
-    measureSprite.setTextSize(s_state.font.getSize());
-    measureSprite.setTextFont(s_state.font.font);
-    return measureSprite.fontHeight();
+    portENTER_CRITICAL(&s_measureLock);
+    int h = getMeasureSprite(s_state.font).fontHeight();
+    portEXIT_CRITICAL(&s_measureLock);
+    return h;
 }
 
 void LegacyBridge::drawString(const char* text, int16_t x, int16_t y) {
