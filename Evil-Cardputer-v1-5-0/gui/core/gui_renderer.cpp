@@ -67,22 +67,23 @@ bool Renderer::init() {
         return true;
     }
 
-    // Initialize render queue
-    if (!RenderQueue::instance().init()) {
-        GUI_LOG_ERROR("Failed to initialize RenderQueue");
-        return false;
-    }
-
-    // Get display dimensions from M5GFX
+    // Validate that M5.Display is available (M5.begin() must have been called).
+    // width()/height() return 0 if the display panel isn't initialized yet.
     m_displayWidth = M5.Display.width();
     m_displayHeight = M5.Display.height();
+    if (m_displayWidth == 0 || m_displayHeight == 0) {
+        GUI_LOG_ERROR("M5.Display not initialized (width=%d, height=%d). Call M5.begin() first!",
+                      m_displayWidth, m_displayHeight);
+        return false;
+    }
 
     // Initialize clip rect to full screen
     m_clipRect = Rect::make(0, 0, m_displayWidth, m_displayHeight);
     m_clipEnabled = false;
 
 #if GUI_DOUBLE_BUFFER
-    // Initialize framebuffer (Phase 2)
+    // Initialize framebuffer BEFORE queue so that the render buffer exists
+    // before any commands can be enqueued and processed.
     if (!Framebuffer::instance().init()) {
         GUI_LOG_ERROR("Failed to initialize Framebuffer");
         return false;
@@ -106,6 +107,10 @@ bool Renderer::init() {
         GUI_LOG_ERROR("Failed to initialize DirtyRegionTracker");
         return false;
     }
+    // Mark entire screen dirty so the first frame actually gets flushed.
+    // Without this, the tracker starts clean and the first flush sees
+    // "no changes" — resulting in a blank screen until something moves.
+    DirtyRegionTracker::instance().markAllDirty();
 #endif
 
     // Initialize M5Canvas sprite pointing to back buffer
@@ -120,6 +125,14 @@ bool Renderer::init() {
 #else
     GUI_LOG("Renderer initialized (%dx%d) [Direct]", m_displayWidth, m_displayHeight);
 #endif
+
+    // Initialize render queue LAST — once the queue is open, commands can be
+    // pushed and the render task will try to process them. All subsystems
+    // (Framebuffer, DMA, DirtyTracker) must be ready before this point.
+    if (!RenderQueue::instance().init()) {
+        GUI_LOG_ERROR("Failed to initialize RenderQueue");
+        return false;
+    }
 
     m_state = RendererState::Stopped;
     return true;
@@ -214,18 +227,19 @@ void Renderer::stop() {
 void Renderer::shutdown() {
     stop();
 
-    RenderQueue::instance().shutdown();
-
 #if GUI_DOUBLE_BUFFER
-    // Shutdown Phase 3 components
+    // Shutdown order matters: DMA must stop BEFORE freeing framebuffers,
+    // otherwise DMA hardware may read freed memory.
+    // Order: DirtyTracker → DisplayUpdater → DMA → Framebuffer
 #if GUI_DIRTY_TRACKING
     DirtyRegionTracker::instance().shutdown();
 #endif
-    // Shutdown Phase 2 components
     DisplayUpdater::instance().shutdown();
     DmaTransfer::instance().shutdown();
     Framebuffer::instance().shutdown();
 #endif
+
+    RenderQueue::instance().shutdown();
 
     m_state = RendererState::Uninitialized;
     GUI_LOG("Renderer shutdown complete");

@@ -12,6 +12,7 @@
  */
 
 #include "gui_framebuffer.h"
+#include "gui_dma.h"
 #if GUI_DIRTY_TRACKING
 #include "gui_dirty_region.h"
 #endif
@@ -138,7 +139,10 @@ void Framebuffer::shutdown() {
         return;
     }
 
-    // Wait for any pending DMA
+    // Wait for DMA hardware to finish (not just the atomic flag).
+    // DmaTransfer::waitComplete() blocks on the semaphore that the
+    // actual SPI DMA transfer releases, so buffers are safe to free.
+    DmaTransfer::instance().waitComplete(2000);
     waitForDma();
 
     // Free buffers
