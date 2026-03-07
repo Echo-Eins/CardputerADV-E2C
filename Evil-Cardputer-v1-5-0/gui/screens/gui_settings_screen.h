@@ -93,7 +93,7 @@ struct SettingItem {
     }
 
     // Create toggle setting
-    static SettingItem toggle(const char* label,
+    static SettingItem makeToggle(const char* label,
                               bool* valuePtr,
                               std::function<void()> onChange = nullptr,
                               const char* onText = "ON",
@@ -109,7 +109,7 @@ struct SettingItem {
     }
 
     // Create slider setting
-    static SettingItem slider(const char* label,
+    static SettingItem makeSlider(const char* label,
                               int* valuePtr,
                               int minVal, int maxVal, int step = 1,
                               std::function<void()> onChange = nullptr,
@@ -127,7 +127,7 @@ struct SettingItem {
     }
 
     // Create selection setting
-    static SettingItem selection(const char* label,
+    static SettingItem makeSelection(const char* label,
                                  int* valuePtr,
                                  const char** options, int optionCount,
                                  std::function<void()> onChange = nullptr) {

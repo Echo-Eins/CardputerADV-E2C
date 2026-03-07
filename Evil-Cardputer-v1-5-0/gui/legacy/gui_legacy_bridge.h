@@ -42,6 +42,7 @@
 #include "../core/gui_render_queue.h"
 #include "../core/gui_renderer.h"
 #include <M5Unified.h>
+#include <FS.h>
 #include <cstdarg>
 
 namespace GUI {
@@ -150,12 +151,10 @@ public:
 
     // Clear screen with specified color
     static void clear(Color color) { fillScreen(color); }
-    static void clear(uint16_t color) { fillScreen(static_cast<Color>(color)); }
     static void clear(int color) { fillScreen(static_cast<Color>(static_cast<uint16_t>(color))); }
 
     // Fill entire screen with color
     static void fillScreen(Color color);
-    static void fillScreen(uint16_t color) { fillScreen(static_cast<Color>(color)); }
 
     // Flush display buffer (for compatibility - may be no-op in queued mode)
     static void display();
@@ -177,13 +176,9 @@ public:
 
     // Set text color (foreground only, black background)
     static void setTextColor(Color color);
-    static void setTextColor(uint16_t color) { setTextColor(static_cast<Color>(color)); }
 
     // Set text color (foreground and background)
     static void setTextColor(Color fg, Color bg);
-    static void setTextColor(uint16_t fg, uint16_t bg) {
-        setTextColor(static_cast<Color>(fg), static_cast<Color>(bg));
-    }
 
     // Set text size
     static void setTextSize(float size);
@@ -252,63 +247,33 @@ public:
 
     // Draw pixel
     static void drawPixel(int16_t x, int16_t y, Color color);
-    static void drawPixel(int16_t x, int16_t y, uint16_t color) {
-        drawPixel(x, y, static_cast<Color>(color));
-    }
 
     // Draw line
     static void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, Color color);
-    static void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) {
-        drawLine(x0, y0, x1, y1, static_cast<Color>(color));
-    }
 
     // Draw horizontal line (optimized)
     static void drawFastHLine(int16_t x, int16_t y, int16_t w, Color color);
-    static void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
-        drawFastHLine(x, y, w, static_cast<Color>(color));
-    }
 
     // Draw vertical line (optimized)
     static void drawFastVLine(int16_t x, int16_t y, int16_t h, Color color);
-    static void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
-        drawFastVLine(x, y, h, static_cast<Color>(color));
-    }
 
     // Draw rectangle outline
     static void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, Color color);
-    static void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-        drawRect(x, y, w, h, static_cast<Color>(color));
-    }
 
     // Draw filled rectangle
     static void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, Color color);
-    static void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-        fillRect(x, y, w, h, static_cast<Color>(color));
-    }
 
     // Draw rounded rectangle outline
     static void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, Color color);
-    static void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) {
-        drawRoundRect(x, y, w, h, r, static_cast<Color>(color));
-    }
 
     // Draw filled rounded rectangle
     static void fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, Color color);
-    static void fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color) {
-        fillRoundRect(x, y, w, h, r, static_cast<Color>(color));
-    }
 
     // Draw circle outline
     static void drawCircle(int16_t x, int16_t y, int16_t r, Color color);
-    static void drawCircle(int16_t x, int16_t y, int16_t r, uint16_t color) {
-        drawCircle(x, y, r, static_cast<Color>(color));
-    }
 
     // Draw filled circle
     static void fillCircle(int16_t x, int16_t y, int16_t r, Color color);
-    static void fillCircle(int16_t x, int16_t y, int16_t r, uint16_t color) {
-        fillCircle(x, y, r, static_cast<Color>(color));
-    }
 
     // Draw triangle outline
     static void drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,

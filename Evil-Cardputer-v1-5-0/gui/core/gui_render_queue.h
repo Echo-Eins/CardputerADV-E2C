@@ -215,6 +215,10 @@ struct RenderOp {
     DisplayTarget target;       // 1 byte
     uint8_t flags;              // 1 byte
 
+    // Explicit default constructor needed because union contains
+    // members with non-trivial constructors (Rect has a constructor)
+    RenderOp() { memset(this, 0, sizeof(*this)); }
+
     // Data union (28 bytes to make total 32 bytes)
     union {
         RenderOpRect rect;

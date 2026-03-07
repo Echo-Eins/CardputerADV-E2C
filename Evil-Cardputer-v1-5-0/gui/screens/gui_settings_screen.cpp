@@ -52,20 +52,20 @@ void SettingsScreen::addAction(const char* label, std::function<void()> callback
 
 void SettingsScreen::addToggle(const char* label, bool* valuePtr,
                                std::function<void()> onChange) {
-    addSetting(SettingItem::toggle(label, valuePtr, onChange));
+    addSetting(SettingItem::makeToggle(label, valuePtr, onChange));
 }
 
 void SettingsScreen::addSlider(const char* label, int* valuePtr,
                                int minVal, int maxVal, int step,
                                std::function<void()> onChange,
                                const char* suffix) {
-    addSetting(SettingItem::slider(label, valuePtr, minVal, maxVal, step, onChange, suffix));
+    addSetting(SettingItem::makeSlider(label, valuePtr, minVal, maxVal, step, onChange, suffix));
 }
 
 void SettingsScreen::addSelection(const char* label, int* valuePtr,
                                   const char** options, int optionCount,
                                   std::function<void()> onChange) {
-    addSetting(SettingItem::selection(label, valuePtr, options, optionCount, onChange));
+    addSetting(SettingItem::makeSelection(label, valuePtr, options, optionCount, onChange));
 }
 
 void SettingsScreen::addInfo(const char* label, const char* description) {
