@@ -20,6 +20,8 @@
 #include <M5Unified.h>
 #include <Arduino.h>
 #include <esp_timer.h>
+#include <algorithm>
+#include <cstring>
 
 namespace GUI {
 
@@ -364,12 +366,53 @@ void DisplayUpdater::pushRegion(const Rect& region) {
     Framebuffer& fb = Framebuffer::instance();
     DmaTransfer& dma = DmaTransfer::instance();
 
-    // For partial updates, we need to extract the region from the framebuffer
-    // This is more complex because the buffer is linear
-    // For now, we fall back to full frame transfer for simplicity
-    // TODO: Implement proper region extraction
+    // Clamp region to display bounds
+    int16_t x = std::max<int16_t>(0, region.x);
+    int16_t y = std::max<int16_t>(0, region.y);
+    uint16_t w = std::min<uint16_t>(region.width, Config::DISPLAY_WIDTH - x);
+    uint16_t h = std::min<uint16_t>(region.height, Config::DISPLAY_HEIGHT - y);
 
-    pushFramebuffer();
+    if (w == 0 || h == 0) return;
+
+    // If region covers most of the screen, just do a full transfer
+    uint32_t regionPixels = static_cast<uint32_t>(w) * h;
+    uint32_t totalPixels = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
+    if (regionPixels > totalPixels * 3 / 4) {
+        pushFramebuffer();
+        return;
+    }
+
+    // Extract the region into a contiguous buffer for DMA transfer.
+    // The framebuffer is laid out as full-width rows, so a sub-rectangle
+    // is not contiguous in memory — we must copy row by row.
+    uint32_t regionBytes = regionPixels * sizeof(uint16_t);
+    uint16_t* tempBuffer = static_cast<uint16_t*>(
+        heap_caps_malloc(regionBytes, MALLOC_CAP_DMA | MALLOC_CAP_32BIT)
+    );
+
+    if (!tempBuffer) {
+        // Allocation failed — fall back to full frame transfer
+        pushFramebuffer();
+        return;
+    }
+
+    const uint16_t* srcBuffer = m_useDoubleBuffer
+        ? fb.getFrontBuffer() : fb.getBackBuffer();
+    const uint16_t* srcRow = srcBuffer + y * Config::DISPLAY_WIDTH + x;
+
+    for (uint16_t row = 0; row < h; row++) {
+        memcpy(tempBuffer + row * w, srcRow, w * sizeof(uint16_t));
+        srcRow += Config::DISPLAY_WIDTH;
+    }
+
+    // Transfer the contiguous region buffer to the display
+    if (m_useDma && dma.isAvailable()) {
+        dma.startPartialTransfer(tempBuffer, x, y, w, h);
+    } else {
+        dma.blockingPartialTransfer(tempBuffer, x, y, w, h);
+    }
+
+    heap_caps_free(tempBuffer);
 }
 
 } // namespace GUI

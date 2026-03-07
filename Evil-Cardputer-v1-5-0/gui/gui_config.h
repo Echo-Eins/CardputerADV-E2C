@@ -55,8 +55,8 @@ constexpr size_t MAX_TEXT_LENGTH = 64;
 constexpr int RENDER_TASK_CORE = 0;
 
 // Render task stack size in bytes
-// 4KB should be sufficient for rendering operations
-constexpr uint32_t RENDER_TASK_STACK_SIZE = 4096;
+// 8KB needed for M5Canvas sprite rendering + Bresenham + text/font ops
+constexpr uint32_t RENDER_TASK_STACK_SIZE = 8192;
 
 // Render task priority (higher = more priority)
 // Should be higher than normal tasks but lower than critical interrupts

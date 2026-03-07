@@ -222,12 +222,19 @@ private:
     // Flush display to screen
     void flushDisplay();
 
-    // Phase 2: Framebuffer rendering
+    // Phase 2: Framebuffer rendering via M5Canvas sprite
     void executeCommandToFramebuffer(const RenderOp& op);
     void handleFillRectFB(const RenderOp& op);
     void handleDrawLineFB(const RenderOp& op);
     void handleDrawPixelFB(const RenderOp& op);
     void handleClearFB(const RenderOp& op);
+
+    // Canvas sprite that renders into our PSRAM back buffer
+    // All drawing operations go through this instead of M5.Display
+    M5Canvas m_canvas;
+
+    // Update canvas to point to current back buffer after swap
+    void updateCanvasBuffer();
 
     // Static task entry point
     static void taskEntry(void* param);

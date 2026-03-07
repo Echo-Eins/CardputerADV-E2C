@@ -105,6 +105,13 @@ bool Renderer::init() {
         GUI_LOG_ERROR("Failed to initialize DirtyRegionTracker");
         return false;
     }
+#endif
+
+    // Initialize M5Canvas sprite pointing to back buffer
+    // This routes ALL draw operations (text, circles, etc.) into our framebuffer
+    updateCanvasBuffer();
+
+#if GUI_DIRTY_TRACKING
     GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA + DirtyTracking]", m_displayWidth, m_displayHeight);
 #else
     GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA]", m_displayWidth, m_displayHeight);
@@ -605,6 +612,20 @@ void Renderer::handleScroll(const RenderOp& op) {
 }
 
 // ============================================================================
+// Canvas Buffer Management
+// ============================================================================
+
+#if GUI_DOUBLE_BUFFER
+void Renderer::updateCanvasBuffer() {
+    Framebuffer& fb = Framebuffer::instance();
+    m_canvas.setBuffer(
+        reinterpret_cast<void*>(fb.getBackBuffer()),
+        fb.width(), fb.height(), 16
+    );
+}
+#endif
+
+// ============================================================================
 // Display Flush
 // ============================================================================
 
@@ -622,8 +643,9 @@ void Renderer::flushDisplay() {
             return;
         }
 
-        // Swap front/back buffers
+        // Swap front/back buffers and re-point canvas to new back buffer
         fb.swap();
+        updateCanvasBuffer();
 
         if (dirty.shouldFullRefresh()) {
             // Too much changed - do full refresh
@@ -650,6 +672,7 @@ void Renderer::flushDisplay() {
 #else
         // Phase 2: Full buffer transfer
         fb.swap();
+        updateCanvasBuffer();
         DisplayUpdater::instance().pushFramebuffer();
 #endif
 
@@ -670,18 +693,17 @@ void Renderer::flushDisplay() {
 #if GUI_DOUBLE_BUFFER
 
 void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
+    Framebuffer& fb = Framebuffer::instance();
+
     switch (op.type) {
         case RenderOpType::FillRect:
             handleFillRectFB(op);
             break;
 
         case RenderOpType::DrawRect:
-            // DrawRect uses multiple fillRects
             {
                 const auto& r = op.data.rect;
-                Framebuffer& fb = Framebuffer::instance();
                 if (r.thickness <= 1) {
-                    // Draw outline with single-pixel lines
                     fb.drawHLine(r.rect.x, r.rect.y, r.rect.width, r.color);
                     fb.drawHLine(r.rect.x, r.rect.y + r.rect.height - 1, r.rect.width, r.color);
                     fb.drawVLine(r.rect.x, r.rect.y, r.rect.height, r.color);
@@ -704,62 +726,151 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
             handleDrawPixelFB(op);
             break;
 
-        // Extended primitives - fallback to M5GFX for complex shapes
+        // Extended primitives — render via M5Canvas into framebuffer
         case RenderOpType::DrawCircle:
-            handleDrawCircle(op);
+            {
+                const auto& c = op.data.circle;
+                m_canvas.drawCircle(c.center.x, c.center.y, c.radius, c.color);
+#if GUI_DIRTY_TRACKING
+                int16_t r = c.radius;
+                DirtyRegionTracker::instance().markDirty(
+                    c.center.x - r, c.center.y - r, r * 2 + 1, r * 2 + 1);
+#endif
+            }
             break;
 
         case RenderOpType::FillCircle:
-            handleFillCircle(op);
+            {
+                const auto& c = op.data.circle;
+                m_canvas.fillCircle(c.center.x, c.center.y, c.radius, c.color);
+#if GUI_DIRTY_TRACKING
+                int16_t r = c.radius;
+                DirtyRegionTracker::instance().markDirty(
+                    c.center.x - r, c.center.y - r, r * 2 + 1, r * 2 + 1);
+#endif
+            }
             break;
 
         case RenderOpType::DrawRoundRect:
-            handleDrawRoundRect(op);
+            {
+                const auto& r = op.data.roundRect;
+                m_canvas.drawRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+                                       r.radius, r.color);
+#if GUI_DIRTY_TRACKING
+                DirtyRegionTracker::instance().markDirty(
+                    r.rect.x, r.rect.y, r.rect.width, r.rect.height);
+#endif
+            }
             break;
 
         case RenderOpType::FillRoundRect:
-            handleFillRoundRect(op);
+            {
+                const auto& r = op.data.roundRect;
+                m_canvas.fillRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+                                       r.radius, r.color);
+#if GUI_DIRTY_TRACKING
+                DirtyRegionTracker::instance().markDirty(
+                    r.rect.x, r.rect.y, r.rect.width, r.rect.height);
+#endif
+            }
             break;
 
         case RenderOpType::DrawTriangle:
-            handleDrawTriangle(op);
+            {
+                const auto& t = op.data.triangle;
+                m_canvas.drawTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y,
+                                      t.p3.x, t.p3.y, t.color);
+#if GUI_DIRTY_TRACKING
+                int16_t minX = std::min(t.p1.x, std::min(t.p2.x, t.p3.x));
+                int16_t minY = std::min(t.p1.y, std::min(t.p2.y, t.p3.y));
+                int16_t maxX = std::max(t.p1.x, std::max(t.p2.x, t.p3.x));
+                int16_t maxY = std::max(t.p1.y, std::max(t.p2.y, t.p3.y));
+                DirtyRegionTracker::instance().markDirty(
+                    minX, minY, maxX - minX + 1, maxY - minY + 1);
+#endif
+            }
             break;
 
         case RenderOpType::FillTriangle:
-            handleFillTriangle(op);
+            {
+                const auto& t = op.data.triangle;
+                m_canvas.fillTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y,
+                                      t.p3.x, t.p3.y, t.color);
+#if GUI_DIRTY_TRACKING
+                int16_t minX = std::min(t.p1.x, std::min(t.p2.x, t.p3.x));
+                int16_t minY = std::min(t.p1.y, std::min(t.p2.y, t.p3.y));
+                int16_t maxX = std::max(t.p1.x, std::max(t.p2.x, t.p3.x));
+                int16_t maxY = std::max(t.p1.y, std::max(t.p2.y, t.p3.y));
+                DirtyRegionTracker::instance().markDirty(
+                    minX, minY, maxX - minX + 1, maxY - minY + 1);
+#endif
+            }
             break;
 
         case RenderOpType::DrawText:
-            // Text rendering still uses M5GFX (complex font handling)
-            // We render to M5.Display which acts as a sprite pointing to our buffer
-            handleDrawText(op);
+            {
+                const auto& t = op.data.text;
+                m_canvas.setTextColor(t.fg, t.bg);
+                m_canvas.setTextFont(t.font.font);
+                m_canvas.setTextSize(t.font.getSize());
+                m_canvas.setCursor(t.pos.x, t.pos.y);
+                if (t.textLen > 0) {
+                    m_canvas.print(t.text);
+                }
+#if GUI_DIRTY_TRACKING
+                int16_t tw = m_canvas.textWidth(t.text);
+                int16_t th = m_canvas.fontHeight();
+                DirtyRegionTracker::instance().markDirty(t.pos.x, t.pos.y, tw, th);
+#endif
+            }
             break;
 
         case RenderOpType::DrawChar:
-            handleDrawChar(op);
+            {
+                const auto& c = op.data.chr;
+                m_canvas.setTextColor(c.fg, c.bg);
+                m_canvas.setTextFont(c.font.font);
+                m_canvas.setTextSize(c.font.getSize());
+                m_canvas.setCursor(c.pos.x, c.pos.y);
+                m_canvas.print(c.ch);
+#if GUI_DIRTY_TRACKING
+                int16_t ch = m_canvas.fontHeight();
+                DirtyRegionTracker::instance().markDirty(c.pos.x, c.pos.y, ch, ch);
+#endif
+            }
             break;
 
         case RenderOpType::DrawBitmap:
-            // Bitmap: copy directly to framebuffer
             {
                 const auto& b = op.data.bitmap;
                 if (b.data != nullptr) {
-                    Framebuffer::instance().copyRect(
-                        b.rect.x, b.rect.y,
-                        b.data, b.rect.width, b.rect.height
-                    );
+                    fb.copyRect(b.rect.x, b.rect.y,
+                                b.data, b.rect.width, b.rect.height);
                 }
             }
             break;
 
         case RenderOpType::DrawJpeg:
-            // JPEG: still uses M5GFX decoder
-            handleDrawJpeg(op);
+            {
+                const auto& j = op.data.jpeg;
+                if (j.data != nullptr && j.len > 0) {
+                    m_canvas.drawJpg(j.data, j.len, j.pos.x, j.pos.y,
+                                     j.maxWidth, j.maxHeight);
+#if GUI_DIRTY_TRACKING
+                    // JPEG decoded size unknown, mark full screen dirty
+                    DirtyRegionTracker::instance().markAllDirty();
+#endif
+                }
+            }
             break;
 
         case RenderOpType::SetClip:
             {
-                Framebuffer::instance().setClipRect(op.data.clip.clipRect);
+                fb.setClipRect(op.data.clip.clipRect);
+                m_canvas.setClipRect(op.data.clip.clipRect.x,
+                                     op.data.clip.clipRect.y,
+                                     op.data.clip.clipRect.width,
+                                     op.data.clip.clipRect.height);
                 m_clipRect = op.data.clip.clipRect;
                 m_clipEnabled = true;
             }
@@ -767,7 +878,8 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
 
         case RenderOpType::ClearClip:
             {
-                Framebuffer::instance().clearClipRect();
+                fb.clearClipRect();
+                m_canvas.clearClipRect();
                 m_clipEnabled = false;
                 m_clipRect = Rect::make(0, 0, m_displayWidth, m_displayHeight);
             }
@@ -782,13 +894,48 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
             break;
 
         case RenderOpType::SetBrightness:
-            // Brightness control goes directly to display
+            // Brightness control goes directly to hardware
             handleSetBrightness(op);
             break;
 
         case RenderOpType::Scroll:
-            // Scroll uses direct M5.Display call
-            handleScroll(op);
+            {
+                // Scroll within framebuffer using memmove
+                const auto& s = op.data.scroll;
+                uint16_t* buf = fb.getBackBuffer();
+                uint16_t w = fb.width();
+                uint16_t h = fb.height();
+
+                if (s.dy > 0 && s.dy < h) {
+                    // Scroll down
+                    memmove(buf + s.dy * w, buf, (h - s.dy) * w * sizeof(uint16_t));
+                    memset(buf, 0, s.dy * w * sizeof(uint16_t));
+                } else if (s.dy < 0 && (-s.dy) < h) {
+                    int16_t absdy = -s.dy;
+                    memmove(buf, buf + absdy * w, (h - absdy) * w * sizeof(uint16_t));
+                    memset(buf + (h - absdy) * w, 0, absdy * w * sizeof(uint16_t));
+                }
+
+                if (s.dx > 0 && s.dx < w) {
+                    // Scroll right
+                    for (int16_t row = 0; row < h; row++) {
+                        uint16_t* rowPtr = buf + row * w;
+                        memmove(rowPtr + s.dx, rowPtr, (w - s.dx) * sizeof(uint16_t));
+                        memset(rowPtr, 0, s.dx * sizeof(uint16_t));
+                    }
+                } else if (s.dx < 0 && (-s.dx) < w) {
+                    int16_t absdx = -s.dx;
+                    for (int16_t row = 0; row < h; row++) {
+                        uint16_t* rowPtr = buf + row * w;
+                        memmove(rowPtr, rowPtr + absdx, (w - absdx) * sizeof(uint16_t));
+                        memset(rowPtr + (w - absdx), 0, absdx * sizeof(uint16_t));
+                    }
+                }
+
+#if GUI_DIRTY_TRACKING
+                DirtyRegionTracker::instance().markAllDirty();
+#endif
+            }
             break;
 
         case RenderOpType::Sync:

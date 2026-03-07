@@ -334,9 +334,12 @@ void Framebuffer::copyRect(int16_t destX, int16_t destY,
                            int16_t srcX, int16_t srcY) {
     if (!m_initialized || !src) return;
 
-    // Calculate actual copy region
-    uint16_t copyW = srcW - srcX;
-    uint16_t copyH = srcH - srcY;
+    // Validate source coordinates before subtraction to prevent unsigned underflow
+    if (srcX < 0 || srcY < 0 || srcX >= static_cast<int16_t>(srcW) || srcY >= static_cast<int16_t>(srcH)) return;
+
+    // Calculate actual copy region (safe: srcX < srcW and srcY < srcH guaranteed)
+    int16_t copyW = static_cast<int16_t>(srcW) - srcX;
+    int16_t copyH = static_cast<int16_t>(srcH) - srcY;
 
     // Clip to clip rect
     if (destX < m_clipRect.x) {
@@ -364,14 +367,14 @@ void Framebuffer::copyRect(int16_t destX, int16_t destY,
     const uint16_t* srcPtr = src + srcY * srcW + srcX;
     uint16_t* dstPtr = m_backBuffer + destY * m_config.width + destX;
 
-    for (uint16_t row = 0; row < copyH; row++) {
-        memcpy(dstPtr, srcPtr, copyW * sizeof(uint16_t));
+    for (int16_t row = 0; row < copyH; row++) {
+        memcpy(dstPtr, srcPtr, static_cast<uint16_t>(copyW) * sizeof(uint16_t));
         srcPtr += srcW;
         dstPtr += m_config.width;
     }
 
 #if GUI_DIRTY_TRACKING
-    DirtyRegionTracker::instance().markDirty(destX, destY, copyW, copyH);
+    DirtyRegionTracker::instance().markDirty(destX, destY, static_cast<uint16_t>(copyW), static_cast<uint16_t>(copyH));
 #endif
 }
 
