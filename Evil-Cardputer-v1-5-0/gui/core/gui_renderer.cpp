@@ -48,6 +48,7 @@ Renderer::Renderer()
     , m_clipRect(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT))
     , m_clipEnabled(false)
     , m_running(false)
+    , m_startGate(nullptr)
 {
     m_stats.reset();
 }
@@ -139,6 +140,12 @@ bool Renderer::start() {
     m_state = RendererState::Starting;
     m_running = true;
 
+    // Create startup gate — task will block on this until we signal it.
+    // This prevents the render loop from processing commands before
+    // all subsystems (Framebuffer, DMA, DirtyTracker) are fully ready
+    // and m_state has been set to Running.
+    m_startGate = xSemaphoreCreateBinary();
+
     // Create render task on Core 0
     BaseType_t result = xTaskCreatePinnedToCore(
         taskEntry,                          // Task function
@@ -153,11 +160,16 @@ bool Renderer::start() {
     if (result != pdPASS) {
         m_running = false;
         m_state = RendererState::Stopped;
+        if (m_startGate) { vSemaphoreDelete(m_startGate); m_startGate = nullptr; }
         GUI_LOG_ERROR("Failed to create render task (error: %d)", result);
         return false;
     }
 
     m_state = RendererState::Running;
+
+    // Signal the render task that it's safe to start processing
+    xSemaphoreGive(m_startGate);
+
     GUI_LOG("Renderer started on Core %d (priority: %d)",
             Config::RENDER_TASK_CORE, m_taskPriority);
     return true;
@@ -234,6 +246,13 @@ void Renderer::taskEntry(void* param) {
 // ============================================================================
 
 void Renderer::renderLoop() {
+    // Wait for start() to finish initializing and set state to Running
+    if (m_startGate) {
+        xSemaphoreTake(m_startGate, portMAX_DELAY);
+        vSemaphoreDelete(m_startGate);
+        m_startGate = nullptr;
+    }
+
     GUI_LOG("Render loop started");
 
     RenderQueue& queue = RenderQueue::instance();

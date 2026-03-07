@@ -265,6 +265,9 @@ private:
 
     // Run flag for task loop
     volatile bool m_running;
+
+    // Startup gate: task waits on this before processing commands
+    SemaphoreHandle_t m_startGate;
 };
 
 // ============================================================================

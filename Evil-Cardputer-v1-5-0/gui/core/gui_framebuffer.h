@@ -27,6 +27,10 @@
 // ESP32 PSRAM allocation
 #include "esp_heap_caps.h"
 
+// FreeRTOS for mutex
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 // Phase 3: Dirty region tracking
 #if GUI_DIRTY_TRACKING
 #include "gui_dirty_region.h"
@@ -186,6 +190,10 @@ public:
     // Wait for DMA to complete (blocking)
     void waitForDma();
 
+    // Lock/unlock for external callers needing buffer pointer stability
+    void lock();
+    void unlock();
+
     // ========================================================================
     // Statistics
     // ========================================================================
@@ -227,6 +235,9 @@ private:
 
     // DMA synchronization
     std::atomic<bool> m_dmaActive{false};
+
+    // Mutex for cross-core safety (Core 0 renderer + Core 1 main loop + DMA)
+    SemaphoreHandle_t m_mutex;
 
     // Statistics
     FramebufferStats m_stats;

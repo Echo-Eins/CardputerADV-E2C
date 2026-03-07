@@ -42,6 +42,7 @@ Framebuffer::Framebuffer()
     , m_backBuffer(nullptr)
     , m_clipRect(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT))
     , m_dmaActive(false)
+    , m_mutex(nullptr)
     , m_initialized(false)
 {
     // Default config
@@ -114,6 +115,16 @@ bool Framebuffer::init(const FramebufferConfig& config) {
     // Initialize clip rect to full screen
     m_clipRect = Rect::make(0, 0, m_config.width, m_config.height);
 
+    // Create mutex for cross-core buffer access safety
+    m_mutex = xSemaphoreCreateMutex();
+    if (!m_mutex) {
+        GUI_LOG_ERROR("Failed to create Framebuffer mutex");
+        freeBuffer(m_buffer0);
+        m_buffer0 = nullptr;
+        if (m_buffer1) { freeBuffer(m_buffer1); m_buffer1 = nullptr; }
+        return false;
+    }
+
     m_initialized = true;
 
     GUI_LOG("Framebuffer initialized: double=%d, PSRAM=%d",
@@ -142,6 +153,12 @@ void Framebuffer::shutdown() {
 
     m_frontBuffer = nullptr;
     m_backBuffer = nullptr;
+
+    if (m_mutex) {
+        vSemaphoreDelete(m_mutex);
+        m_mutex = nullptr;
+    }
+
     m_initialized = false;
 
     GUI_LOG("Framebuffer shutdown");
@@ -205,16 +222,26 @@ void Framebuffer::swap() {
 
     uint32_t startUs = esp_timer_get_time();
 
-    // Wait for DMA to finish with front buffer
-    if (m_dmaActive.load(std::memory_order_acquire)) {
-        waitForDma();
+    // Lock mutex to make DMA-active check + pointer swap atomic.
+    // Without this, DMA could start between the check and the swap,
+    // causing use-after-free on the front buffer.
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+
+    // Wait for DMA to finish with front buffer while holding mutex
+    while (m_dmaActive.load(std::memory_order_acquire)) {
+        // Release mutex while waiting so DMA completion can proceed
+        xSemaphoreGive(m_mutex);
+        vTaskDelay(1);
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_stats.dmaWaitCount++;
     }
 
-    // Swap pointers
+    // Swap pointers (protected by mutex — DMA cannot start here)
     uint16_t* temp = m_frontBuffer;
     m_frontBuffer = m_backBuffer;
     m_backBuffer = temp;
+
+    xSemaphoreGive(m_mutex);
 
     // Update statistics
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
@@ -433,8 +460,11 @@ bool Framebuffer::clipCoords(int16_t& x, int16_t& y, uint16_t& w, uint16_t& h) c
 // ============================================================================
 
 void Framebuffer::markDmaStarted() {
+    // Hold mutex to prevent swap() from racing between its check and pointer swap
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_dmaActive.store(true, std::memory_order_release);
     m_stats.dmaTransferCount++;
+    xSemaphoreGive(m_mutex);
 }
 
 void Framebuffer::markDmaCompleted() {
@@ -442,12 +472,17 @@ void Framebuffer::markDmaCompleted() {
 }
 
 void Framebuffer::waitForDma() {
-    // Spin-wait for DMA completion
-    // In a real implementation, this could use a semaphore
     while (m_dmaActive.load(std::memory_order_acquire)) {
-        // Yield to other tasks
         vTaskDelay(1);
     }
+}
+
+void Framebuffer::lock() {
+    if (m_mutex) xSemaphoreTake(m_mutex, portMAX_DELAY);
+}
+
+void Framebuffer::unlock() {
+    if (m_mutex) xSemaphoreGive(m_mutex);
 }
 
 } // namespace GUI
