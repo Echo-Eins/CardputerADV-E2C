@@ -19,6 +19,8 @@
 
 namespace GUI {
 
+portMUX_TYPE Renderer::s_statsLock = portMUX_INITIALIZER_UNLOCKED;
+
 // ============================================================================
 // Singleton Instance
 // ============================================================================
@@ -306,22 +308,26 @@ void Renderer::renderLoop() {
         executeCommand(op);
 #endif
 
-        // Update timing stats
+        // Update timing stats (under lock for cross-core safety)
         uint32_t elapsedUs = esp_timer_get_time() - startUs;
+        portENTER_CRITICAL(&s_statsLock);
         m_stats.totalRenderTimeUs += elapsedUs;
         m_stats.lastRenderTimeUs = elapsedUs;
         if (elapsedUs > m_stats.maxRenderTimeUs) {
             m_stats.maxRenderTimeUs = elapsedUs;
         }
         m_stats.commandsProcessed++;
+        portEXIT_CRITICAL(&s_statsLock);
 
         // Increment batch counter
         batchCount++;
 
         // Track max batch size
+        portENTER_CRITICAL(&s_statsLock);
         if (batchCount > m_stats.maxBatchSize) {
             m_stats.maxBatchSize = batchCount;
         }
+        portEXIT_CRITICAL(&s_statsLock);
 
         // Check if we should flush the display
         bool shouldFlush = false;
@@ -991,14 +997,51 @@ void Renderer::handleFillRectFB(const RenderOp& op) {
     Framebuffer::instance().fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
 }
 
+// Cohen-Sutherland outcodes for line clipping
+static inline uint8_t csOutcode(int16_t x, int16_t y) {
+    uint8_t code = 0;
+    if (x < 0) code |= 1;
+    else if (x >= Config::DISPLAY_WIDTH) code |= 2;
+    if (y < 0) code |= 4;
+    else if (y >= Config::DISPLAY_HEIGHT) code |= 8;
+    return code;
+}
+
 void Renderer::handleDrawLineFB(const RenderOp& op) {
     const auto& l = op.data.line;
     Framebuffer& fb = Framebuffer::instance();
 
-    // Bresenham's line algorithm for framebuffer
     int16_t x0 = l.p1.x, y0 = l.p1.y;
     int16_t x1 = l.p2.x, y1 = l.p2.y;
 
+    // Cohen-Sutherland pre-clipping — reject/clip before iterating pixels
+    for (;;) {
+        uint8_t c0 = csOutcode(x0, y0);
+        uint8_t c1 = csOutcode(x1, y1);
+        if (!(c0 | c1)) break;  // Both inside
+        if (c0 & c1) return;     // Both outside same edge — trivial reject
+
+        uint8_t out = c0 ? c0 : c1;
+        int16_t x, y;
+        int16_t dx = x1 - x0, dy = y1 - y0;
+        if (out & 8) {
+            x = x0 + dx * (Config::DISPLAY_HEIGHT - 1 - y0) / dy;
+            y = Config::DISPLAY_HEIGHT - 1;
+        } else if (out & 4) {
+            x = x0 + dx * (-y0) / dy;
+            y = 0;
+        } else if (out & 2) {
+            y = y0 + dy * (Config::DISPLAY_WIDTH - 1 - x0) / dx;
+            x = Config::DISPLAY_WIDTH - 1;
+        } else {
+            y = y0 + dy * (-x0) / dx;
+            x = 0;
+        }
+        if (out == c0) { x0 = x; y0 = y; }
+        else           { x1 = x; y1 = y; }
+    }
+
+    // Bresenham on the clipped segment — all pixels are in-bounds
     int16_t dx = abs(x1 - x0);
     int16_t dy = -abs(y1 - y0);
     int16_t sx = x0 < x1 ? 1 : -1;

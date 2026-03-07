@@ -52,8 +52,8 @@ enum class DmaState : uint8_t {
 
 struct DmaStats {
     uint32_t transferCount;         // Total transfers initiated
-    uint32_t bytesTransferred;      // Total bytes sent
-    uint32_t totalTransferTimeUs;   // Cumulative transfer time
+    uint64_t bytesTransferred;      // Total bytes sent
+    uint64_t totalTransferTimeUs;   // Cumulative transfer time
     uint32_t maxTransferTimeUs;     // Worst-case transfer time
     uint32_t errorCount;            // Transfer errors
 
@@ -66,14 +66,15 @@ struct DmaStats {
     }
 
     uint32_t avgTransferTimeUs() const {
-        return transferCount > 0 ? totalTransferTimeUs / transferCount : 0;
+        return transferCount > 0
+            ? static_cast<uint32_t>(totalTransferTimeUs / transferCount) : 0;
     }
 
     // Calculate effective bandwidth in KB/s
     uint32_t bandwidthKBps() const {
         if (totalTransferTimeUs == 0) return 0;
         return static_cast<uint32_t>(
-            (static_cast<uint64_t>(bytesTransferred) * 1000000) /
+            (bytesTransferred * 1000000) /
             (totalTransferTimeUs * 1024)
         );
     }
@@ -161,7 +162,12 @@ public:
     // Statistics
     // ========================================================================
 
-    const DmaStats& getStats() const { return m_stats; }
+    DmaStats getStats() const {
+        portENTER_CRITICAL_SAFE(&s_statsLock);
+        DmaStats copy = m_stats;
+        portEXIT_CRITICAL_SAFE(&s_statsLock);
+        return copy;
+    }
     void resetStats() { m_stats.reset(); }
 
 private:
@@ -195,8 +201,9 @@ private:
     // Timing for current transfer
     uint32_t m_transferStartUs;
 
-    // Statistics
+    // Statistics (guarded by s_statsLock for cross-core reads)
     DmaStats m_stats;
+    static portMUX_TYPE s_statsLock;
 
     // Configuration
     bool m_enabled;

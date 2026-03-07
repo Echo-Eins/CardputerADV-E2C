@@ -23,6 +23,8 @@
 
 namespace GUI {
 
+portMUX_TYPE Framebuffer::s_statsLock = portMUX_INITIALIZER_UNLOCKED;
+
 // ============================================================================
 // Singleton Instance
 // ============================================================================
@@ -249,11 +251,13 @@ void Framebuffer::swap() {
 
     // Update statistics
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
+    portENTER_CRITICAL(&s_statsLock);
     m_stats.swapCount++;
     m_stats.totalSwapTimeUs += elapsedUs;
     if (elapsedUs > m_stats.maxSwapTimeUs) {
         m_stats.maxSwapTimeUs = elapsedUs;
     }
+    portEXIT_CRITICAL(&s_statsLock);
 }
 
 // ============================================================================

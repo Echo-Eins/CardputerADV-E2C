@@ -63,7 +63,7 @@ constexpr uint32_t RENDER_TASK_STACK_SIZE = 8192;
 constexpr int RENDER_TASK_PRIORITY = 5;
 
 // Maximum time to wait for queue operations (ms)
-constexpr uint32_t QUEUE_TIMEOUT_MS = 100;
+constexpr uint32_t QUEUE_TIMEOUT_MS = 16;  // ~60 fps flush cadence
 
 // ============================================================================
 // Memory Allocation

@@ -220,9 +220,16 @@ struct RenderOp {
     DisplayTarget target;       // 1 byte
     uint8_t flags;              // 1 byte
 
-    // Explicit default constructor needed because union contains
-    // members with non-trivial constructors (Rect has a constructor)
-    RenderOp() { memset(this, 0, sizeof(*this)); }
+    // Zero-init header fields explicitly; union is zeroed via its raw member
+    // to avoid UB from memset on non-trivial union members.
+    RenderOp()
+        : type(RenderOpType::Nop)
+        , priority(RenderPriority::Normal)
+        , target(DisplayTarget::Internal)
+        , flags(0)
+    {
+        memset(&data, 0, sizeof(data));
+    }
 
     // Data union (28 bytes to make total 32 bytes)
     union {

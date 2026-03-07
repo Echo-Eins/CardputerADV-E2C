@@ -25,6 +25,8 @@
 
 namespace GUI {
 
+portMUX_TYPE DmaTransfer::s_statsLock = portMUX_INITIALIZER_UNLOCKED;
+
 // ============================================================================
 // DmaTransfer Singleton
 // ============================================================================
@@ -210,7 +212,8 @@ void DmaTransfer::waitComplete(uint32_t timeoutMs) {
 void DmaTransfer::handleTransferComplete(bool success, uint32_t bytesTransferred) {
     uint32_t elapsedUs = esp_timer_get_time() - m_transferStartUs;
 
-    // Update statistics
+    // Update statistics (under lock for cross-core safety)
+    portENTER_CRITICAL(&s_statsLock);
     if (success) {
         m_stats.transferCount++;
         m_stats.bytesTransferred += bytesTransferred > 0
@@ -222,6 +225,7 @@ void DmaTransfer::handleTransferComplete(bool success, uint32_t bytesTransferred
     } else {
         m_stats.errorCount++;
     }
+    portEXIT_CRITICAL(&s_statsLock);
 
     // Notify framebuffer that DMA completed
     Framebuffer::instance().markDmaCompleted();
@@ -259,12 +263,14 @@ void DmaTransfer::blockingTransfer(const uint16_t* buffer, uint32_t size) {
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
 
     // Update statistics
+    portENTER_CRITICAL(&s_statsLock);
     m_stats.transferCount++;
     m_stats.bytesTransferred += size;
     m_stats.totalTransferTimeUs += elapsedUs;
     if (elapsedUs > m_stats.maxTransferTimeUs) {
         m_stats.maxTransferTimeUs = elapsedUs;
     }
+    portEXIT_CRITICAL(&s_statsLock);
 }
 
 void DmaTransfer::blockingPartialTransfer(const uint16_t* buffer,
@@ -280,12 +286,14 @@ void DmaTransfer::blockingPartialTransfer(const uint16_t* buffer,
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
     uint32_t size = width * height * 2;
 
+    portENTER_CRITICAL(&s_statsLock);
     m_stats.transferCount++;
     m_stats.bytesTransferred += size;
     m_stats.totalTransferTimeUs += elapsedUs;
     if (elapsedUs > m_stats.maxTransferTimeUs) {
         m_stats.maxTransferTimeUs = elapsedUs;
     }
+    portEXIT_CRITICAL(&s_statsLock);
 }
 
 // ============================================================================

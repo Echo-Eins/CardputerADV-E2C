@@ -61,7 +61,7 @@ struct FramebufferConfig {
 
 struct FramebufferStats {
     uint32_t swapCount;             // Number of buffer swaps
-    uint32_t totalSwapTimeUs;       // Cumulative swap time
+    uint64_t totalSwapTimeUs;       // Cumulative swap time
     uint32_t maxSwapTimeUs;         // Worst-case swap time
     uint32_t dmaTransferCount;      // DMA transfers initiated
     uint32_t dmaWaitCount;          // Times we had to wait for DMA
@@ -75,7 +75,8 @@ struct FramebufferStats {
     }
 
     uint32_t avgSwapTimeUs() const {
-        return swapCount > 0 ? totalSwapTimeUs / swapCount : 0;
+        return swapCount > 0
+            ? static_cast<uint32_t>(totalSwapTimeUs / swapCount) : 0;
     }
 };
 
@@ -198,7 +199,12 @@ public:
     // Statistics
     // ========================================================================
 
-    const FramebufferStats& getStats() const { return m_stats; }
+    FramebufferStats getStats() const {
+        portENTER_CRITICAL_SAFE(&s_statsLock);
+        FramebufferStats copy = m_stats;
+        portEXIT_CRITICAL_SAFE(&s_statsLock);
+        return copy;
+    }
     void resetStats() { m_stats.reset(); }
 
 private:
@@ -241,6 +247,7 @@ private:
 
     // Statistics
     FramebufferStats m_stats;
+    static portMUX_TYPE s_statsLock;
 
     // Initialization flag
     bool m_initialized;
@@ -251,6 +258,7 @@ private:
 // ============================================================================
 
 inline void Framebuffer::setPixel(int16_t x, int16_t y, Color color) {
+    if (!m_backBuffer) return;
     if (x >= m_clipRect.x && x < m_clipRect.right() &&
         y >= m_clipRect.y && y < m_clipRect.bottom()) {
         m_backBuffer[y * m_config.width + x] = color;

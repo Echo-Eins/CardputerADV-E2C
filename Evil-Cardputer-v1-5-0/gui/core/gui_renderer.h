@@ -63,12 +63,12 @@ struct RendererStats {
     uint32_t syncCommands;          // Sync commands processed
     uint32_t maxBatchSize;          // Largest batch processed
 
-    uint32_t totalRenderTimeUs;     // Cumulative render time
+    uint64_t totalRenderTimeUs;     // Cumulative render time
     uint32_t maxRenderTimeUs;       // Worst-case render time
     uint32_t lastRenderTimeUs;      // Most recent render time
 
     uint32_t displayFlushCount;     // Times display() was called
-    uint32_t idleTimeMs;            // Time spent waiting for commands
+    uint64_t idleTimeMs;            // Time spent waiting for commands
 
     void reset() {
         commandsProcessed = 0;
@@ -84,7 +84,8 @@ struct RendererStats {
 
     // Calculate average render time per command
     uint32_t avgRenderTimeUs() const {
-        return commandsProcessed > 0 ? totalRenderTimeUs / commandsProcessed : 0;
+        return commandsProcessed > 0
+            ? static_cast<uint32_t>(totalRenderTimeUs / commandsProcessed) : 0;
     }
 
     // Calculate average FPS
@@ -152,8 +153,13 @@ public:
     // Statistics
     // ========================================================================
 
-    // Get current statistics
-    const RendererStats& getStats() const { return m_stats; }
+    // Get current statistics (returns copy for cross-core safety)
+    RendererStats getStats() const {
+        portENTER_CRITICAL_SAFE(&s_statsLock);
+        RendererStats copy = m_stats;
+        portEXIT_CRITICAL_SAFE(&s_statsLock);
+        return copy;
+    }
 
     // Reset statistics
     void resetStats() { m_stats.reset(); }
@@ -260,8 +266,9 @@ private:
     Rect m_clipRect;
     bool m_clipEnabled;
 
-    // Statistics
+    // Statistics (guarded by s_statsLock for cross-core reads)
     RendererStats m_stats;
+    static portMUX_TYPE s_statsLock;
 
     // Run flag for task loop
     volatile bool m_running;

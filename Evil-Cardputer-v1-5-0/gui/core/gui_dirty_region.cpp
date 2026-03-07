@@ -78,8 +78,13 @@ void DirtyRegionTracker::shutdown() {
 void DirtyRegionTracker::markAllDirty() {
     if (!m_enabled) return;
 
-    // Set all bits in bitmap
+    // Set all valid tile bits (GRID_TOTAL may not fill the last byte)
     memset(m_tileBitmap, 0xFF, sizeof(m_tileBitmap));
+    constexpr uint8_t tailBits = DirtyConfig::GRID_TOTAL % 8;
+    if constexpr (tailBits != 0) {
+        m_tileBitmap[DirtyConfig::BITMAP_SIZE - 1] =
+            static_cast<uint8_t>((1u << tailBits) - 1);
+    }
     m_dirtyTileCount.store(DirtyConfig::GRID_TOTAL, std::memory_order_relaxed);
 
     // Set merged rect to full screen
