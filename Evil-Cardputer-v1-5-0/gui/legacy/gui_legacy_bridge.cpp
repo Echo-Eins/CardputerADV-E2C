@@ -9,6 +9,7 @@
 
 #if GUI_LEGACY_BRIDGE_MODE != GUI_LEGACY_BRIDGE_DISABLED
 
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <Arduino.h>
@@ -60,7 +61,9 @@ void LegacyBridge::shutdown() {
     }
 
     GUI_LOG("LegacyBridge shutdown (direct=%u, queued=%u, dropped=%u)",
-            s_state.directCalls, s_state.queuedCalls, s_state.droppedCalls);
+            s_state.directCalls.load(std::memory_order_relaxed),
+            s_state.queuedCalls.load(std::memory_order_relaxed),
+            s_state.droppedCalls.load(std::memory_order_relaxed));
 
     s_initialized = false;
 }
@@ -85,9 +88,9 @@ const LegacyBridgeState& LegacyBridge::getState() {
 }
 
 void LegacyBridge::resetStats() {
-    s_state.directCalls = 0;
-    s_state.queuedCalls = 0;
-    s_state.droppedCalls = 0;
+    s_state.directCalls.store(0, std::memory_order_relaxed);
+    s_state.queuedCalls.store(0, std::memory_order_relaxed);
+    s_state.droppedCalls.store(0, std::memory_order_relaxed);
 }
 
 void LegacyBridge::syncWithTheme() {
@@ -124,15 +127,15 @@ bool LegacyBridge::pushToQueue(const RenderOp& op) {
 
     bool success = renderQueue().push(op);
     if (success) {
-        s_state.queuedCalls++;
+        s_state.queuedCalls.fetch_add(1, std::memory_order_relaxed);
     } else {
         // Queue full — brief wait then retry once before dropping
         vTaskDelay(pdMS_TO_TICKS(1));
         success = renderQueue().push(op);
         if (success) {
-            s_state.queuedCalls++;
+            s_state.queuedCalls.fetch_add(1, std::memory_order_relaxed);
         } else {
-            s_state.droppedCalls++;
+            s_state.droppedCalls.fetch_add(1, std::memory_order_relaxed);
             GUI_LOG_ERROR("LegacyBridge: queue full after retry, dropped call");
         }
     }
@@ -171,7 +174,7 @@ void LegacyBridge::clear() {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::clear(Colors::Black));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.clear();
     }
 
@@ -184,7 +187,7 @@ void LegacyBridge::fillScreen(Color color) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::fillScreen(color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.fillScreen(color);
     }
 
@@ -198,7 +201,7 @@ void LegacyBridge::display() {
         // In queued mode, this is a hint to flush
         pushToQueue(RenderOps::endFrame());
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.display();
     }
 }
@@ -270,7 +273,7 @@ void LegacyBridge::setTextFont(uint8_t font) {
 
 void LegacyBridge::setFont(const lgfx::IFont* font) {
     // Direct passthrough — font pointer can't be queued
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.setFont(font);
 }
 
@@ -310,7 +313,7 @@ void LegacyBridge::print(const char* text) {
             offset += chunkLen;
         }
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.setCursor(s_state.cursorX, s_state.cursorY);
         M5.Display.setTextColor(s_state.textFgColor, s_state.textBgColor);
         M5.Display.setTextSize(s_state.font.getSize());
@@ -412,7 +415,7 @@ void LegacyBridge::printf(const char* format, ...) {
 
 // Shared measurement sprite — protected by s_measureLock for cross-core safety
 static LGFX_Sprite s_measureSprite(&M5.Display);
-static bool s_measureSpriteCreated = false;
+static std::atomic<bool> s_measureSpriteCreated{false};
 
 static LGFX_Sprite& getMeasureSprite(const FontConfig& font) {
     if (!s_measureSpriteCreated) {
@@ -491,7 +494,7 @@ void LegacyBridge::drawChar(char c, int16_t x, int16_t y) {
 
         pushToQueue(op);
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.setTextColor(s_state.textFgColor, s_state.textBgColor);
         M5.Display.setTextSize(s_state.font.getSize());
         M5.Display.setTextFont(s_state.font.font);
@@ -502,7 +505,7 @@ void LegacyBridge::drawChar(char c, int16_t x, int16_t y) {
 
 void LegacyBridge::write(uint8_t c) {
     // Direct passthrough — write() advances cursor internally
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.write(c);
     s_state.cursorX = M5.Display.getCursorX();
     s_state.cursorY = M5.Display.getCursorY();
@@ -516,7 +519,7 @@ void LegacyBridge::drawPixel(int16_t x, int16_t y, Color color) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawPixel(x, y, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawPixel(x, y, color);
     }
 }
@@ -525,7 +528,7 @@ void LegacyBridge::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, Colo
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawLine(x0, y0, x1, y1, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawLine(x0, y0, x1, y1, color);
     }
 }
@@ -541,41 +544,45 @@ void LegacyBridge::drawFastVLine(int16_t x, int16_t y, int16_t h, Color color) {
 }
 
 void LegacyBridge::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, Color color) {
+    if (w <= 0 || h <= 0) return;
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawRect(x, y, static_cast<uint16_t>(w),
                                         static_cast<uint16_t>(h), color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawRect(x, y, w, h, color);
     }
 }
 
 void LegacyBridge::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, Color color) {
+    if (w <= 0 || h <= 0) return;
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::fillRect(x, y, static_cast<uint16_t>(w),
                                         static_cast<uint16_t>(h), color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.fillRect(x, y, w, h, color);
     }
 }
 
 void LegacyBridge::drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, Color color) {
+    if (w <= 0 || h <= 0) return;
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawRoundRect(x, y, static_cast<uint16_t>(w),
                                              static_cast<uint16_t>(h), r, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawRoundRect(x, y, w, h, r, color);
     }
 }
 
 void LegacyBridge::fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, Color color) {
+    if (w <= 0 || h <= 0) return;
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::fillRoundRect(x, y, static_cast<uint16_t>(w),
                                              static_cast<uint16_t>(h), r, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.fillRoundRect(x, y, w, h, r, color);
     }
 }
@@ -584,7 +591,7 @@ void LegacyBridge::drawCircle(int16_t x, int16_t y, int16_t r, Color color) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawCircle(x, y, r, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawCircle(x, y, r, color);
     }
 }
@@ -593,7 +600,7 @@ void LegacyBridge::fillCircle(int16_t x, int16_t y, int16_t r, Color color) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::fillCircle(x, y, r, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.fillCircle(x, y, r, color);
     }
 }
@@ -603,7 +610,7 @@ void LegacyBridge::drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::drawTriangle(x0, y0, x1, y1, x2, y2, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.drawTriangle(x0, y0, x1, y1, x2, y2, color);
     }
 }
@@ -613,7 +620,7 @@ void LegacyBridge::fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::fillTriangle(x0, y0, x1, y1, x2, y2, color));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.fillTriangle(x0, y0, x1, y1, x2, y2, color);
     }
 }
@@ -634,7 +641,7 @@ void LegacyBridge::pushImage(int16_t x, int16_t y, uint16_t w, uint16_t h, const
 
         pushToQueue(op);
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.pushImage(x, y, w, h, data);
     }
 }
@@ -655,7 +662,7 @@ void LegacyBridge::drawJpg(const uint8_t* data, uint32_t len, int16_t x, int16_t
 
         pushToQueue(op);
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         if (maxWidth > 0 && maxHeight > 0) {
             M5.Display.drawJpg(data, len, x, y, maxWidth, maxHeight);
         } else {
@@ -666,7 +673,7 @@ void LegacyBridge::drawJpg(const uint8_t* data, uint32_t len, int16_t x, int16_t
 
 void LegacyBridge::drawJpgFile(fs::FS& fs, const char* path, int16_t x, int16_t y) {
     // File operations always go direct (can't queue file handles safely)
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.drawJpgFile(fs, path, x, y);
 }
 
@@ -678,7 +685,7 @@ void LegacyBridge::setBrightness(uint8_t brightness) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::setBrightness(brightness));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.setBrightness(brightness);
     }
 }
@@ -690,7 +697,7 @@ uint8_t LegacyBridge::getBrightness() {
 
 void LegacyBridge::setRotation(uint8_t rotation) {
     // Always direct - affects display state
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.setRotation(rotation);
 
     // Update cached dimensions
@@ -713,7 +720,7 @@ void LegacyBridge::setClipRect(int16_t x, int16_t y, uint16_t w, uint16_t h) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::setClip(x, y, w, h));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.setClipRect(x, y, w, h);
     }
 }
@@ -725,7 +732,7 @@ void LegacyBridge::clearClipRect() {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::clearClip());
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.clearClipRect();
     }
 }
@@ -736,12 +743,12 @@ void LegacyBridge::clearClipRect() {
 
 void LegacyBridge::startWrite() {
     // Write transactions are M5GFX optimization - always go direct
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.startWrite();
 }
 
 void LegacyBridge::endWrite() {
-    s_state.directCalls++;
+    s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
     M5.Display.endWrite();
 }
 
@@ -749,7 +756,7 @@ void LegacyBridge::scroll(int16_t dx, int16_t dy) {
     if (shouldQueueCall()) {
         pushToQueue(RenderOps::scroll(dx, dy));
     } else {
-        s_state.directCalls++;
+        s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
         M5.Display.scroll(dx, dy);
     }
 }

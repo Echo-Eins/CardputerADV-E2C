@@ -24,6 +24,7 @@
 #include "../gui_config.h"
 #include "../gui_types.h"
 #include "../gui_theme.h"
+#include <atomic>
 
 // Legacy bridge mode configuration
 #ifndef GUI_LEGACY_BRIDGE_MODE
@@ -69,10 +70,10 @@ struct LegacyBridgeState {
     Rect clipRect;
     bool clipEnabled;
 
-    // Statistics
-    uint32_t directCalls;
-    uint32_t queuedCalls;
-    uint32_t droppedCalls;
+    // Statistics (atomic — incremented from producer task, read from any task)
+    std::atomic<uint32_t> directCalls;
+    std::atomic<uint32_t> queuedCalls;
+    std::atomic<uint32_t> droppedCalls;
 
     void reset() {
         cursorX = 0;
@@ -82,9 +83,9 @@ struct LegacyBridgeState {
         textBgColor = themeColors().background;
         font = themeFonts().normal;
         clipEnabled = false;
-        directCalls = 0;
-        queuedCalls = 0;
-        droppedCalls = 0;
+        directCalls.store(0, std::memory_order_relaxed);
+        queuedCalls.store(0, std::memory_order_relaxed);
+        droppedCalls.store(0, std::memory_order_relaxed);
     }
 
     // Sync with current theme

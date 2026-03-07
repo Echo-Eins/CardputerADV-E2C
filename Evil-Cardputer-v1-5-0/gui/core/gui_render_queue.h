@@ -276,7 +276,7 @@ public:
     void shutdown();
 
     // Check if initialized
-    bool isInitialized() const { return m_initialized; }
+    bool isInitialized() const { return m_initialized.load(std::memory_order_acquire); }
 
     // ========================================================================
     // Producer Interface (Main loop / Core 1)
@@ -374,8 +374,8 @@ private:
     std::atomic<uint32_t> m_overflowCount{0};
     std::atomic<size_t> m_highWaterMark{0};
 
-    // Initialization flag
-    bool m_initialized;
+    // Initialization flag (accessed from both cores)
+    std::atomic<bool> m_initialized{false};
 };
 
 // ============================================================================

@@ -39,7 +39,7 @@ RenderQueue::RenderQueue()
     , m_syncPending(false)
     , m_overflowCount(0)
     , m_highWaterMark(0)
-    , m_initialized(false)
+    // m_initialized is already initialized to false via in-class initializer
 {
     // Clear buffer
     memset(m_buffer, 0, sizeof(m_buffer));
@@ -54,7 +54,7 @@ RenderQueue::~RenderQueue() {
 // ============================================================================
 
 bool RenderQueue::init() {
-    if (m_initialized) {
+    if (m_initialized.load(std::memory_order_acquire)) {
         return true;  // Already initialized
     }
 
@@ -83,13 +83,13 @@ bool RenderQueue::init() {
     m_overflowCount.store(0, std::memory_order_relaxed);
     m_highWaterMark.store(0, std::memory_order_relaxed);
 
-    m_initialized = true;
+    m_initialized.store(true, std::memory_order_release);
     GUI_LOG("RenderQueue initialized (capacity: %d)", Config::QUEUE_SIZE);
     return true;
 }
 
 void RenderQueue::shutdown() {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return;
     }
 
@@ -107,7 +107,7 @@ void RenderQueue::shutdown() {
         m_syncComplete = nullptr;
     }
 
-    m_initialized = false;
+    m_initialized.store(false, std::memory_order_release);
     GUI_LOG("RenderQueue shutdown");
 }
 
@@ -116,7 +116,7 @@ void RenderQueue::shutdown() {
 // ============================================================================
 
 bool RenderQueue::push(const RenderOp& op) {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return false;
     }
 
@@ -161,7 +161,7 @@ bool RenderQueue::push(const RenderOp& op) {
 }
 
 size_t RenderQueue::pushBatch(const RenderOp* ops, size_t count) {
-    if (!m_initialized || ops == nullptr || count == 0) {
+    if (!m_initialized.load(std::memory_order_acquire) || ops == nullptr || count == 0) {
         return 0;
     }
 
@@ -180,7 +180,7 @@ size_t RenderQueue::pushBatch(const RenderOp* ops, size_t count) {
 // ============================================================================
 
 bool RenderQueue::pop(RenderOp& op, uint32_t timeoutMs) {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return false;
     }
 
@@ -225,7 +225,7 @@ bool RenderQueue::tryPop(RenderOp& op) {
 }
 
 bool RenderQueue::peek(RenderOp& op) const {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return false;
     }
 
@@ -274,35 +274,40 @@ bool RenderQueue::isEmpty() const {
 // ============================================================================
 
 void RenderQueue::clear() {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return;
     }
 
-    // Reset indices (both producer and consumer see empty queue)
-    m_tail.store(m_head.load(std::memory_order_acquire), std::memory_order_release);
+    // Snapshot head, advance tail to match, then drain exactly that many
+    // semaphore tokens. This avoids losing tokens from concurrent pushes
+    // that happen after we move the tail.
+    const size_t head = m_head.load(std::memory_order_acquire);
+    const size_t tail = m_tail.load(std::memory_order_relaxed);
+    m_tail.store(head, std::memory_order_release);
 
-    // Clear semaphore counts
-    while (xSemaphoreTake(m_dataAvailable, 0) == pdTRUE) {
-        // Drain semaphore
+    // Drain only the tokens that corresponded to the cleared items
+    size_t toDrain = (head >= tail)
+        ? (head - tail)
+        : (Config::QUEUE_SIZE - tail + head);
+    for (size_t i = 0; i < toDrain; ++i) {
+        xSemaphoreTake(m_dataAvailable, 0);
     }
 
     GUI_LOG("RenderQueue cleared");
 }
 
 void RenderQueue::sync(uint32_t timeoutMs) {
-    if (!m_initialized) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
         return;
     }
 
-    // If queue is already empty, nothing to sync
-    if (isEmpty()) {
-        return;
-    }
-
-    // Set sync pending flag
+    // Set sync pending flag BEFORE pushing to avoid TOCTOU race.
+    // The consumer checks this flag when it pops a Sync op.
     m_syncPending.store(true, std::memory_order_release);
 
-    // Push sync command
+    // Push sync command — this acts as a barrier in the queue.
+    // Even if the queue was empty before, the consumer will process
+    // this op and signal completion.
     RenderOp syncOp;
     syncOp.type = RenderOpType::Sync;
     syncOp.priority = RenderPriority::Urgent;
