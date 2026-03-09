@@ -12,10 +12,10 @@
  *
  * Memory layout:
  * - SRAM: Queue metadata + ring buffer (~8KB)
- * - Commands are copied, not referenced (safe for stack-allocated data)
- * - EXCEPTION: DrawBitmap and DrawJpeg store raw pointers to external data.
- *   The caller MUST keep the pointed-to buffer alive until the render queue
- *   has processed the command (e.g. use static/global buffers or call sync()).
+ * - Commands are copied by value.
+ * - DrawBitmap/DrawJpeg may either reference external buffers (ownsData=0)
+ *   or own an internal heap copy (ownsData=1). Owned payloads are released
+ *   by the consumer after rendering, or by clear() when dropped.
  */
 
 #ifndef GUI_RENDER_QUEUE_H
@@ -25,6 +25,7 @@
 #include "../gui_config.h"
 #include <atomic>
 #include <cstring>
+#include <cstdlib>
 
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
@@ -142,21 +143,23 @@ struct RenderOpChar {
     uint8_t _pad[3];    // 3 bytes
 };
 
-// DrawBitmap data (16 bytes)
-// WARNING: stores raw pointer — caller must keep data alive until processed!
+// DrawBitmap data (16 bytes on ESP32)
 struct RenderOpBitmap {
     Rect rect;              // 8 bytes
-    const uint16_t* data;   // 4/8 bytes (pointer, NOT owned)
+    const uint16_t* data;   // 4/8 bytes (pointer)
+    uint8_t ownsData;       // 1 = queue owns and will free after consume
+    uint8_t _pad[3];        // keep deterministic layout on ESP32
 };
 
-// DrawJpeg data (20 bytes)
-// WARNING: stores raw pointer — caller must keep data alive until processed!
+// DrawJpeg data (20 bytes on ESP32)
 struct RenderOpJpeg {
     Point pos;              // 4 bytes
     const uint8_t* data;    // 4/8 bytes (pointer)
     uint32_t len;           // 4 bytes
     uint16_t maxWidth;      // 2 bytes
     uint16_t maxHeight;     // 2 bytes
+    uint8_t ownsData;       // 1 = queue owns and will free after consume
+    uint8_t _pad[3];        // keep deterministic layout on ESP32
 };
 
 // SetClip data (8 bytes)
@@ -251,6 +254,25 @@ struct RenderOp {
     } data;
 };
 
+// Release heap-owned payloads attached to RenderOp image commands.
+// Safe to call multiple times (ownership bit is checked by value copy).
+inline void releaseOwnedPayload(const RenderOp& op) {
+    switch (op.type) {
+        case RenderOpType::DrawBitmap:
+            if (op.data.bitmap.ownsData && op.data.bitmap.data) {
+                std::free(const_cast<uint16_t*>(op.data.bitmap.data));
+            }
+            break;
+        case RenderOpType::DrawJpeg:
+            if (op.data.jpeg.ownsData && op.data.jpeg.data) {
+                std::free(const_cast<uint8_t*>(op.data.jpeg.data));
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 // Verify structure size
 // On ESP32 (32-bit): 4 + 28 = 32 bytes
 // On desktop (64-bit): May be larger due to pointer alignment
@@ -286,6 +308,11 @@ public:
     // Returns true if successful, false if queue is full
     // This is lock-free and wait-free
     bool push(const RenderOp& op);
+
+    // Push command with deterministic backpressure policy and retries.
+    // Returns false only when the policy decides to drop or block timeout expires.
+    bool pushWithBackpressure(const RenderOp& op,
+                              uint32_t maxWaitMs = Config::QUEUE_PUSH_MAX_WAIT_MS);
 
     // Push multiple commands atomically (best-effort)
     // Returns number of commands pushed
@@ -329,8 +356,8 @@ public:
     // Clear all pending commands
     void clear();
 
-    // Wait until all commands are processed
-    void sync(uint32_t timeoutMs = 1000);
+    // Wait until all commands are processed. Returns false on timeout/failure.
+    bool sync(uint32_t timeoutMs = 1000);
 
     // Signal that a command was processed (called by renderer)
     void signalProcessed();
@@ -347,6 +374,26 @@ public:
 
     // High water mark (max pending commands seen)
     size_t getHighWaterMark() const { return m_highWaterMark; }
+
+    struct BackpressureStats {
+        uint32_t retries;            // Retry attempts performed before success/fail
+        uint32_t droppedCommands;    // Commands dropped by overflow policy
+        uint32_t blockTimeouts;      // Drops caused by block timeout policy
+    };
+
+    BackpressureStats getBackpressureStats() const {
+        BackpressureStats stats{};
+        stats.retries = m_retryCount.load(std::memory_order_relaxed);
+        stats.droppedCommands = m_droppedCount.load(std::memory_order_relaxed);
+        stats.blockTimeouts = m_blockTimeoutCount.load(std::memory_order_relaxed);
+        return stats;
+    }
+
+    void resetBackpressureStats() {
+        m_retryCount.store(0, std::memory_order_relaxed);
+        m_droppedCount.store(0, std::memory_order_relaxed);
+        m_blockTimeoutCount.store(0, std::memory_order_relaxed);
+    }
 
 private:
     RenderQueue();
@@ -373,6 +420,9 @@ private:
     // Statistics
     std::atomic<uint32_t> m_overflowCount{0};
     std::atomic<size_t> m_highWaterMark{0};
+    std::atomic<uint32_t> m_retryCount{0};
+    std::atomic<uint32_t> m_droppedCount{0};
+    std::atomic<uint32_t> m_blockTimeoutCount{0};
 
     // Initialization flag (accessed from both cores)
     std::atomic<bool> m_initialized{false};
@@ -444,6 +494,7 @@ namespace RenderOps {
     // Create DrawText operation (short text, <= 12 chars)
     inline RenderOp drawText(int16_t x, int16_t y, const char* text,
                              Color fg, Color bg = Colors::Black,
+                             uint8_t textSize = 1,
                              RenderPriority priority = RenderPriority::Normal) {
         RenderOp op;
         memset(&op, 0, sizeof(op));
@@ -453,14 +504,19 @@ namespace RenderOps {
         op.data.text.pos = Point::make(x, y);
         op.data.text.fg = fg;
         op.data.text.bg = bg;
-        op.data.text.font = FontConfig::make();
+        op.data.text.font = FontConfig::make(1, textSize);
 
-        size_t len = strlen(text);
-        // Reserve last byte for null-terminator: max 11 visible chars
-        uint8_t copyLen = static_cast<uint8_t>(len > 11 ? 11 : len);
-        op.data.text.textLen = copyLen;
-        memcpy(op.data.text.text, text, copyLen);
-        op.data.text.text[copyLen] = '\0';
+        if (text != nullptr) {
+            size_t len = strlen(text);
+            // Reserve last byte for null-terminator: max 11 visible chars
+            uint8_t copyLen = static_cast<uint8_t>(len > 11 ? 11 : len);
+            op.data.text.textLen = copyLen;
+            memcpy(op.data.text.text, text, copyLen);
+            op.data.text.text[copyLen] = '\0';
+        } else {
+            op.data.text.textLen = 0;
+            op.data.text.text[0] = '\0';
+        }
         return op;
     }
 

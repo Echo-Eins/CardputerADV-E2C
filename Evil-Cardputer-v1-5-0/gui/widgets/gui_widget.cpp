@@ -5,6 +5,10 @@
 
 #include "gui_widget.h"
 #include "gui_draw.h"
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
 
 namespace GUI {
 
@@ -20,6 +24,7 @@ Widget::Widget(WidgetType type, WidgetId id)
     , m_type(type)
     , m_variant(WidgetVariant::Auto)
     , m_name(nullptr)
+    , m_appliedScaleFactor(1.0f)
     , m_measuredWidth(0)
     , m_measuredHeight(0)
     , m_state(WidgetState::Normal)
@@ -98,6 +103,11 @@ void Widget::setSize(int16_t w, int16_t h) {
         m_dirty.setBounds(m_bounds);
         markDirty(DirtyFlag::Layout | DirtyFlag::Content);
     }
+}
+
+void Widget::setRenderPosition(int16_t x, int16_t y) {
+    m_bounds.x = x;
+    m_bounds.y = y;
 }
 
 Rect Widget::absoluteBounds() const {
@@ -703,12 +713,19 @@ void Widget::adaptToDisplay(int16_t displayWidth, int16_t displayHeight,
         m_variant = selectVariant(displayWidth, displayHeight);
     }
 
-    // Scale dimensions
-    if (scaleFactor != 1.0f) {
-        m_bounds.x = static_cast<int16_t>(m_bounds.x * scaleFactor);
-        m_bounds.y = static_cast<int16_t>(m_bounds.y * scaleFactor);
-        m_bounds.width = static_cast<uint16_t>(m_bounds.width * scaleFactor);
-        m_bounds.height = static_cast<uint16_t>(m_bounds.height * scaleFactor);
+    // Apply scale relative to the currently applied factor to avoid
+    // cumulative drift when adaptToDisplay() is called repeatedly.
+    if (!std::isfinite(scaleFactor) || scaleFactor <= 0.0f) {
+        scaleFactor = 1.0f;
+    }
+
+    if (std::fabs(scaleFactor - m_appliedScaleFactor) > 0.0001f) {
+        const float ratio = scaleFactor / m_appliedScaleFactor;
+        m_bounds.x = static_cast<int16_t>(std::lround(m_bounds.x * ratio));
+        m_bounds.y = static_cast<int16_t>(std::lround(m_bounds.y * ratio));
+        m_bounds.width = static_cast<uint16_t>(std::max<long>(0, std::lround(m_bounds.width * ratio)));
+        m_bounds.height = static_cast<uint16_t>(std::max<long>(0, std::lround(m_bounds.height * ratio)));
+        m_appliedScaleFactor = scaleFactor;
     }
 
     // Adapt children
@@ -721,7 +738,8 @@ void Widget::adaptToDisplay(int16_t displayWidth, int16_t displayHeight,
 
 WidgetVariant Widget::selectVariant(int16_t displayWidth, int16_t displayHeight) {
     // Default heuristics based on display size
-    int16_t area = displayWidth * displayHeight;
+    const uint32_t area = static_cast<uint32_t>(std::max<int16_t>(0, displayWidth)) *
+                          static_cast<uint32_t>(std::max<int16_t>(0, displayHeight));
 
     if (area >= 240 * 320) {
         return WidgetVariant::Full;

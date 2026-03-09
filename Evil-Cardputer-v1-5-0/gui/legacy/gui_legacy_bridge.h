@@ -355,7 +355,7 @@ public:
 private:
     static LegacyBridgeState s_state;
     static bool s_initialized;
-    static int s_mode;
+    static std::atomic<int> s_mode;
 
     // Internal helpers
     static bool shouldQueueCall();

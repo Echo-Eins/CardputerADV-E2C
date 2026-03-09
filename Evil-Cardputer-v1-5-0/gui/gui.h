@@ -94,6 +94,9 @@
 // Legacy Bridge (M5.Display compatibility layer)
 #include "legacy/gui_legacy_bridge.h"
 
+// Production validation suite (unit + stress)
+#include "tests/gui_production_tests.h"
+
 // ============================================================================
 // Version Information
 // ============================================================================
@@ -162,9 +165,14 @@ inline void printStatus() {
                   q.pending(), q.capacity(), queueFillPercent());
     Serial.printf("  Overflows: %lu\n", q.getOverflowCount());
     Serial.printf("  High water: %d\n", q.getHighWaterMark());
+    const RenderQueue::BackpressureStats bp = q.getBackpressureStats();
+    Serial.printf("  Backpressure retries: %lu\n", static_cast<unsigned long>(bp.retries));
+    Serial.printf("  Backpressure drops: %lu\n", static_cast<unsigned long>(bp.droppedCommands));
+    Serial.printf("  Backpressure block timeouts: %lu\n", static_cast<unsigned long>(bp.blockTimeouts));
     Serial.printf("  Commands: %lu\n", stats.commandsProcessed);
     Serial.printf("  Frames: %lu\n", stats.framesRendered);
     Serial.printf("  Flushes: %lu\n", stats.displayFlushCount);
+    Serial.printf("  Display fallbacks: %lu\n", stats.displayTransferFallbacks);
     Serial.printf("  Avg render: %lu us\n", stats.avgRenderTimeUs());
     Serial.printf("  Max render: %lu us\n", stats.maxRenderTimeUs);
     Serial.printf("  FPS: %.1f\n", stats.fps());

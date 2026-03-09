@@ -14,7 +14,7 @@
 
 #include "../gui_types.h"
 #include "../gui_theme.h"
-#include "../core/gui_render_queue.h"
+#include "../core/gui_renderer.h"
 
 namespace GUI {
 
@@ -139,11 +139,7 @@ inline bool drawTriangle(int16_t x0, int16_t y0,
  */
 inline bool drawText(int16_t x, int16_t y, const char* text,
                      Color color, uint8_t size = 1, Color bg = Colors::Black) {
-    // Note: The async renderer's drawText doesn't have size parameter
-    // We need to handle this differently - for now use standard drawText
-    // Text size would be handled by the M5GFX font system
-    (void)size;  // TODO: Implement proper text size handling
-    return Draw::drawText(x, y, text, color, bg);
+    return Draw::drawText(x, y, text, color, size, bg);
 }
 
 //=============================================================================
@@ -175,14 +171,14 @@ inline bool fillScreen(Color color) {
  */
 inline bool setClip(int16_t x, int16_t y, int16_t w, int16_t h) {
     // Push clip command to queue
-    return renderQueue().push(RenderOps::setClip(x, y, w, h));
+    return renderQueue().pushWithBackpressure(RenderOps::setClip(x, y, w, h));
 }
 
 /**
  * @brief Clear clipping rectangle
  */
 inline bool clearClip() {
-    return renderQueue().push(RenderOps::clearClip());
+    return renderQueue().pushWithBackpressure(RenderOps::clearClip());
 }
 
 //=============================================================================
@@ -199,8 +195,8 @@ inline bool endFrame() {
 /**
  * @brief Wait for all commands to complete
  */
-inline void sync() {
-    Draw::sync();
+inline bool sync() {
+    return Draw::sync();
 }
 
 //=============================================================================

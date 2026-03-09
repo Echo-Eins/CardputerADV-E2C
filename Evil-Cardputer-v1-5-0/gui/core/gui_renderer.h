@@ -68,6 +68,7 @@ struct RendererStats {
     uint32_t lastRenderTimeUs;      // Most recent render time
 
     uint32_t displayFlushCount;     // Times display() was called
+    uint32_t displayTransferFallbacks; // DMA path failures that required fallback
     uint64_t idleTimeMs;            // Time spent waiting for commands
 
     void reset() {
@@ -79,6 +80,7 @@ struct RendererStats {
         maxRenderTimeUs = 0;
         lastRenderTimeUs = 0;
         displayFlushCount = 0;
+        displayTransferFallbacks = 0;
         idleTimeMs = 0;
     }
 
@@ -162,7 +164,12 @@ public:
     }
 
     // Reset statistics
-    void resetStats() { m_stats.reset(); }
+    void resetStats() {
+        m_stats.reset();
+#if GUI_DOUBLE_BUFFER
+        m_lastFallbackTransferCount = DisplayUpdater::instance().getFallbackTransferCount();
+#endif
+    }
 
     // ========================================================================
     // Display State Access (for compatibility)
@@ -275,6 +282,9 @@ private:
 
     // Startup gate: task waits on this before processing commands
     SemaphoreHandle_t m_startGate;
+
+    // Last observed DisplayUpdater fallback counter for delta accounting.
+    uint32_t m_lastFallbackTransferCount;
 };
 
 // ============================================================================
@@ -310,52 +320,63 @@ namespace Draw {
 
     // Fill rectangle
     inline bool fillRect(int16_t x, int16_t y, uint16_t w, uint16_t h, Color color) {
-        return renderQueue().push(RenderOps::fillRect(x, y, w, h, color));
+        return renderQueue().pushWithBackpressure(RenderOps::fillRect(x, y, w, h, color));
     }
 
     // Draw rectangle outline
     inline bool drawRect(int16_t x, int16_t y, uint16_t w, uint16_t h, Color color) {
-        return renderQueue().push(RenderOps::drawRect(x, y, w, h, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawRect(x, y, w, h, color));
     }
 
     // Draw line
     inline bool drawLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, Color color) {
-        return renderQueue().push(RenderOps::drawLine(x1, y1, x2, y2, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawLine(x1, y1, x2, y2, color));
     }
 
     // Draw pixel
     inline bool drawPixel(int16_t x, int16_t y, Color color) {
-        return renderQueue().push(RenderOps::drawPixel(x, y, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawPixel(x, y, color));
     }
 
     // Draw text
-    inline bool drawText(int16_t x, int16_t y, const char* text, Color fg, Color bg = Colors::Black) {
-        return renderQueue().push(RenderOps::drawText(x, y, text, fg, bg));
+    inline bool drawText(int16_t x, int16_t y, const char* text, Color fg) {
+        return renderQueue().pushWithBackpressure(RenderOps::drawText(x, y, text, fg, Colors::Black, 1));
+    }
+
+    // Draw text with explicit background color
+    inline bool drawText(int16_t x, int16_t y, const char* text, Color fg, Color bg) {
+        return renderQueue().pushWithBackpressure(RenderOps::drawText(x, y, text, fg, bg, 1));
+    }
+
+    // Draw text with explicit text size
+    inline bool drawText(int16_t x, int16_t y, const char* text, Color fg,
+                         uint8_t textSize, Color bg = Colors::Black) {
+        return renderQueue().pushWithBackpressure(RenderOps::drawText(x, y, text, fg, bg, textSize));
     }
 
     // Clear screen
     inline bool clear(Color color = Colors::Black) {
-        return renderQueue().push(RenderOps::clear(color));
+        return renderQueue().pushWithBackpressure(RenderOps::clear(color));
     }
 
     // Fill entire screen
     inline bool fillScreen(Color color) {
-        return renderQueue().push(RenderOps::fillScreen(color));
+        return renderQueue().pushWithBackpressure(RenderOps::fillScreen(color));
     }
 
     // Set brightness
     inline bool setBrightness(uint8_t level) {
-        return renderQueue().push(RenderOps::setBrightness(level));
+        return renderQueue().pushWithBackpressure(RenderOps::setBrightness(level));
     }
 
     // End frame (hint for vsync/buffer swap)
     inline bool endFrame() {
-        return renderQueue().push(RenderOps::endFrame());
+        return renderQueue().pushWithBackpressure(RenderOps::endFrame());
     }
 
     // Synchronize (wait for all commands to complete)
-    inline void sync() {
-        renderQueue().sync();
+    inline bool sync() {
+        return renderQueue().sync();
     }
 
     // ========================================================================
@@ -364,37 +385,37 @@ namespace Draw {
 
     // Draw circle outline
     inline bool drawCircle(int16_t x, int16_t y, int16_t r, Color color) {
-        return renderQueue().push(RenderOps::drawCircle(x, y, r, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawCircle(x, y, r, color));
     }
 
     // Fill circle
     inline bool fillCircle(int16_t x, int16_t y, int16_t r, Color color) {
-        return renderQueue().push(RenderOps::fillCircle(x, y, r, color));
+        return renderQueue().pushWithBackpressure(RenderOps::fillCircle(x, y, r, color));
     }
 
     // Draw rounded rectangle outline
     inline bool drawRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h, int16_t r, Color color) {
-        return renderQueue().push(RenderOps::drawRoundRect(x, y, w, h, r, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawRoundRect(x, y, w, h, r, color));
     }
 
     // Fill rounded rectangle
     inline bool fillRoundRect(int16_t x, int16_t y, uint16_t w, uint16_t h, int16_t r, Color color) {
-        return renderQueue().push(RenderOps::fillRoundRect(x, y, w, h, r, color));
+        return renderQueue().pushWithBackpressure(RenderOps::fillRoundRect(x, y, w, h, r, color));
     }
 
     // Draw triangle outline
     inline bool drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, Color color) {
-        return renderQueue().push(RenderOps::drawTriangle(x0, y0, x1, y1, x2, y2, color));
+        return renderQueue().pushWithBackpressure(RenderOps::drawTriangle(x0, y0, x1, y1, x2, y2, color));
     }
 
     // Fill triangle
     inline bool fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, Color color) {
-        return renderQueue().push(RenderOps::fillTriangle(x0, y0, x1, y1, x2, y2, color));
+        return renderQueue().pushWithBackpressure(RenderOps::fillTriangle(x0, y0, x1, y1, x2, y2, color));
     }
 
     // Scroll display content
     inline bool scroll(int16_t dx, int16_t dy) {
-        return renderQueue().push(RenderOps::scroll(dx, dy));
+        return renderQueue().pushWithBackpressure(RenderOps::scroll(dx, dy));
     }
 
 } // namespace Draw

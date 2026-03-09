@@ -5,6 +5,8 @@
 
 #include "gui_extras.h"
 #include "gui_draw.h"
+#include <cstring>
+#include <cstdlib>
 
 namespace GUI {
 
@@ -118,7 +120,7 @@ void ProgressBar::renderContent() {
         int16_t textX = abs.x + (abs.width - textW) / 2;
         int16_t textY = abs.y + (abs.height - 8) / 2;
 
-        Draw::drawText(textX, textY, buf, ProgressColors::Text, 1);
+        Draw::drawText(textX, textY, buf, ProgressColors::Text, static_cast<uint8_t>(1));
     }
 }
 

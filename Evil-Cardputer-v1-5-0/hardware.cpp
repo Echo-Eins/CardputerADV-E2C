@@ -178,29 +178,12 @@ void HardwareDisplay::drawCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { 
 void HardwareDisplay::fillCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { LB::fillCircle(x, y, r, c); }
 
 void HardwareDisplay::drawJpgFile(fs::FS& fs, const char* path, int16_t x, int16_t y) {
-    fs::File file = fs.open(path, FILE_READ);
-    if (!file) return;
-    size_t fileSize = file.size();
-    if (fileSize == 0) { file.close(); return; }
-    uint8_t* buffer = (uint8_t*)malloc(fileSize);
-    if (!buffer) { file.close(); return; }
-    file.read(buffer, fileSize);
-    file.close();
-    LB::drawJpg(buffer, fileSize, x, y);
-    free(buffer);
+    // Delegate to bridge-level file decode to avoid transient heap buffers.
+    LB::drawJpgFile(fs, path, x, y);
 }
 
 void HardwareDisplay::drawImage(const char* filepath) {
-    fs::File file = SD.open(filepath, FILE_READ);
-    if (!file) return;
-    size_t fileSize = file.size();
-    if (fileSize == 0) { file.close(); return; }
-    uint8_t* buffer = (uint8_t*)malloc(fileSize);
-    if (!buffer) { file.close(); return; }
-    file.read(buffer, fileSize);
-    file.close();
-    LB::drawJpg(buffer, fileSize);
-    free(buffer);
+    LB::drawJpgFile(SD, filepath, 0, 0);
 }
 
 uint8_t HardwareDisplay::getBrightness()                   { return LB::getBrightness(); }

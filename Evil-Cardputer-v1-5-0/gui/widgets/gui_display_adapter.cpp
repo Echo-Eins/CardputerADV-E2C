@@ -6,6 +6,10 @@
 #include "gui_display_adapter.h"
 #include "gui_draw.h"
 #include "../gui_config.h"
+#include "../core/gui_display_lock.h"
+#include <M5Unified.h>
+#include <algorithm>
+#include <cmath>
 
 namespace GUI {
 
@@ -86,35 +90,39 @@ void DisplayAdapter::init(const DisplayInfo& info) {
         return m_displayInfo;
     });
 
+    // Prefer actual panel parameters over profile defaults when hardware is ready.
+    queryDisplayInfo();
+
     emitDisplayReady();
 }
 
 void DisplayAdapter::queryDisplayInfo() {
-    // Query from video driver (Renderer)
-    // In real implementation, this would query M5GFX
-
     DisplayInfo info = m_displayInfo;
+    DisplayLockGuard lockGuard;
+    if (lockGuard.locked()) {
+        const int16_t hwWidth = static_cast<int16_t>(M5.Display.width());
+        const int16_t hwHeight = static_cast<int16_t>(M5.Display.height());
+        if (hwWidth > 0 && hwHeight > 0) {
+            info.width = hwWidth;
+            info.height = hwHeight;
+            info.rotation = static_cast<uint8_t>(M5.Display.getRotation() & 0x03);
+        }
+    }
 
-    // Get actual display dimensions
-    // info.width = M5.Display.width();
-    // info.height = M5.Display.height();
-    // info.rotation = M5.Display.getRotation();
-
-    // For now, use configured values
-    info.width = GUI_DISPLAY_WIDTH;
-    info.height = GUI_DISPLAY_HEIGHT;
-
-    // Check if double buffering is available
+    // Capabilities are compile-time for this target.
+    info.colorDepth = 16;
     info.doubleBuffered = GUI_DOUBLE_BUFFER;
     info.dmaEnabled = GUI_USE_DMA;
 
     updateDisplayInfo(info);
+    WidgetManager::instance().setDisplayInfo(m_displayInfo);
 }
 
 void DisplayAdapter::updateDisplayInfo(const DisplayInfo& info) {
     bool changed = (m_displayInfo.width != info.width ||
                     m_displayInfo.height != info.height ||
-                    m_displayInfo.rotation != info.rotation);
+                    m_displayInfo.rotation != info.rotation ||
+                    m_displayInfo.scaleFactor != info.scaleFactor);
 
     m_displayInfo = info;
 
@@ -124,30 +132,55 @@ void DisplayAdapter::updateDisplayInfo(const DisplayInfo& info) {
 }
 
 void DisplayAdapter::setRotation(uint8_t rotation) {
-    if (m_displayInfo.rotation != rotation) {
-        // Swap width/height for 90/270 degree rotations
-        if ((m_displayInfo.rotation % 2) != (rotation % 2)) {
-            int16_t tmp = m_displayInfo.width;
-            m_displayInfo.width = m_displayInfo.height;
-            m_displayInfo.height = tmp;
-        }
-
-        m_displayInfo.rotation = rotation;
-        emitResolutionChanged();
-
-        // Update widget manager
-        WidgetManager::instance().setDisplayInfo(m_displayInfo);
+    const uint8_t normalized = static_cast<uint8_t>(rotation & 0x03);
+    if (m_displayInfo.rotation == normalized) {
+        return;
     }
+
+    DisplayInfo info = m_displayInfo;
+
+    // Apply rotation to hardware first, then read effective dimensions back.
+    DisplayLockGuard lockGuard;
+    if (lockGuard.locked()) {
+        M5.Display.setRotation(normalized);
+        const int16_t hwWidth = static_cast<int16_t>(M5.Display.width());
+        const int16_t hwHeight = static_cast<int16_t>(M5.Display.height());
+        if (hwWidth > 0 && hwHeight > 0) {
+            info.width = hwWidth;
+            info.height = hwHeight;
+            info.rotation = static_cast<uint8_t>(M5.Display.getRotation() & 0x03);
+        } else {
+            info.rotation = normalized;
+        }
+    } else {
+        // If lock fails, keep deterministic software state.
+        info.rotation = normalized;
+    }
+
+    updateDisplayInfo(info);
+    WidgetManager::instance().setDisplayInfo(m_displayInfo);
 }
 
 void DisplayAdapter::setScaleFactor(float factor) {
-    if (m_displayInfo.scaleFactor != factor) {
-        m_displayInfo.scaleFactor = factor;
-        WidgetManager::instance().setDisplayInfo(m_displayInfo);
+    if (!std::isfinite(factor) || factor <= 0.0f) {
+        GUI_LOG_ERROR("DisplayAdapter: invalid scale factor %.5f", static_cast<double>(factor));
+        return;
     }
+
+    if (m_displayInfo.scaleFactor == factor) {
+        return;
+    }
+
+    DisplayInfo info = m_displayInfo;
+    info.scaleFactor = factor;
+    updateDisplayInfo(info);
+    WidgetManager::instance().setDisplayInfo(m_displayInfo);
 }
 
 float DisplayAdapter::calculateScaleFactor(float targetDpi) const {
+    if (!std::isfinite(targetDpi) || targetDpi <= 0.0f) {
+        return 1.0f;
+    }
     const DisplayProfileData& data = getDisplayProfile(m_profile);
     return data.baseDpi / targetDpi;
 }
@@ -163,7 +196,8 @@ WidgetVariant DisplayAdapter::recommendedVariant() const {
     }
 
     // Calculate based on display size
-    int16_t area = m_displayInfo.width * m_displayInfo.height;
+    const uint32_t area = static_cast<uint32_t>(std::max<int16_t>(0, m_displayInfo.width)) *
+                          static_cast<uint32_t>(std::max<int16_t>(0, m_displayInfo.height));
 
     if (area >= 320 * 240) {
         return WidgetVariant::Full;
@@ -177,7 +211,8 @@ WidgetVariant DisplayAdapter::recommendedVariant() const {
 
 WidgetVariant DisplayAdapter::selectVariant(int16_t availableWidth,
                                             int16_t availableHeight) {
-    int16_t area = availableWidth * availableHeight;
+    const uint32_t area = static_cast<uint32_t>(std::max<int16_t>(0, availableWidth)) *
+                          static_cast<uint32_t>(std::max<int16_t>(0, availableHeight));
 
     if (area >= 200 * 100) {
         return WidgetVariant::Full;
@@ -312,7 +347,9 @@ void DisplayAdapter::endFrame() {
 }
 
 void DisplayAdapter::sync() {
-    Draw::sync();
+    if (!Draw::sync()) {
+        GUI_LOG_ERROR("DisplayAdapter: Draw::sync timeout");
+    }
 }
 
 //=============================================================================

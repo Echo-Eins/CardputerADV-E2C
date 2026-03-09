@@ -402,11 +402,11 @@ void SettingsScreen::renderTitleBar() {
 
     // Title text
     Draw::drawText(abs.x + 2, abs.y + 2, m_title,
-                  theme.taskbarTextColor(), 1);
+                  theme.taskbarTextColor(), static_cast<uint8_t>(1));
 
     // Back indicator
     Draw::drawText(abs.right() - 20, abs.y + 2, "[<-]",
-                  theme.taskbarTextColor(), 1);
+                  theme.taskbarTextColor(), static_cast<uint8_t>(1));
 
     // Divider
     Draw::fillRect(abs.x, abs.y + TITLE_HEIGHT,
@@ -467,7 +467,7 @@ void SettingsScreen::renderSettingItem(int index, const Rect& itemBounds, bool s
     int16_t textX = itemBounds.x + ITEM_PADDING_X;
     int16_t textY = itemBounds.y + (ITEM_HEIGHT - 8) / 2;
 
-    Draw::drawText(textX, textY, item.label, textColor, 1);
+    Draw::drawText(textX, textY, item.label, textColor, static_cast<uint8_t>(1));
 
     // Value (for toggle, slider, selection)
     if (item.type != SettingType::Action && item.type != SettingType::SubMenu) {
@@ -481,12 +481,12 @@ void SettingsScreen::renderSettingItem(int index, const Rect& itemBounds, bool s
         }
 
         int16_t valueX = itemBounds.right() - VALUE_WIDTH;
-        Draw::drawText(valueX, textY, valueText, valueColor, 1);
+        Draw::drawText(valueX, textY, valueText, valueColor, static_cast<uint8_t>(1));
     }
 
     // Submenu indicator
     if (item.type == SettingType::SubMenu) {
-        Draw::drawText(itemBounds.right() - 10, textY, ">", textColor, 1);
+        Draw::drawText(itemBounds.right() - 10, textY, ">", textColor, static_cast<uint8_t>(1));
     }
 }
 
@@ -603,7 +603,7 @@ void SelectionDialog::render() {
     Draw::fillRect(abs.x + 1, abs.y + 1, abs.width - 2, 12,
                   theme.taskbarBackgroundColor());
     Draw::drawText(abs.x + 4, abs.y + 2, m_title,
-                  theme.taskbarTextColor(), 1);
+                  theme.taskbarTextColor(), static_cast<uint8_t>(1));
 
     // Options
     int16_t listY = abs.y + 14;
@@ -630,7 +630,7 @@ void SelectionDialog::render() {
         uint16_t textColor = selected ?
             theme.menuTextFocusedColor() : theme.menuTextUnFocusedColor();
 
-        Draw::drawText(abs.x + 4, itemY + 2, m_options[idx], textColor, 1);
+        Draw::drawText(abs.x + 4, itemY + 2, m_options[idx], textColor, static_cast<uint8_t>(1));
     }
 }
 

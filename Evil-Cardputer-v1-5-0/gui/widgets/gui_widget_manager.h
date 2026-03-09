@@ -17,6 +17,8 @@
 #include <Arduino.h>
 #include <vector>
 #include <memory>
+#include <functional>
+#include <cstring>
 #include "gui_widget.h"
 #include "gui_signal.h"
 
@@ -64,6 +66,8 @@ struct InputState {
     uint8_t modifiers;          // Current modifiers
     uint32_t keyPressTime;      // When key was pressed
     uint32_t keyHoldTime;       // How long key held
+    uint32_t lastRepeatCount;   // Last delivered repeat ordinal
+    uint32_t lastRepeatTime;    // Timestamp of last repeat dispatch
     bool isRepeat;              // Is this a repeat event
 
     InputState()
@@ -72,6 +76,8 @@ struct InputState {
         , modifiers(0)
         , keyPressTime(0)
         , keyHoldTime(0)
+        , lastRepeatCount(0)
+        , lastRepeatTime(0)
         , isRepeat(false) {}
 };
 
@@ -251,6 +257,11 @@ public:
      * @return true if input was handled
      */
     bool processKeyHold(char key, uint32_t duration, uint8_t modifiers);
+
+    /**
+     * @brief Notify about key release (clears repeat state)
+     */
+    void processKeyRelease(char key, uint8_t modifiers);
 
     /**
      * @brief Update input state from M5Cardputer keyboard

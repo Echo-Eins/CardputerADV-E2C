@@ -382,13 +382,13 @@ void MenuScreen::renderTaskbar() {
     // Title/Search indicator
     const char* title = m_searchMode ? "Search" : "Menu";
     Draw::drawText(abs.x + 2, taskbarY + 2, title,
-                  theme.taskbarTextColor(), 1);
+                  theme.taskbarTextColor(), static_cast<uint8_t>(1));
 
     // WiFi indicator
     int16_t indicatorX = abs.right() - 40;
     if (m_wifiConnected) {
         Draw::drawText(indicatorX, taskbarY + 2, "W",
-                      theme.taskbarTextColor(), 1);
+                      theme.taskbarTextColor(), static_cast<uint8_t>(1));
     }
 
     // Battery indicator
@@ -396,13 +396,13 @@ void MenuScreen::renderTaskbar() {
     char batStr[5];
     snprintf(batStr, sizeof(batStr), "%d%%", m_batteryLevel);
     Draw::drawText(indicatorX, taskbarY + 2, batStr,
-                  theme.taskbarTextColor(), 1);
+                  theme.taskbarTextColor(), static_cast<uint8_t>(1));
 
     // Time (if set)
     if (m_time[0] != '\0') {
         int16_t timeX = abs.x + 50;
         Draw::drawText(timeX, taskbarY + 2, m_time,
-                      theme.taskbarTextColor(), 1);
+                      theme.taskbarTextColor(), static_cast<uint8_t>(1));
     }
 
     // Divider line
@@ -467,7 +467,7 @@ void MenuScreen::renderMenuItem(int viewIndex, const Rect& itemBounds, bool sele
     int16_t textX = itemBounds.x + ITEM_PADDING_X;
     int16_t textY = itemBounds.y + (ITEM_HEIGHT - 8) / 2;
 
-    Draw::drawText(textX, textY, text, textColor, 1);
+    Draw::drawText(textX, textY, text, textColor, static_cast<uint8_t>(1));
 }
 
 void MenuScreen::renderSearchBar() {
@@ -484,7 +484,7 @@ void MenuScreen::renderSearchBar() {
     char searchText[MENU_SEARCH_MAX_LEN + 10];
     snprintf(searchText, sizeof(searchText), "Search: %s_", m_searchQuery);
     Draw::drawText(abs.x + 2, searchY + 2, searchText,
-                  Colors::Yellow, 1);
+                  Colors::Yellow, static_cast<uint8_t>(1));
 }
 
 //=============================================================================

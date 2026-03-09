@@ -1,9 +1,13 @@
 /*
- * GUI DMA - Asynchronous SPI DMA transfer for display updates
+ * GUI DMA - SPI DMA transfer wrapper for display updates
  *
  * Uses ESP32 SPI DMA to transfer framebuffer data to the ST7789V display
- * without blocking the CPU. The renderer can continue processing commands
- * while DMA transfers the previous frame.
+ * using the best capability exposed by M5GFX.
+ *
+ * Important contract:
+ * - start*Transfer() enqueue DMA work, but this implementation completes the
+ *   transfer synchronously via waitDMA() before returning.
+ * - This keeps ownership/lifetime deterministic for production firmware.
  *
  * Transfer modes:
  * - Full frame: Transfer entire framebuffer (64,800 bytes)
@@ -108,11 +112,11 @@ public:
     // Transfer Operations
     // ========================================================================
 
-    // Start async transfer of full framebuffer
-    // Returns immediately; use waitComplete() or callback
+    // Start full framebuffer transfer.
+    // size is in bytes and must describe at least one full frame payload.
     bool startFullTransfer(const uint16_t* buffer, uint32_t size);
 
-    // Start async transfer of partial region
+    // Start partial-region transfer.
     bool startPartialTransfer(const uint16_t* buffer,
                               int16_t x, int16_t y,
                               uint16_t width, uint16_t height);
@@ -229,7 +233,7 @@ public:
     // ========================================================================
 
     // Push framebuffer to display using best available method
-    // - If DMA available: async transfer
+    // - If DMA available: DMA-assisted transfer (completion-synchronous)
     // - Otherwise: blocking M5GFX pushImage
     void pushFramebuffer();
 
@@ -251,6 +255,22 @@ public:
     void setUseDoubleBuffer(bool useDouble) { m_useDoubleBuffer = useDouble; }
     bool getUseDoubleBuffer() const { return m_useDoubleBuffer; }
 
+    // Transfer reliability metrics
+    uint32_t getFallbackTransferCount() const {
+        return m_fallbackTransfers.load(std::memory_order_relaxed);
+    }
+    uint32_t getDmaStartFailureCount() const {
+        return m_dmaStartFailures.load(std::memory_order_relaxed);
+    }
+    uint32_t getPartialAllocFailureCount() const {
+        return m_partialAllocFailures.load(std::memory_order_relaxed);
+    }
+    void resetTransferStats() {
+        m_fallbackTransfers.store(0, std::memory_order_relaxed);
+        m_dmaStartFailures.store(0, std::memory_order_relaxed);
+        m_partialAllocFailures.store(0, std::memory_order_relaxed);
+    }
+
 private:
     DisplayUpdater();
     ~DisplayUpdater();
@@ -261,6 +281,9 @@ private:
     bool m_useDma;
     bool m_useDoubleBuffer;
     bool m_initialized;
+    std::atomic<uint32_t> m_fallbackTransfers{0};
+    std::atomic<uint32_t> m_dmaStartFailures{0};
+    std::atomic<uint32_t> m_partialAllocFailures{0};
 };
 
 } // namespace GUI

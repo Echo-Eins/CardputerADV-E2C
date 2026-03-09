@@ -1,14 +1,14 @@
 /*
- * GUI DMA Implementation - Asynchronous display transfer
+ * GUI DMA Implementation - display transfer wrapper
  *
  * Integration with M5GFX:
  * - M5GFX uses its own SPI bus configuration
- * - We use M5GFX's pushImage/pushImageDMA for actual transfers
- * - This wrapper provides async semantics and double-buffer coordination
+ * - We use M5GFX's pushPixels/pushPixelsDMA for actual transfers
+ * - This wrapper provides deterministic transfer semantics and double-buffer coordination
  *
  * Transfer strategy:
- * - Full frame: pushImageDMA for entire 240x135 buffer
- * - Partial: setWindow + pushImageDMA for dirty regions
+ * - Full frame: setWindow + pushPixelsDMA for framebuffer payload
+ * - Partial: setWindow + pushPixelsDMA for dirty regions
  *
  * Performance characteristics:
  * - SPI clock: 40MHz (M5GFX default for ST7789V)
@@ -17,6 +17,7 @@
  */
 
 #include "gui_dma.h"
+#include "gui_display_lock.h"
 #include <M5Unified.h>
 #include <Arduino.h>
 #include <esp_timer.h>
@@ -115,6 +116,17 @@ bool DmaTransfer::startFullTransfer(const uint16_t* buffer, uint32_t size) {
         return false;
     }
 
+    const uint32_t fullFrameBytes = Config::FRAMEBUFFER_SIZE;
+    if (size < fullFrameBytes || (size & 0x1u) != 0) {
+        GUI_LOG_ERROR("DMA full transfer invalid size=%lu (expected >=%lu and even)",
+                      static_cast<unsigned long>(size),
+                      static_cast<unsigned long>(fullFrameBytes));
+        portENTER_CRITICAL(&s_statsLock);
+        m_stats.errorCount++;
+        portEXIT_CRITICAL(&s_statsLock);
+        return false;
+    }
+
     // Check if already transferring
     DmaState expected = DmaState::Idle;
     if (!m_state.compare_exchange_strong(expected, DmaState::Preparing,
@@ -126,34 +138,36 @@ bool DmaTransfer::startFullTransfer(const uint16_t* buffer, uint32_t size) {
     // Take semaphore (will block if previous transfer not complete)
     if (xSemaphoreTake(m_completeSemaphore, pdMS_TO_TICKS(100)) != pdTRUE) {
         m_state.store(DmaState::Idle, std::memory_order_release);
+        portENTER_CRITICAL(&s_statsLock);
         m_stats.errorCount++;
+        portEXIT_CRITICAL(&s_statsLock);
         return false;
     }
 
     m_transferStartUs = esp_timer_get_time();
-
-    // Use M5GFX DMA transfer
-    // M5GFX handles the actual DMA setup internally
     m_state.store(DmaState::Transferring, std::memory_order_release);
 
-    // Notify framebuffer that DMA started
-    Framebuffer::instance().markDmaStarted();
+    const uint32_t pixelCount = fullFrameBytes / sizeof(uint16_t);
+    const uint16_t transferWidth = Config::DISPLAY_WIDTH;
+    const uint16_t transferHeight = static_cast<uint16_t>(pixelCount / transferWidth);
 
-    // Start the transfer
-    // M5GFX.Display.pushImageDMA is async on ESP32 when DMA is available
-    // For full frame, we set window to entire screen first
-    M5.Display.setAddrWindow(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
-    M5.Display.pushPixelsDMA(buffer, Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT);
+    {
+        DisplayLockGuard displayLock;
+        if (!displayLock.locked()) {
+            GUI_LOG_ERROR("DMA full transfer failed: display lock not acquired");
+            handleTransferComplete(false, 0);
+            return false;
+        }
 
-    // Note: M5GFX's pushPixelsDMA returns after queuing, not after completion
-    // We need to wait for it to finish before allowing buffer swap
+        Framebuffer::instance().markDmaStarted();
+        M5.Display.setAddrWindow(0, 0, transferWidth, transferHeight);
+        M5.Display.pushPixelsDMA(buffer, pixelCount);
 
-    // For now, we wait synchronously because M5GFX doesn't provide
-    // a true async completion callback
-    M5.Display.waitDMA();
+        // Deterministic completion barrier. Keep ownership simple.
+        M5.Display.waitDMA();
+    }
 
-    // Transfer complete
-    handleTransferComplete(true);
+    handleTransferComplete(true, fullFrameBytes);
 
     return true;
 }
@@ -174,20 +188,30 @@ bool DmaTransfer::startPartialTransfer(const uint16_t* buffer,
 
     if (xSemaphoreTake(m_completeSemaphore, pdMS_TO_TICKS(100)) != pdTRUE) {
         m_state.store(DmaState::Idle, std::memory_order_release);
+        portENTER_CRITICAL(&s_statsLock);
         m_stats.errorCount++;
+        portEXIT_CRITICAL(&s_statsLock);
         return false;
     }
 
     m_transferStartUs = esp_timer_get_time();
     m_state.store(DmaState::Transferring, std::memory_order_release);
 
-    Framebuffer::instance().markDmaStarted();
-
     // Set window and transfer
-    M5.Display.setAddrWindow(x, y, width, height);
     uint32_t pixelCount = static_cast<uint32_t>(width) * height;
-    M5.Display.pushPixelsDMA(buffer, pixelCount);
-    M5.Display.waitDMA();
+    {
+        DisplayLockGuard displayLock;
+        if (!displayLock.locked()) {
+            GUI_LOG_ERROR("DMA partial transfer failed: display lock not acquired");
+            handleTransferComplete(false, 0);
+            return false;
+        }
+
+        Framebuffer::instance().markDmaStarted();
+        M5.Display.setAddrWindow(x, y, width, height);
+        M5.Display.pushPixelsDMA(buffer, pixelCount);
+        M5.Display.waitDMA();
+    }
 
     handleTransferComplete(true, pixelCount * sizeof(uint16_t));
     return true;
@@ -255,17 +279,40 @@ void DmaTransfer::blockingTransfer(const uint16_t* buffer, uint32_t size) {
     if (!buffer) return;
 
     uint32_t startUs = esp_timer_get_time();
+    const uint32_t fullFrameBytes = Config::FRAMEBUFFER_SIZE;
+    uint32_t transferBytes = std::min<uint32_t>(size, fullFrameBytes);
+    if ((transferBytes & 0x1u) != 0) {
+        transferBytes -= 1;
+    }
+    if (transferBytes == 0) {
+        GUI_LOG_ERROR("DMA blocking full transfer skipped: empty payload");
+        portENTER_CRITICAL(&s_statsLock);
+        m_stats.errorCount++;
+        portEXIT_CRITICAL(&s_statsLock);
+        return;
+    }
+    const uint32_t pixelCount = transferBytes / sizeof(uint16_t);
 
     // Use M5GFX blocking transfer
-    M5.Display.setAddrWindow(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
-    M5.Display.pushPixels(buffer, Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT);
+    {
+        DisplayLockGuard displayLock;
+        if (!displayLock.locked()) {
+            GUI_LOG_ERROR("DMA blocking full transfer failed: display lock not acquired");
+            portENTER_CRITICAL(&s_statsLock);
+            m_stats.errorCount++;
+            portEXIT_CRITICAL(&s_statsLock);
+            return;
+        }
+        M5.Display.setAddrWindow(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
+        M5.Display.pushPixels(buffer, pixelCount);
+    }
 
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
 
     // Update statistics
     portENTER_CRITICAL(&s_statsLock);
     m_stats.transferCount++;
-    m_stats.bytesTransferred += size;
+    m_stats.bytesTransferred += transferBytes;
     m_stats.totalTransferTimeUs += elapsedUs;
     if (elapsedUs > m_stats.maxTransferTimeUs) {
         m_stats.maxTransferTimeUs = elapsedUs;
@@ -280,8 +327,18 @@ void DmaTransfer::blockingPartialTransfer(const uint16_t* buffer,
 
     uint32_t startUs = esp_timer_get_time();
 
-    M5.Display.setAddrWindow(x, y, width, height);
-    M5.Display.pushPixels(buffer, width * height);
+    {
+        DisplayLockGuard displayLock;
+        if (!displayLock.locked()) {
+            GUI_LOG_ERROR("DMA blocking partial transfer failed: display lock not acquired");
+            portENTER_CRITICAL(&s_statsLock);
+            m_stats.errorCount++;
+            portEXIT_CRITICAL(&s_statsLock);
+            return;
+        }
+        M5.Display.setAddrWindow(x, y, width, height);
+        M5.Display.pushPixels(buffer, width * height);
+    }
 
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
     uint32_t size = width * height * 2;
@@ -310,6 +367,7 @@ DisplayUpdater::DisplayUpdater()
     , m_useDoubleBuffer(true)
     , m_initialized(false)
 {
+    resetTransferStats();
 }
 
 DisplayUpdater::~DisplayUpdater() {
@@ -353,8 +411,16 @@ void DisplayUpdater::pushFramebuffer() {
     uint32_t size = fb.getBufferSize();
 
     if (m_useDma && dma.isAvailable()) {
-        // Async DMA transfer
-        dma.startFullTransfer(buffer, size);
+        // DMA path with deterministic fallback.
+        if (!dma.startFullTransfer(buffer, size)) {
+            dma.waitComplete(50);
+            if (!dma.startFullTransfer(buffer, size)) {
+                m_dmaStartFailures.fetch_add(1, std::memory_order_relaxed);
+                m_fallbackTransfers.fetch_add(1, std::memory_order_relaxed);
+                GUI_LOG_ERROR("DisplayUpdater: full DMA start failed, fallback to blocking transfer");
+                dma.blockingTransfer(buffer, size);
+            }
+        }
     } else {
         // Blocking transfer
         dma.blockingTransfer(buffer, size);
@@ -371,58 +437,75 @@ void DisplayUpdater::pushFramebufferSync() {
 }
 
 void DisplayUpdater::pushRegion(const Rect& region) {
-    if (!m_initialized || region.isEmpty()) return;
+    if (!m_initialized || region.isEmpty()) {
+        return;
+    }
 
     Framebuffer& fb = Framebuffer::instance();
     DmaTransfer& dma = DmaTransfer::instance();
 
-    // Clamp region to display bounds
-    int16_t x = std::max<int16_t>(0, region.x);
-    int16_t y = std::max<int16_t>(0, region.y);
+    // Clamp region to display bounds.
+    const int16_t x = std::max<int16_t>(0, region.x);
+    const int16_t y = std::max<int16_t>(0, region.y);
 
-    // Bail out if origin is already beyond the screen — prevents
-    // unsigned underflow in the subtraction below.
-    if (x >= Config::DISPLAY_WIDTH || y >= Config::DISPLAY_HEIGHT) return;
+    // Bail out if origin is already beyond the screen to prevent underflow.
+    if (x >= Config::DISPLAY_WIDTH || y >= Config::DISPLAY_HEIGHT) {
+        return;
+    }
 
-    uint16_t w = std::min<uint16_t>(region.width, Config::DISPLAY_WIDTH - x);
-    uint16_t h = std::min<uint16_t>(region.height, Config::DISPLAY_HEIGHT - y);
+    const uint16_t w = std::min<uint16_t>(region.width, Config::DISPLAY_WIDTH - x);
+    const uint16_t h = std::min<uint16_t>(region.height, Config::DISPLAY_HEIGHT - y);
+    if (w == 0 || h == 0) {
+        return;
+    }
 
-    if (w == 0 || h == 0) return;
-
-    // If region covers most of the screen, just do a full transfer
-    uint32_t regionPixels = static_cast<uint32_t>(w) * h;
-    uint32_t totalPixels = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
-    if (regionPixels > totalPixels * 3 / 4) {
+    // If region covers most of the screen, a full transfer is cheaper.
+    const uint32_t regionPixels = static_cast<uint32_t>(w) * h;
+    const uint32_t totalPixels = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
+    if (regionPixels > (totalPixels * 3u) / 4u) {
         pushFramebuffer();
         return;
     }
 
-    // Extract the region into a contiguous buffer for DMA transfer.
-    // The framebuffer is laid out as full-width rows, so a sub-rectangle
-    // is not contiguous in memory — we must copy row by row.
-    uint32_t regionBytes = regionPixels * sizeof(uint16_t);
+    // Extract sub-rectangle into contiguous DMA-capable memory.
+    const uint32_t regionBytes = regionPixels * sizeof(uint16_t);
     uint16_t* tempBuffer = static_cast<uint16_t*>(
         heap_caps_malloc(regionBytes, MALLOC_CAP_DMA | MALLOC_CAP_32BIT)
     );
-
     if (!tempBuffer) {
-        // Allocation failed — fall back to full frame transfer
+        m_partialAllocFailures.fetch_add(1, std::memory_order_relaxed);
+        m_fallbackTransfers.fetch_add(1, std::memory_order_relaxed);
+        GUI_LOG_ERROR("DisplayUpdater: partial buffer alloc failed (%lu bytes), fallback full transfer",
+                      static_cast<unsigned long>(regionBytes));
         pushFramebuffer();
         return;
     }
 
-    const uint16_t* srcBuffer = m_useDoubleBuffer
-        ? fb.getFrontBuffer() : fb.getBackBuffer();
+    const uint16_t* srcBuffer = m_useDoubleBuffer ? fb.getFrontBuffer() : fb.getBackBuffer();
     const uint16_t* srcRow = srcBuffer + y * Config::DISPLAY_WIDTH + x;
-
-    for (uint16_t row = 0; row < h; row++) {
+    for (uint16_t row = 0; row < h; ++row) {
         memcpy(tempBuffer + row * w, srcRow, w * sizeof(uint16_t));
         srcRow += Config::DISPLAY_WIDTH;
     }
 
-    // Transfer the contiguous region buffer to the display
+    // Transfer contiguous region to display.
     if (m_useDma && dma.isAvailable()) {
-        dma.startPartialTransfer(tempBuffer, x, y, w, h);
+        if (!dma.startPartialTransfer(tempBuffer, x, y, w, h)) {
+            dma.waitComplete(50);
+            if (!dma.startPartialTransfer(tempBuffer, x, y, w, h)) {
+                m_dmaStartFailures.fetch_add(1, std::memory_order_relaxed);
+                m_fallbackTransfers.fetch_add(1, std::memory_order_relaxed);
+                GUI_LOG_ERROR("DisplayUpdater: partial DMA start failed (%d,%d %ux%u), fallback to blocking transfer",
+                              x, y, static_cast<unsigned>(w), static_cast<unsigned>(h));
+                dma.blockingPartialTransfer(tempBuffer, x, y, w, h);
+            } else {
+                // Keep tempBuffer alive until transfer completion.
+                dma.waitComplete();
+            }
+        } else {
+            // Keep tempBuffer alive until transfer completion.
+            dma.waitComplete();
+        }
     } else {
         dma.blockingPartialTransfer(tempBuffer, x, y, w, h);
     }

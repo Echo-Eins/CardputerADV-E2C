@@ -56,6 +56,7 @@
 // Management
 #include "gui_widget_manager.h"
 #include "gui_display_adapter.h"
+#include "gui_draw.h"
 #include "gui_widget_factory.h"
 
 namespace GUI {
@@ -119,6 +120,9 @@ inline void updateWidgets() {
 
     // Update widgets (layout, render)
     WidgetManager::instance().update();
+
+    // Submit frame boundary once per update tick.
+    Draw::endFrame();
 }
 
 /**

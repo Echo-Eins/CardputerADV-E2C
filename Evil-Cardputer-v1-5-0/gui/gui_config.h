@@ -46,6 +46,34 @@ static_assert((QUEUE_SIZE & (QUEUE_SIZE - 1)) == 0,
 constexpr size_t MAX_TEXT_LENGTH = 64;
 
 // ============================================================================
+// Queue Backpressure Policy
+// ============================================================================
+//
+// Deterministic behavior under overload:
+// - First, retry enqueue with a short backoff
+// - If still full, apply overflow policy (drop newest by default)
+//
+// These values are compile-time and can be overridden via build flags.
+
+constexpr uint8_t QUEUE_OVERFLOW_DROP_NEWEST = 0;
+constexpr uint8_t QUEUE_OVERFLOW_BLOCK_PRODUCER = 1;
+
+#ifndef GUI_QUEUE_OVERFLOW_POLICY
+#define GUI_QUEUE_OVERFLOW_POLICY 0
+#endif
+constexpr uint8_t QUEUE_OVERFLOW_POLICY = GUI_QUEUE_OVERFLOW_POLICY;
+
+#ifndef GUI_QUEUE_PUSH_MAX_WAIT_MS
+#define GUI_QUEUE_PUSH_MAX_WAIT_MS 6
+#endif
+constexpr uint32_t QUEUE_PUSH_MAX_WAIT_MS = GUI_QUEUE_PUSH_MAX_WAIT_MS;
+
+#ifndef GUI_QUEUE_PUSH_RETRY_DELAY_MS
+#define GUI_QUEUE_PUSH_RETRY_DELAY_MS 1
+#endif
+constexpr uint32_t QUEUE_PUSH_RETRY_DELAY_MS = GUI_QUEUE_PUSH_RETRY_DELAY_MS;
+
+// ============================================================================
 // Renderer Task Configuration
 // ============================================================================
 
@@ -115,6 +143,16 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 16;  // ~60 fps flush cadence
 #define GUI_LEGACY_BRIDGE_MODE 2  // Default: QUEUED for async rendering
 #endif
 
+// Emergency rollback switch:
+// When enabled, force bridge passthrough at compile-time.
+#ifndef GUI_ROLLBACK_FORCE_PASSTHROUGH
+#define GUI_ROLLBACK_FORCE_PASSTHROUGH 0
+#endif
+#if GUI_ROLLBACK_FORCE_PASSTHROUGH
+#undef GUI_LEGACY_BRIDGE_MODE
+#define GUI_LEGACY_BRIDGE_MODE 1
+#endif
+
 // Enable Legacy Bridge debug macros for easier migration
 // When enabled, you can use M5_Display_* macros as drop-in replacements
 #ifndef GUI_LEGACY_BRIDGE_MACROS
@@ -130,6 +168,16 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 16;  // ~60 fps flush cadence
 // When enabled, only dirty regions are transferred to display
 #ifndef GUI_PARTIAL_UPDATE
 #define GUI_PARTIAL_UPDATE 1
+#endif
+
+// Emergency rollback switch:
+// Disable partial updates and force full framebuffer transfers.
+#ifndef GUI_ROLLBACK_DISABLE_PARTIAL_UPDATE
+#define GUI_ROLLBACK_DISABLE_PARTIAL_UPDATE 0
+#endif
+#if GUI_ROLLBACK_DISABLE_PARTIAL_UPDATE
+#undef GUI_PARTIAL_UPDATE
+#define GUI_PARTIAL_UPDATE 0
 #endif
 
 // Enable debug logging
@@ -170,6 +218,44 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 16;  // ~60 fps flush cadence
         }
     };
 #endif
+
+// ============================================================================
+// Production Validation / Stress Test Controls
+// ============================================================================
+//
+// Keep disabled in release builds. Enable only for validation firmware.
+#ifndef GUI_ENABLE_PRODUCTION_TESTS
+#define GUI_ENABLE_PRODUCTION_TESTS 0
+#endif
+
+// Default stress-run duration (ms) for on-device validation.
+#ifndef GUI_TEST_STRESS_DURATION_MS
+#define GUI_TEST_STRESS_DURATION_MS 180000
+#endif
+constexpr uint32_t TEST_STRESS_DURATION_MS = GUI_TEST_STRESS_DURATION_MS;
+
+// Number of reconnect cycles during stress validation.
+#ifndef GUI_TEST_RECONNECT_CYCLES
+#define GUI_TEST_RECONNECT_CYCLES 12
+#endif
+constexpr uint32_t TEST_RECONNECT_CYCLES = GUI_TEST_RECONNECT_CYCLES;
+
+// Number of render commands pushed per burst iteration.
+#ifndef GUI_TEST_BURST_OPS
+#define GUI_TEST_BURST_OPS 256
+#endif
+constexpr uint32_t TEST_BURST_OPS = GUI_TEST_BURST_OPS;
+
+// Memory safety thresholds used by validation report.
+#ifndef GUI_TEST_HEAP_LEAK_THRESHOLD_BYTES
+#define GUI_TEST_HEAP_LEAK_THRESHOLD_BYTES 4096
+#endif
+constexpr size_t TEST_HEAP_LEAK_THRESHOLD_BYTES = GUI_TEST_HEAP_LEAK_THRESHOLD_BYTES;
+
+#ifndef GUI_TEST_HEAP_FRAGMENT_THRESHOLD_BYTES
+#define GUI_TEST_HEAP_FRAGMENT_THRESHOLD_BYTES 8192
+#endif
+constexpr size_t TEST_HEAP_FRAGMENT_THRESHOLD_BYTES = GUI_TEST_HEAP_FRAGMENT_THRESHOLD_BYTES;
 
 } // namespace Config
 } // namespace GUI

@@ -5,6 +5,7 @@
 
 #include "gui_widget_renderer.h"
 #include <M5Cardputer.h>
+#include <cstring>
 
 namespace GUI {
 
@@ -23,6 +24,9 @@ WidgetRenderer::WidgetRenderer()
     , m_frameNumber(0)
     , m_lastFrameTime(0)
     , m_needsFullRedraw(true)
+    , m_lastRepeatTime(0)
+    , m_repeatDelayMs(400)
+    , m_repeatIntervalMs(50)
     , m_initialized(false)
 {
     memset(m_lastKeyState, 0, sizeof(m_lastKeyState));
@@ -110,6 +114,9 @@ void WidgetRenderer::update() {
 
         // Render dirty regions
         wm.renderDirty();
+
+        // Submit one frame boundary for widget rendering path.
+        Draw::endFrame();
     }
 
     // End frame
@@ -128,7 +135,9 @@ void WidgetRenderer::fullRedraw() {
 }
 
 void WidgetRenderer::sync() {
-    Draw::sync();
+    if (!Draw::sync()) {
+        Serial.println("[WidgetRenderer] Draw::sync timeout");
+    }
 }
 
 //=============================================================================
@@ -146,9 +155,11 @@ void WidgetRenderer::processInput() {
             uint32_t holdTime = now - m_keyPressTime[m_lastPressedKey & 0x7F];
 
             // Key repeat after hold delay
-            if (holdTime > 400) {
+            if (holdTime > m_repeatDelayMs &&
+                (now - m_lastRepeatTime) >= m_repeatIntervalMs) {
                 uint8_t modifiers = m_fnPressed ? KeyEventData::MOD_FN : 0;
                 WidgetManager::instance().processKeyHold(m_lastPressedKey, holdTime, modifiers);
+                m_lastRepeatTime = now;
             }
         }
         return;
@@ -183,9 +194,11 @@ void WidgetRenderer::processInput() {
             uint8_t modifiers = m_fnPressed ? KeyEventData::MOD_FN : 0;
 
             // Track key press time
-            m_keyPressTime[key & 0x7F] = millis();
+            const uint32_t now = millis();
+            m_keyPressTime[key & 0x7F] = now;
             m_lastPressedKey = key;
             m_lastKeyState[key & 0x7F] = true;
+            m_lastRepeatTime = now;
 
             // Send to widget manager
             WidgetManager::instance().processKeyInput(key, modifiers);
@@ -194,8 +207,13 @@ void WidgetRenderer::processInput() {
     } else {
         // Key released
         if (m_lastPressedKey != 0) {
+            WidgetManager::instance().processKeyRelease(
+                m_lastPressedKey,
+                m_fnPressed ? KeyEventData::MOD_FN : 0
+            );
             m_lastKeyState[m_lastPressedKey & 0x7F] = false;
             m_lastPressedKey = 0;
+            m_lastRepeatTime = 0;
         }
     }
 }
@@ -207,6 +225,7 @@ void WidgetRenderer::injectKeyPress(char key, bool fn) {
     m_keyPressTime[key & 0x7F] = millis();
     m_lastPressedKey = key;
     m_lastKeyState[key & 0x7F] = true;
+    m_lastRepeatTime = m_keyPressTime[key & 0x7F];
 
     WidgetManager::instance().processKeyInput(key, modifiers);
     m_stats.inputEvents++;
@@ -214,8 +233,10 @@ void WidgetRenderer::injectKeyPress(char key, bool fn) {
 
 void WidgetRenderer::injectKeyRelease(char key) {
     m_lastKeyState[key & 0x7F] = false;
+    WidgetManager::instance().processKeyRelease(key, m_fnPressed ? KeyEventData::MOD_FN : 0);
     if (m_lastPressedKey == key) {
         m_lastPressedKey = 0;
+        m_lastRepeatTime = 0;
     }
 }
 
@@ -233,9 +254,6 @@ void WidgetRenderer::beginFrame() {
 }
 
 void WidgetRenderer::endFrame() {
-    // Signal end of frame to async renderer
-    Draw::endFrame();
-
     // Emit frame end signal
     Event e(SignalType::Render, SignalPriority::Normal);
     e.data.render.frameId = m_frameNumber & 0xFF;

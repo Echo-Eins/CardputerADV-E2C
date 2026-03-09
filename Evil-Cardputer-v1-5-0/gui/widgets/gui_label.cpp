@@ -6,6 +6,8 @@
 #include "gui_label.h"
 #include "gui_draw.h"
 #include <cstdarg>
+#include <cstring>
+#include <cstdlib>
 
 namespace GUI {
 

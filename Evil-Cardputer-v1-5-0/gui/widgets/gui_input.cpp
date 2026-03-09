@@ -5,6 +5,8 @@
 
 #include "gui_input.h"
 #include "gui_draw.h"
+#include <cstring>
+#include <cstdlib>
 
 namespace GUI {
 

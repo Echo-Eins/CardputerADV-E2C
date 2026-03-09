@@ -173,6 +173,9 @@ private:
     bool m_lastKeyState[128];       // Track key states
     bool m_fnPressed;
     uint32_t m_keyPressTime[128];   // When each key was pressed
+    uint32_t m_lastRepeatTime;
+    uint32_t m_repeatDelayMs;
+    uint32_t m_repeatIntervalMs;
     char m_lastPressedKey;
 
     // Frame state

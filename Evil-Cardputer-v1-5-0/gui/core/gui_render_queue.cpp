@@ -82,6 +82,7 @@ bool RenderQueue::init() {
     // Reset statistics
     m_overflowCount.store(0, std::memory_order_relaxed);
     m_highWaterMark.store(0, std::memory_order_relaxed);
+    resetBackpressureStats();
 
     m_initialized.store(true, std::memory_order_release);
     GUI_LOG("RenderQueue initialized (capacity: %d)", Config::QUEUE_SIZE);
@@ -158,6 +159,60 @@ bool RenderQueue::push(const RenderOp& op) {
     xSemaphoreGive(m_dataAvailable);
 
     return true;
+}
+
+bool RenderQueue::pushWithBackpressure(const RenderOp& op, uint32_t maxWaitMs) {
+    if (!m_initialized.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    if (push(op)) {
+        return true;
+    }
+
+    // Deterministic retry loop with fixed backoff.
+    const uint32_t retryDelayMs = (Config::QUEUE_PUSH_RETRY_DELAY_MS == 0)
+        ? 1
+        : Config::QUEUE_PUSH_RETRY_DELAY_MS;
+    const TickType_t retryDelayTicks = pdMS_TO_TICKS(retryDelayMs);
+
+    const bool blockProducer = (Config::QUEUE_OVERFLOW_POLICY == Config::QUEUE_OVERFLOW_BLOCK_PRODUCER);
+    bool blockTimeout = false;
+    uint32_t elapsedMs = 0;
+    uint32_t retryAttempts = 0;
+    while (elapsedMs < maxWaitMs || blockProducer) {
+        m_retryCount.fetch_add(1, std::memory_order_relaxed);
+        ++retryAttempts;
+
+        // If blocking policy is enabled, keep waiting until success.
+        // Otherwise stop at maxWaitMs and apply drop-newest.
+        if (!blockProducer && elapsedMs >= maxWaitMs) {
+            break;
+        }
+
+        vTaskDelay(retryDelayTicks);
+        if (push(op)) {
+            return true;
+        }
+        elapsedMs += retryDelayMs;
+
+        // Guard against extremely long waits in block mode if maxWaitMs is 0.
+        if (blockProducer && maxWaitMs > 0 && elapsedMs >= maxWaitMs) {
+            m_blockTimeoutCount.fetch_add(1, std::memory_order_relaxed);
+            blockTimeout = true;
+            break;
+        }
+    }
+
+    m_droppedCount.fetch_add(1, std::memory_order_relaxed);
+    GUI_LOG_ERROR(
+        "RenderQueue dropped op=%u after %lu ms (policy=%u, retries=%lu, reason=%s)",
+        static_cast<unsigned>(op.type),
+        static_cast<unsigned long>(elapsedMs),
+        static_cast<unsigned>(Config::QUEUE_OVERFLOW_POLICY),
+        static_cast<unsigned long>(retryAttempts),
+        blockTimeout ? "block-timeout" : "drop-newest");
+    return false;
 }
 
 size_t RenderQueue::pushBatch(const RenderOp* ops, size_t count) {
@@ -278,11 +333,18 @@ void RenderQueue::clear() {
         return;
     }
 
-    // Snapshot head, advance tail to match, then drain exactly that many
-    // semaphore tokens. This avoids losing tokens from concurrent pushes
-    // that happen after we move the tail.
+    // Snapshot the current pending window and release owned payloads before
+    // dropping commands. This prevents leaks when image commands are cleared.
     const size_t head = m_head.load(std::memory_order_acquire);
     const size_t tail = m_tail.load(std::memory_order_relaxed);
+    size_t idx = tail;
+    while (idx != head) {
+        releaseOwnedPayload(m_buffer[idx]);
+        idx = (idx + 1) & Config::QUEUE_MASK;
+    }
+
+    // Advance tail to match head, then drain the matching semaphore tokens.
+    // This avoids losing tokens from concurrent pushes after the snapshot.
     m_tail.store(head, std::memory_order_release);
 
     // Drain only the tokens that corresponded to the cleared items
@@ -296,9 +358,13 @@ void RenderQueue::clear() {
     GUI_LOG("RenderQueue cleared");
 }
 
-void RenderQueue::sync(uint32_t timeoutMs) {
+bool RenderQueue::sync(uint32_t timeoutMs) {
     if (!m_initialized.load(std::memory_order_acquire)) {
-        return;
+        return false;
+    }
+
+    // Drain stale completion token from a timed-out previous sync.
+    while (xSemaphoreTake(m_syncComplete, 0) == pdTRUE) {
     }
 
     // Set sync pending flag BEFORE pushing to avoid TOCTOU race.
@@ -312,17 +378,34 @@ void RenderQueue::sync(uint32_t timeoutMs) {
     syncOp.type = RenderOpType::Sync;
     syncOp.priority = RenderPriority::Urgent;
 
-    if (!push(syncOp)) {
-        m_syncPending.store(false, std::memory_order_release);
-        GUI_LOG_ERROR("Failed to push sync command");
-        return;
+    const bool infiniteWait = (timeoutMs == portMAX_DELAY);
+    const uint32_t startMs = millis();
+    while (!push(syncOp)) {
+        if (!infiniteWait) {
+            const uint32_t elapsed = millis() - startMs;
+            if (elapsed >= timeoutMs) {
+                m_syncPending.store(false, std::memory_order_release);
+                GUI_LOG_ERROR("Failed to enqueue sync command within %lu ms", timeoutMs);
+                return false;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
     // Wait for sync completion
-    if (xSemaphoreTake(m_syncComplete, pdMS_TO_TICKS(timeoutMs)) != pdTRUE) {
+    TickType_t waitTicks = portMAX_DELAY;
+    if (!infiniteWait) {
+        const uint32_t elapsed = millis() - startMs;
+        const uint32_t remaining = (elapsed >= timeoutMs) ? 0 : (timeoutMs - elapsed);
+        waitTicks = pdMS_TO_TICKS(remaining);
+    }
+
+    if (xSemaphoreTake(m_syncComplete, waitTicks) != pdTRUE) {
         m_syncPending.store(false, std::memory_order_release);
         GUI_LOG_ERROR("Sync timeout after %lu ms", timeoutMs);
+        return false;
     }
+    return true;
 }
 
 void RenderQueue::signalProcessed() {

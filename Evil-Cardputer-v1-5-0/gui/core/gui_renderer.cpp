@@ -11,11 +11,13 @@
  */
 
 #include "gui_renderer.h"
+#include "gui_display_lock.h"
 #if GUI_DIRTY_TRACKING
 #include "gui_dirty_region.h"
 #endif
 #include <Arduino.h>
 #include <esp_timer.h>
+#include <cstdlib>
 
 namespace GUI {
 
@@ -51,6 +53,7 @@ Renderer::Renderer()
     , m_clipEnabled(false)
     , m_running(false)
     , m_startGate(nullptr)
+    , m_lastFallbackTransferCount(0)
 {
     m_stats.reset();
 }
@@ -69,10 +72,18 @@ bool Renderer::init() {
         return true;
     }
 
+    if (!initDisplayLock()) {
+        GUI_LOG_ERROR("Failed to initialize display lock");
+        return false;
+    }
+
     // Validate that M5.Display is available (M5.begin() must have been called).
     // width()/height() return 0 if the display panel isn't initialized yet.
-    m_displayWidth = M5.Display.width();
-    m_displayHeight = M5.Display.height();
+    {
+        DisplayLockGuard lockGuard;
+        m_displayWidth = M5.Display.width();
+        m_displayHeight = M5.Display.height();
+    }
     if (m_displayWidth == 0 || m_displayHeight == 0) {
         GUI_LOG_ERROR("M5.Display not initialized (width=%d, height=%d). Call M5.begin() first!",
                       m_displayWidth, m_displayHeight);
@@ -102,6 +113,8 @@ bool Renderer::init() {
         GUI_LOG_ERROR("Failed to initialize DisplayUpdater");
         return false;
     }
+    DisplayUpdater::instance().resetTransferStats();
+    m_lastFallbackTransferCount = 0;
 
 #if GUI_DIRTY_TRACKING
     // Initialize DirtyRegionTracker (Phase 3)
@@ -379,6 +392,8 @@ void Renderer::executeCommand(const RenderOp& op) {
     }
 #endif
 
+    DisplayLockGuard displayLock;
+
     // Phase 1: Direct M5GFX rendering
     switch (op.type) {
         case RenderOpType::FillRect:
@@ -552,19 +567,27 @@ void Renderer::handleDrawChar(const RenderOp& op) {
 void Renderer::handleDrawBitmap(const RenderOp& op) {
     const auto& b = op.data.bitmap;
 
-    if (b.data == nullptr) return;
+    if (b.data != nullptr) {
+        // Use M5GFX pushImage for efficient bitmap transfer
+        M5.Display.pushImage(b.rect.x, b.rect.y, b.rect.width, b.rect.height, b.data);
+    }
 
-    // Use M5GFX pushImage for efficient bitmap transfer
-    M5.Display.pushImage(b.rect.x, b.rect.y, b.rect.width, b.rect.height, b.data);
+    if (b.ownsData && b.data) {
+        std::free(const_cast<uint16_t*>(b.data));
+    }
 }
 
 void Renderer::handleDrawJpeg(const RenderOp& op) {
     const auto& j = op.data.jpeg;
 
-    if (j.data == nullptr || j.len == 0) return;
+    if (j.data != nullptr && j.len > 0) {
+        // Use M5GFX JPEG decoder
+        M5.Display.drawJpg(j.data, j.len, j.pos.x, j.pos.y, j.maxWidth, j.maxHeight);
+    }
 
-    // Use M5GFX JPEG decoder
-    M5.Display.drawJpg(j.data, j.len, j.pos.x, j.pos.y, j.maxWidth, j.maxHeight);
+    if (j.ownsData && j.data) {
+        std::free(const_cast<uint8_t*>(j.data));
+    }
 }
 
 void Renderer::handleSetClip(const RenderOp& op) {
@@ -593,6 +616,7 @@ void Renderer::handleFillScreen(const RenderOp& op) {
 }
 
 void Renderer::handleSetBrightness(const RenderOp& op) {
+    DisplayLockGuard displayLock;
     M5.Display.setBrightness(op.data.brightness.level);
 }
 
@@ -715,12 +739,23 @@ void Renderer::flushDisplay() {
         DisplayUpdater::instance().pushFramebuffer();
 #endif
 
+        const uint32_t fallbackCount = DisplayUpdater::instance().getFallbackTransferCount();
+        if (fallbackCount > m_lastFallbackTransferCount) {
+            m_stats.displayTransferFallbacks += (fallbackCount - m_lastFallbackTransferCount);
+        }
+        m_lastFallbackTransferCount = fallbackCount;
+
         m_stats.displayFlushCount++;
         return;
     }
 #endif
 
     // Phase 1: Direct M5GFX display() call (blocking)
+    DisplayLockGuard displayLock;
+    if (!displayLock.locked()) {
+        GUI_LOG_ERROR("Renderer: display lock acquisition failed during flush");
+        return;
+    }
     M5.Display.display();
     m_stats.displayFlushCount++;
 }
@@ -887,6 +922,9 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
                     fb.copyRect(b.rect.x, b.rect.y,
                                 b.data, b.rect.width, b.rect.height);
                 }
+                if (b.ownsData && b.data) {
+                    std::free(const_cast<uint16_t*>(b.data));
+                }
             }
             break;
 
@@ -900,6 +938,9 @@ void Renderer::executeCommandToFramebuffer(const RenderOp& op) {
                     // JPEG decoded size unknown, mark full screen dirty
                     DirtyRegionTracker::instance().markAllDirty();
 #endif
+                }
+                if (j.ownsData && j.data) {
+                    std::free(const_cast<uint8_t*>(j.data));
                 }
             }
             break;

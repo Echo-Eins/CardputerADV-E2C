@@ -5,6 +5,8 @@
 
 #include "gui_container.h"
 #include "gui_draw.h"
+#include <cstring>
+#include <cstdlib>
 
 namespace GUI {
 
@@ -242,13 +244,13 @@ void ScrollView::renderContent() {
             // Temporarily adjust child position for scroll
             int16_t origX = child->x();
             int16_t origY = child->y();
-            child->setPosition(origX - m_scrollX + abs.x + style().padding.left,
-                              origY - m_scrollY + abs.y + style().padding.top);
+            child->setRenderPosition(origX - m_scrollX,
+                                     origY - m_scrollY);
 
             child->render();
 
             // Restore position
-            child->setPosition(origX, origY);
+            child->setRenderPosition(origX, origY);
         }
     }
 
@@ -259,6 +261,10 @@ void ScrollView::renderContent() {
     if (m_showScrollbar) {
         renderScrollbar();
     }
+}
+
+void ScrollView::renderChildren() {
+    // Children are rendered manually inside renderContent() with viewport offset.
 }
 
 void ScrollView::renderScrollbar() {

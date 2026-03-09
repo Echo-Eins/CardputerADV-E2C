@@ -4,7 +4,9 @@
  */
 
 #include "gui_widget_manager.h"
-#include "../gui_draw.h"
+#include "gui_draw.h"
+#include <algorithm>
+#include <cstring>
 
 namespace GUI {
 
@@ -362,10 +364,18 @@ bool WidgetManager::processKeyHold(char key, uint32_t duration, uint8_t modifier
     return e.isConsumed();
 }
 
-void WidgetManager::updateInput() {
-    // This would be called with actual keyboard input from M5Cardputer
-    // For now, this is a placeholder for the input update loop
+void WidgetManager::processKeyRelease(char key, uint8_t modifiers) {
+    if (m_inputState.lastKey == key) {
+        m_inputState.lastKey = 0;
+        m_inputState.keyHoldTime = 0;
+        m_inputState.lastRepeatCount = 0;
+        m_inputState.lastRepeatTime = 0;
+        m_inputState.isRepeat = false;
+    }
+    m_inputState.modifiers = modifiers;
+}
 
+void WidgetManager::updateInput() {
     uint32_t now = millis();
 
     // Handle key repeat
@@ -373,13 +383,16 @@ void WidgetManager::updateInput() {
         uint32_t holdTime = now - m_inputState.keyPressTime;
 
         if (holdTime > m_keyRepeatDelay) {
-            // In repeat mode
-            uint32_t repeatTime = holdTime - m_keyRepeatDelay;
-            uint32_t repeatCount = repeatTime / m_keyRepeatInterval;
+            const uint32_t repeatInterval = (m_keyRepeatInterval == 0) ? 1 : m_keyRepeatInterval;
+            const uint32_t repeatTime = holdTime - m_keyRepeatDelay;
+            const uint32_t repeatCount = repeatTime / repeatInterval;
 
-            if (repeatCount > 0) {
+            // Emit a hold event only once per repeat interval.
+            if (repeatCount > m_inputState.lastRepeatCount) {
                 m_inputState.keyHoldTime = holdTime;
                 m_inputState.isRepeat = true;
+                m_inputState.lastRepeatCount = repeatCount;
+                m_inputState.lastRepeatTime = now;
                 processKeyHold(m_inputState.lastKey, holdTime, m_inputState.modifiers);
             }
         }
@@ -475,12 +488,14 @@ void WidgetManager::renderDirty() {
 
     uint32_t startTime = micros();
 
+    const bool fullRedraw = m_fullRedrawPending;
+
     // Notify callback
     if (m_renderCallback) {
-        Rect region = m_fullRedrawPending ?
+        Rect region = fullRedraw ?
             Rect(0, 0, m_displayInfo.width, m_displayInfo.height) :
             combinedDirtyRegion();
-        m_renderCallback(region, m_fullRedrawPending);
+        m_renderCallback(region, fullRedraw);
     }
 
     m_renderStats.widgetsRendered = 0;
@@ -496,7 +511,7 @@ void WidgetManager::renderDirty() {
     m_renderStats.lastRenderTimeUs = renderTime;
     m_renderStats.framesRendered++;
 
-    if (m_fullRedrawPending) {
+    if (fullRedraw) {
         m_renderStats.fullRenders++;
     } else {
         m_renderStats.partialRenders++;
@@ -506,8 +521,6 @@ void WidgetManager::renderDirty() {
     m_renderStats.avgRenderTimeUs =
         (m_renderStats.avgRenderTimeUs * 0.9f) + (renderTime * 0.1f);
 
-    // Signal frame end to renderer
-    Draw::endFrame();
 }
 
 void WidgetManager::renderAll() {

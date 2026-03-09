@@ -161,6 +161,7 @@ public:
     //=========================================================================
 
     void renderContent() override;
+    void renderChildren() override;
     void renderScrollbar();
 
     void layout() override;
