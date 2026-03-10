@@ -43,6 +43,7 @@ using LB = GUI::LegacyBridge;
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/bignum.h"
+#include "mbedtls/private_access.h"
 #include "mbedtls/platform_util.h"  // For mbedtls_platform_zeroize
 
 // ============================================================================
@@ -50,7 +51,7 @@ using LB = GUI::LegacyBridge;
 // ============================================================================
 
 static const char* RD_HKDF_INFO = "cardputer-remote-v1-session-keys";
-static const size_t RD_HKDF_INFO_LEN = 32;  // Must NOT include null terminator (match Rust b"...")
+static const size_t RD_HKDF_INFO_LEN = sizeof("cardputer-remote-v1-session-keys") - 1;
 
 // ============================================================================
 // Configuration
@@ -262,7 +263,7 @@ bool rdGenerateKeyPair() {
 
     // Export private key (32 bytes)
     uint8_t privKey[RD_ECDH_PRIVKEY_SIZE];
-    ret = mbedtls_mpi_write_binary(&keypair.d, privKey, RD_ECDH_PRIVKEY_SIZE);
+    ret = mbedtls_mpi_write_binary(&keypair.MBEDTLS_PRIVATE(d), privKey, RD_ECDH_PRIVKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Export private key failed: -0x%04X\n", -ret);
         mbedtls_ecp_keypair_free(&keypair);
@@ -274,7 +275,8 @@ bool rdGenerateKeyPair() {
     // Export public key (65 bytes uncompressed - ESP32 mbedtls lacks POINT_COMPRESSION)
     uint8_t pubKey[RD_ECDH_PUBKEY_SIZE];
     size_t pubLen = 0;
-    ret = mbedtls_ecp_point_write_binary(&keypair.grp, &keypair.Q,
+    ret = mbedtls_ecp_point_write_binary(&keypair.MBEDTLS_PRIVATE(grp),
+                                          &keypair.MBEDTLS_PRIVATE(Q),
                                           MBEDTLS_ECP_PF_UNCOMPRESSED,
                                           &pubLen, pubKey, sizeof(pubKey));
     if (ret != 0 || pubLen != RD_ECDH_PUBKEY_SIZE) {
@@ -389,31 +391,26 @@ bool rdLoadKeys() {
     f.close();
 
     // Setup ECDSA keypair
-    int ret = mbedtls_ecp_group_load(&rdKeys.ecdsaKey.grp, MBEDTLS_ECP_DP_SECP256R1);
+    int ret = mbedtls_ecp_group_load(&rdKeys.ecdsaKey.MBEDTLS_PRIVATE(grp), MBEDTLS_ECP_DP_SECP256R1);
     if (ret != 0) {
         Serial.printf("[RD] ECP group load failed: -0x%04X\n", -ret);
         return false;
     }
 
     // Import private key
-    ret = mbedtls_mpi_read_binary(&rdKeys.ecdsaKey.d, rdKeys.privateKey, RD_ECDH_PRIVKEY_SIZE);
+    ret = mbedtls_mpi_read_binary(&rdKeys.ecdsaKey.MBEDTLS_PRIVATE(d),
+                                  rdKeys.privateKey, RD_ECDH_PRIVKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Import private key failed: -0x%04X\n", -ret);
         return false;
     }
 
     // Import our public key
-    ret = mbedtls_ecp_point_read_binary(&rdKeys.ecdsaKey.grp, &rdKeys.ecdsaKey.Q,
+    ret = mbedtls_ecp_point_read_binary(&rdKeys.ecdsaKey.MBEDTLS_PRIVATE(grp),
+                                         &rdKeys.ecdsaKey.MBEDTLS_PRIVATE(Q),
                                          rdKeys.publicKey, RD_ECDH_PUBKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Import our public key failed: -0x%04X\n", -ret);
-        return false;
-    }
-
-    // Verify keypair consistency
-    ret = mbedtls_ecp_check_pub_priv(&rdKeys.ecdsaKey, &rdKeys.ecdsaKey);
-    if (ret != 0) {
-        Serial.printf("[RD] Keypair validation failed: -0x%04X\n", -ret);
         return false;
     }
 
@@ -452,7 +449,8 @@ static bool rdSign(const uint8_t* data, size_t dataLen, uint8_t* signature) {
     mbedtls_mpi_init(&r);
     mbedtls_mpi_init(&s);
 
-    int ret = mbedtls_ecdsa_sign(&rdKeys.ecdsaKey.grp, &r, &s, &rdKeys.ecdsaKey.d,
+    int ret = mbedtls_ecdsa_sign(&rdKeys.ecdsaKey.MBEDTLS_PRIVATE(grp), &r, &s,
+                                  &rdKeys.ecdsaKey.MBEDTLS_PRIVATE(d),
                                   hash, sizeof(hash),
                                   mbedtls_ctr_drbg_random, &rdSession.ctr_drbg);
     if (ret != 0) {
@@ -588,31 +586,21 @@ static RDError rdInitCrypto() {
         return RD_ERR_CRYPTO;
     }
 
-    // Setup ECDH with secp256r1
-    ret = mbedtls_ecp_group_load(&rdSession.ecdh.grp, MBEDTLS_ECP_DP_SECP256R1);
+    // Setup ECDH with secp256r1 and generate ephemeral public key.
+    ret = mbedtls_ecdh_setup(&rdSession.ecdh, MBEDTLS_ECP_DP_SECP256R1);
     if (ret != 0) {
-        Serial.printf("[RD] ECP group load failed: -0x%04X\n", -ret);
+        Serial.printf("[RD] ECDH setup failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Generate ephemeral keypair
-    ret = mbedtls_ecdh_gen_public(&rdSession.ecdh.grp,
-                                   &rdSession.ecdh.d,
-                                   &rdSession.ecdh.Q,
+    // Make uncompressed public key (65 bytes); private key stays inside context.
+    size_t pubKeyLen = 0;
+    ret = mbedtls_ecdh_make_public(&rdSession.ecdh,
+                                   &pubKeyLen,
+                                   rdSession.ourEphemeralPubKey,
+                                   sizeof(rdSession.ourEphemeralPubKey),
                                    mbedtls_ctr_drbg_random,
                                    &rdSession.ctr_drbg);
-    if (ret != 0) {
-        Serial.printf("[RD] ECDH keygen failed: -0x%04X\n", -ret);
-        return RD_ERR_CRYPTO;
-    }
-
-    // Export uncompressed public key (65 bytes)
-    size_t pubKeyLen = 0;
-    ret = mbedtls_ecp_point_write_binary(&rdSession.ecdh.grp,
-                                          &rdSession.ecdh.Q,
-                                          MBEDTLS_ECP_PF_UNCOMPRESSED,
-                                          &pubKeyLen, rdSession.ourEphemeralPubKey,
-                                          sizeof(rdSession.ourEphemeralPubKey));
     if (ret != 0 || pubKeyLen != RD_ECDH_PUBKEY_SIZE) {
         Serial.printf("[RD] Export pubkey failed: -0x%04X, len=%zu\n", -ret, pubKeyLen);
         return RD_ERR_CRYPTO;
@@ -1363,7 +1351,7 @@ static RDError rdDiscover() {
     }
 
     // Use first found server
-    rdSession.serverIP = MDNS.IP(0);
+    rdSession.serverIP = MDNS.address(0);
     strlcpy(rdSession.serverName, MDNS.hostname(0).c_str(), sizeof(rdSession.serverName));
 
     Serial.printf("[RD] Found server: %s at %s:%d\n",
@@ -1516,53 +1504,31 @@ static RDError rdHandshake() {
     // Save server nonce
     memcpy(rdSession.serverNonce, serverNonce, RD_HANDSHAKE_NONCE_SIZE);
 
-    // Import server's ephemeral public key (compressed format)
-    int ret = mbedtls_ecp_point_read_binary(&rdSession.ecdh.grp,
-                                             &rdSession.ecdh.Qp,
-                                             serverEphemeralPubKey, RD_ECDH_PUBKEY_SIZE);
+    // Import server ephemeral public key into the ECDH context.
+    int ret = mbedtls_ecdh_read_public(&rdSession.ecdh,
+                                       serverEphemeralPubKey,
+                                       RD_ECDH_PUBKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[RD] Import server pubkey failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
-    // Validate the point is on the curve
-    ret = mbedtls_ecp_check_pubkey(&rdSession.ecdh.grp, &rdSession.ecdh.Qp);
-    if (ret != 0) {
-        Serial.printf("[RD] Server pubkey validation failed: -0x%04X\n", -ret);
-        return RD_ERR_CRYPTO;
-    }
-
     // ===== COMPUTE SHARED SECRET =====
-    mbedtls_mpi sharedSecret;
-    mbedtls_mpi_init(&sharedSecret);
-
-    ret = mbedtls_ecdh_compute_shared(&rdSession.ecdh.grp,
-                                       &sharedSecret,
-                                       &rdSession.ecdh.Qp,
-                                       &rdSession.ecdh.d,
-                                       mbedtls_ctr_drbg_random,
-                                       &rdSession.ctr_drbg);
-    if (ret != 0) {
-        mbedtls_mpi_free(&sharedSecret);
-        Serial.printf("[RD] ECDH compute failed: -0x%04X\n", -ret);
-        return RD_ERR_CRYPTO;
-    }
-
-    // Export shared secret (fixed 32 bytes with leading zeros)
     uint8_t secretBytes[32];
-    memset(secretBytes, 0, sizeof(secretBytes));
-    size_t secretLen = mbedtls_mpi_size(&sharedSecret);
-    if (secretLen > 32) secretLen = 32;
-    ret = mbedtls_mpi_write_binary(&sharedSecret, secretBytes + (32 - secretLen), secretLen);
-    mbedtls_mpi_free(&sharedSecret);
-
-    if (ret != 0) {
-        Serial.printf("[RD] Export shared secret failed: -0x%04X\n", -ret);
+    size_t secretLen = 0;
+    ret = mbedtls_ecdh_calc_secret(&rdSession.ecdh,
+                                   &secretLen,
+                                   secretBytes,
+                                   sizeof(secretBytes),
+                                   mbedtls_ctr_drbg_random,
+                                   &rdSession.ctr_drbg);
+    if (ret != 0 || secretLen == 0 || secretLen > sizeof(secretBytes)) {
+        Serial.printf("[RD] ECDH secret failed: -0x%04X\n", -ret);
         return RD_ERR_CRYPTO;
     }
 
     // ===== DERIVE SESSION KEYS =====
-    err = rdDeriveKeys(secretBytes, 32);
+    err = rdDeriveKeys(secretBytes, secretLen);
     mbedtls_platform_zeroize(secretBytes, sizeof(secretBytes));
     if (err != RD_OK) return err;
 

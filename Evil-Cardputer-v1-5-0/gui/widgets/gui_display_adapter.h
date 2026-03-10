@@ -443,7 +443,7 @@ private:
 /**
  * @brief Get input adapter instance
  */
-inline InputAdapter& Input() {
+inline InputAdapter& InputAdapterInstance() {
     return InputAdapter::instance();
 }
 

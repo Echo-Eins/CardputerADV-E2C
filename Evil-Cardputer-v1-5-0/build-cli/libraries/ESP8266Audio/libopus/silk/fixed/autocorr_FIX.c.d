@@ -1,0 +1,34 @@
+C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\libraries\ESP8266Audio\libopus\silk\fixed\autocorr_FIX.c.o: \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\silk\fixed\autocorr_FIX.c \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\silk\fixed\config.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/config.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\silk\fixed\SigProc_FIX.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/SigProc_FIX.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/typedef.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/resampler_structs.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/macros.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/config.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/config.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/arch.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/arch.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/fixed_generic.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/ecintrin.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/ecintrin.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/arch.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/cpu_support.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/cpu_support.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/Inlines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/MacroCount.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/silk/MacroDebug.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\silk\fixed\celt_lpc.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/celt_lpc.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/celt/cpu_support.h

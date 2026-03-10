@@ -40,10 +40,10 @@
 // Only include implementation if bridge is enabled
 #if GUI_LEGACY_BRIDGE_MODE != GUI_LEGACY_BRIDGE_DISABLED
 
+#include <FS.h>
+#include <M5Unified.h>
 #include "../core/gui_render_queue.h"
 #include "../core/gui_renderer.h"
-#include <M5Unified.h>
-#include <FS.h>
 #include <cstdarg>
 
 namespace GUI {

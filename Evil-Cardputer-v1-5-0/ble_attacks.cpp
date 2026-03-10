@@ -354,9 +354,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       recordFlipper(name, macAddress, deviceColor, isValidMac);
       lastFlipperFoundMillis = millis();
     }
-    std::string advData = advertisedDevice.getManufacturerData();
-    if (!advData.empty()) {
-      const uint8_t* payload = reinterpret_cast<const uint8_t*>(advData.data());
+    String advData = advertisedDevice.getManufacturerData();
+    if (advData.length() > 0) {
+      const uint8_t* payload = reinterpret_cast<const uint8_t*>(advData.c_str());
       size_t length = advData.length();
       for (auto& packet : forbiddenPackets) {
         if (matchPattern(packet.pattern, payload, length)) {
@@ -899,10 +899,10 @@ static void atPushItem(const String& mac, int rssi, const String& payload, const
 // BLE Callback for AirTags
 class AtAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) override {
-    std::string md = advertisedDevice.getManufacturerData();
+    String md = advertisedDevice.getManufacturerData();
     if (md.length() < 4) return;
 
-    const uint8_t* data = (const uint8_t*)md.data();
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(md.c_str());
     // Check for Apple Manufacturer ID (0x004C) and FindMy type (0x12)
     if (data[0] != 0x4C || data[1] != 0x00) return;
     if (md.length() < 6 || data[2] != 0x12) return;
@@ -914,7 +914,7 @@ class AtAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     evt.mac[sizeof(evt.mac) - 1] = '\0';
     evt.rssi = advertisedDevice.getRSSI();
     evt.md_len = (md.length() > sizeof(evt.md)) ? sizeof(evt.md) : md.length();
-    memcpy(evt.md, md.data(), evt.md_len);
+    memcpy(evt.md, md.c_str(), evt.md_len);
 
     if (advertisedDevice.haveName()) {
       strncpy(evt.name, advertisedDevice.getName().c_str(), sizeof(evt.name) - 1);

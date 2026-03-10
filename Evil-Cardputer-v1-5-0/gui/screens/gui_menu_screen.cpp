@@ -123,7 +123,7 @@ void MenuScreen::enterSearchMode() {
         markDirty();
 
         // Emit search mode changed
-        Event e(SignalType::StateChange, SignalPriority::Normal);
+        Event e(SignalType::ValueChanged, SignalPriority::Normal);
         e.sender = this;
         e.data.value.newValue = 1;  // Search mode ON
         signal().emit(e);
@@ -142,7 +142,7 @@ void MenuScreen::exitSearchMode() {
         markDirty();
 
         // Emit search mode changed
-        Event e(SignalType::StateChange, SignalPriority::Normal);
+        Event e(SignalType::ValueChanged, SignalPriority::Normal);
         e.sender = this;
         e.data.value.newValue = 0;  // Search mode OFF
         signal().emit(e);
@@ -244,7 +244,7 @@ SlotId MenuScreen::onItemActivated(SlotFunction handler) {
 }
 
 SlotId MenuScreen::onSearchModeChanged(SlotFunction handler) {
-    return signal().connect(SignalType::StateChange, handler, this);
+    return signal().connect(SignalType::ValueChanged, handler, this);
 }
 
 void MenuScreen::emitItemActivated(int realIndex) {

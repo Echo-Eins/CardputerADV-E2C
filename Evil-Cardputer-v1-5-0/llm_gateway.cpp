@@ -27,6 +27,7 @@ using LB = GUI::LegacyBridge;
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/bignum.h"
+#include "mbedtls/private_access.h"
 #include "mbedtls/platform_util.h"
 
 // ============================================================================
@@ -48,7 +49,7 @@ static struct {
     bool loaded;
     uint8_t privateKey[LLM_GW_ECDSA_PRIVKEY_SIZE];
     uint8_t publicKey[LLM_GW_ECDSA_PUBKEY_SIZE];
-    uint8_t serverPublicKey[33];    // Server pubkey (compressed)
+    uint8_t serverPublicKey[LLM_GW_ECDSA_PUBKEY_SIZE];
     mbedtls_ecp_keypair ecdsaKey;
     mbedtls_ecp_point serverPubPoint;
 } llmGWKeys;
@@ -175,27 +176,29 @@ bool llmGWLoadKeys() {
     }
 
     // Setup ECDSA keypair
-    int ret = mbedtls_ecp_group_load(&llmGWKeys.ecdsaKey.grp, MBEDTLS_ECP_DP_SECP256R1);
+    int ret = mbedtls_ecp_group_load(&llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(grp), MBEDTLS_ECP_DP_SECP256R1);
     if (ret != 0) {
         Serial.printf("[LLMGW] ECP group load failed: -0x%04X\n", -ret);
         return false;
     }
 
-    ret = mbedtls_mpi_read_binary(&llmGWKeys.ecdsaKey.d,
+    ret = mbedtls_mpi_read_binary(&llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(d),
                                    llmGWKeys.privateKey, LLM_GW_ECDSA_PRIVKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[LLMGW] Import private key failed: -0x%04X\n", -ret);
         return false;
     }
 
-    ret = mbedtls_ecp_point_read_binary(&llmGWKeys.ecdsaKey.grp, &llmGWKeys.ecdsaKey.Q,
+    ret = mbedtls_ecp_point_read_binary(&llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(grp),
+                                         &llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(Q),
                                          llmGWKeys.publicKey, LLM_GW_ECDSA_PUBKEY_SIZE);
     if (ret != 0) {
         Serial.printf("[LLMGW] Import public key failed: -0x%04X\n", -ret);
         return false;
     }
 
-    ret = mbedtls_ecp_check_pub_priv(&llmGWKeys.ecdsaKey, &llmGWKeys.ecdsaKey);
+    ret = mbedtls_ecp_check_pub_priv(&llmGWKeys.ecdsaKey, &llmGWKeys.ecdsaKey,
+                                     mbedtls_ctr_drbg_random, &llmGWSession.ctr_drbg);
     if (ret != 0) {
         Serial.printf("[LLMGW] Keypair validation failed: -0x%04X\n", -ret);
         return false;
@@ -221,7 +224,8 @@ static bool llmGWSign(const uint8_t* data, size_t dataLen, uint8_t* signature) {
     mbedtls_mpi_init(&r);
     mbedtls_mpi_init(&s);
 
-    int ret = mbedtls_ecdsa_sign(&llmGWKeys.ecdsaKey.grp, &r, &s, &llmGWKeys.ecdsaKey.d,
+    int ret = mbedtls_ecdsa_sign(&llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(grp), &r, &s,
+                                  &llmGWKeys.ecdsaKey.MBEDTLS_PRIVATE(d),
                                   hash, sizeof(hash),
                                   mbedtls_ctr_drbg_random, &llmGWSession.ctr_drbg);
     if (ret != 0) {

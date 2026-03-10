@@ -6,6 +6,7 @@
 
 #include "bluetooth_keyboard.h"
 #include <M5Cardputer.h>
+#include <esp_mac.h>
 #include "gui/gui.h"
 
 using LB = GUI::LegacyBridge;

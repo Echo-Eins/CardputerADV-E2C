@@ -161,6 +161,8 @@ void setBootCountdown();
 String scanIp = "";
 #include <lwip/etharp.h>
 #include <lwip/ip_addr.h>
+#include <esp_netif.h>
+#include <esp_netif_net_stack.h>
 #include <ESPping.h>
 
 //ssh
@@ -1602,9 +1604,7 @@ bool pageAccessFlag = false;
 
 int getConnectedPeopleCount() {
   wifi_sta_list_t stationList;
-  tcpip_adapter_sta_list_t adapterList;
   esp_wifi_ap_get_sta_list(&stationList);
-  tcpip_adapter_get_sta_list(&stationList, &adapterList);
   return stationList.num; // Retourne le nombre de clients connectés
 }
 
@@ -5447,17 +5447,15 @@ static void logDiffsAndMakeTicker(const String before[], int nBefore,
 
 void updateConnectedMACs() {
   wifi_sta_list_t stationList;
-  tcpip_adapter_sta_list_t adapterList;
   esp_wifi_ap_get_sta_list(&stationList);
-  tcpip_adapter_get_sta_list(&stationList, &adapterList);
 
-  int count = min((int)adapterList.num, MAC_MAX);
+  int count = min((int)stationList.num, MAC_MAX);
   if ((int)macAddresses.size() < MAC_MAX) macAddresses.assign(MAC_MAX, String());
   for (int i = 0; i < count; i++) {
     char macStr[18];
     snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-             adapterList.sta[i].mac[0], adapterList.sta[i].mac[1], adapterList.sta[i].mac[2],
-             adapterList.sta[i].mac[3], adapterList.sta[i].mac[4], adapterList.sta[i].mac[5]);
+             stationList.sta[i].mac[0], stationList.sta[i].mac[1], stationList.sta[i].mac[2],
+             stationList.sta[i].mac[3], stationList.sta[i].mac[4], stationList.sta[i].mac[5]);
     macAddresses[i] = String(macStr);
   }
   // Nettoie le reste
@@ -10055,11 +10053,13 @@ uint8_t deauth_frame[26] = {
 
 // Warning
 // You need to bypass the ESP32 firmware with script in utilities folder before compiling or the code can't compile due to restrictions on ESP32 firmware
-extern "C" int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
-  if (arg == 31337)
-    return 1;
-  else
-    return 0;
+// Keep this hook weak: on newer ESP32 cores the symbol is already provided by
+// libnet80211, and a strong duplicate would break linking.
+extern "C" int __attribute__((weak))
+ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
+  (void)arg2;
+  (void)arg3;
+  return (arg == 31337) ? 1 : 0;
 }
 // Warning
 
@@ -12347,9 +12347,16 @@ void read_arp_table(char * from_ip, int read_from, int read_to, std::vector<IPAd
 void send_arp(char * from_ip, std::vector<IPAddress>& hostslist) {
   Serial.println(F("Sending ARP requests to the whole network"));
   const TickType_t xDelay = (10) / portTICK_PERIOD_MS; // Délai de 0.01 secondes
-  void * netif = NULL;
-  tcpip_adapter_get_netif(TCPIP_ADAPTER_IF_STA, &netif);
-  struct netif *netif_interface = (struct netif *)netif;
+  esp_netif_t* staNetif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (staNetif == nullptr) {
+    Serial.println(F("Failed to resolve WIFI_STA_DEF netif."));
+    return;
+  }
+  struct netif *netif_interface = static_cast<struct netif*>(esp_netif_get_netif_impl(staNetif));
+  if (netif_interface == nullptr) {
+    Serial.println(F("Failed to resolve lwIP netif for station interface."));
+    return;
+  }
 
   for (char i = 1; i < 254; i++) {
     char test[32];
@@ -12851,8 +12858,8 @@ public:
     bool isSkimmerDetected = false;
     String displayMessage;
 
-    std::string deviceAddress = advertisedDevice.getAddress().toString();
-    std::string deviceName = advertisedDevice.getName();
+    String deviceAddress = advertisedDevice.getAddress().toString();
+    String deviceName = advertisedDevice.getName();
     int rssi = advertisedDevice.getRSSI();
 
     for (int i = 0; i < badDeviceNamesCount; i++) {
@@ -12863,7 +12870,7 @@ public:
     }
 
     for (int i = 0; i < badMacPrefixesCount && !isSkimmerDetected; i++) {
-      if (deviceAddress.substr(0, 8) == badMacPrefixes[i]) {
+      if (deviceAddress.startsWith(badMacPrefixes[i])) {
         isSkimmerDetected = true;
         break;
       }
@@ -13310,7 +13317,8 @@ struct_message myData;
 
 // -----------------------------------------------------------
 // Callback ESP-NOW : appelé quand un paquet arrive
-void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
+void OnDataRecv(const esp_now_recv_info_t* recvInfo, const uint8_t* incomingData, int len) {
+    (void)recvInfo;
     memcpy(&myData, incomingData, sizeof(myData));
 
     // (1) Si on est sur l’écran 2 (ReceivedData), affiche la dernière trame reçue
@@ -13724,7 +13732,7 @@ void addFrameToPCAP(const char* p,uint32_t len){
 }
 
 /*──────────────────────── 6.  ISR ESP-NOW ─────────────────────*/
-void IRAM_ATTR onRecv(const uint8_t*, const uint8_t* d, int l){
+void IRAM_ATTR onRecv(const esp_now_recv_info_t*, const uint8_t* d, int l){
   if(l>ESPNOW_MAX_DATA_LEN) return;
   qPush(d, (uint8_t)l);            // SD & calcul hors ISR
 }
@@ -15389,6 +15397,7 @@ void initClients() {
 }
 
 void rogueDHCP(RogueDhcpMode mode) {
+  esp_netif_t* apNetif = nullptr;
   if (mode == ROGUE_DHCP_STA) {
     rogueIPRogue       = WiFi.localIP();
     currentSubnetRogue = WiFi.subnetMask();
@@ -15401,6 +15410,10 @@ void rogueDHCP(RogueDhcpMode mode) {
     currentGatewayRogue= WiFi.softAPIP();
     currentDNSRogue    = WiFi.softAPIP();
     WiFi.mode(WIFI_MODE_AP);
+    apNetif            = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (apNetif == nullptr) {
+      Serial.println(F("[AP] Failed to resolve WIFI_AP_DEF netif."));
+    }
     Serial.println(F("[+] Rogue DHCP using AP interface"));
   }
 
@@ -15408,14 +15421,19 @@ void rogueDHCP(RogueDhcpMode mode) {
 
   // Stop DHCP interne AP si mode AP (important pour libérer port 67)
   if (mode == ROGUE_DHCP_AP) {
-    tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
-    Serial.println(F("[AP] DHCP server stopped."));
+    if (apNetif != nullptr && esp_netif_dhcps_stop(apNetif) == ESP_OK) {
+      Serial.println(F("[AP] DHCP server stopped."));
+    } else {
+      Serial.println(F("[AP] Failed to stop DHCP server."));
+    }
   }
 
   if (!udp.begin(localUdpPort)) {
     Serial.println(F("Error: UDP port 67 start failed."));
     if (mode == ROGUE_DHCP_AP) {
-      tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP);  // rollback
+      if (apNetif != nullptr) {
+        esp_netif_dhcps_start(apNetif);  // rollback
+      }
     }
     waitAndReturnToMenu("Error: UDP start failed.");
     return;
@@ -15468,8 +15486,11 @@ void rogueDHCP(RogueDhcpMode mode) {
 
   // Relancer DHCP interne si on était en AP
   if (mode == ROGUE_DHCP_AP) {
-    tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP);
-    Serial.println(F("[AP] DHCP server (re)started (tcpip_adapter)."));
+    if (apNetif != nullptr && esp_netif_dhcps_start(apNetif) == ESP_OK) {
+      Serial.println(F("[AP] DHCP server (re)started."));
+    } else {
+      Serial.println(F("[AP] Failed to restart DHCP server."));
+    }
   }
 }
 
@@ -15978,7 +15999,7 @@ static void drawDHCPStatus(const char* msg, int cursorY = 5) {
 }
 
 // Helper: show DHCP starvation progress statistics
-static void drawDHCPProgress(int pct, int disc, int offer, int req, int ack, int nak, const IPAddress& lastIP) {
+void drawDHCPProgress(int pct, int disc, int offer, int req, int ack, int nak, const IPAddress& lastIP) {
     LB::fillRect(0, 40, LB::width(), 40, menuBackgroundColor);
     LB::setCursor(5, 40);
     LB::printf("Pool percentage: %d%%\n", pct);
@@ -16513,7 +16534,7 @@ void rogueDHCPAuto() {
 
 
 // Helper: show DHCP explain step and wait for ENTER
-static void showDHCPExplainStep(const char* text) {
+void showDHCPExplainStep(const char* text) {
     drawDHCPStatus(text, 20);
     while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)){
       M5.update();
@@ -18699,9 +18720,10 @@ void broadcastPing();
 void updatePresence(const char* nick);
 
 /* ---------- CALLBACK ESP‑NOW ULTRA‑COURT ---------- */
-void IRAM_ATTR OnDataRecvChat(const uint8_t* mac,
+void IRAM_ATTR OnDataRecvChat(const esp_now_recv_info_t* recvInfo,
                               const uint8_t* incomingData, int len)
 {
+    (void)recvInfo;
     if (len > sizeof(packetBuffer)) return;        // paquet trop gros
     memcpy((void*)packetBuffer, incomingData, len);
     packetLen        = len;

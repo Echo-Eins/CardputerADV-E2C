@@ -146,7 +146,7 @@ constexpr uint32_t QUEUE_TIMEOUT_MS = 16;  // ~60 fps flush cadence
 // Emergency rollback switch:
 // When enabled, force bridge passthrough at compile-time.
 #ifndef GUI_ROLLBACK_FORCE_PASSTHROUGH
-#define GUI_ROLLBACK_FORCE_PASSTHROUGH 0
+#define GUI_ROLLBACK_FORCE_PASSTHROUGH 1
 #endif
 #if GUI_ROLLBACK_FORCE_PASSTHROUGH
 #undef GUI_LEGACY_BRIDGE_MODE

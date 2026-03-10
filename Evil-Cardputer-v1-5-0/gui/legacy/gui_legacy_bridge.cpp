@@ -23,6 +23,8 @@ static std::atomic<uint32_t> s_writeLockDepth{0};
 
 namespace GUI {
 
+static LGFX_Sprite& getMeasureSprite(const FontConfig& font);
+
 template <typename ReturnType>
 static inline typename std::enable_if<!std::is_void<ReturnType>::value, ReturnType>::type
 defaultLockResult() {
@@ -140,6 +142,9 @@ void LegacyBridge::syncWithTheme() {
 // ============================================================================
 
 bool LegacyBridge::shouldQueueCall() {
+#if GUI_LEGACY_BRIDGE_MODE == GUI_LEGACY_BRIDGE_PASSTHROUGH
+    return false;
+#else
     if (!guiIsRunning()) {
         return false;
     }
@@ -153,9 +158,14 @@ bool LegacyBridge::shouldQueueCall() {
         default:
             return false;
     }
+#endif
 }
 
 bool LegacyBridge::pushToQueue(const RenderOp& op) {
+#if GUI_LEGACY_BRIDGE_MODE == GUI_LEGACY_BRIDGE_PASSTHROUGH
+    (void)op;
+    return false;
+#else
     if (!guiIsRunning()) {
         return false;
     }
@@ -178,6 +188,7 @@ bool LegacyBridge::pushToQueue(const RenderOp& op) {
         static_cast<unsigned long>(bp.blockTimeouts),
         static_cast<unsigned>(Config::QUEUE_OVERFLOW_POLICY));
     return false;
+#endif
 }
 
 void LegacyBridge::updateCursorAfterPrint(const char* text) {
@@ -890,18 +901,26 @@ void LegacyBridge::scroll(int16_t dx, int16_t dy) {
 // ============================================================================
 
 void LegacyBridge::sync() {
+#if GUI_LEGACY_BRIDGE_MODE == GUI_LEGACY_BRIDGE_PASSTHROUGH
+    return;
+#else
     if (guiIsRunning()) {
         if (!renderQueue().sync()) {
             GUI_LOG_ERROR("LegacyBridge: sync timeout");
         }
     }
+#endif
 }
 
 bool LegacyBridge::isIdle() {
+#if GUI_LEGACY_BRIDGE_MODE == GUI_LEGACY_BRIDGE_PASSTHROUGH
+    return true;
+#else
     if (guiIsRunning()) {
         return renderQueue().isEmpty();
     }
     return true;
+#endif
 }
 
 } // namespace GUI
