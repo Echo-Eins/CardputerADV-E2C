@@ -5,6 +5,7 @@
  */
 
 #include "gui_dirty_region.h"
+#include "gui_display_target.h"
 #include <cstring>
 #include <algorithm>
 
@@ -26,6 +27,11 @@ DirtyRegionTracker& DirtyRegionTracker::instance() {
 DirtyRegionTracker::DirtyRegionTracker()
     : m_dirtyRectCount(0)
     , m_mergedRect(Rect::make(0, 0, 0, 0))
+    , m_gridWidth(DirtyConfig::GRID_MAX_WIDTH)
+    , m_gridHeight(DirtyConfig::GRID_MAX_HEIGHT)
+    , m_gridTotal(DirtyConfig::GRID_MAX_TOTAL)
+    , m_screenWidth(Config::DISPLAY_WIDTH)
+    , m_screenHeight(Config::DISPLAY_HEIGHT)
     , m_fullRefreshThreshold(GUI_DIRTY_FULL_REFRESH_THRESHOLD)
     , m_enabled(true)
     , m_initialized(false)
@@ -43,8 +49,27 @@ DirtyRegionTracker::~DirtyRegionTracker() {
 // ============================================================================
 
 bool DirtyRegionTracker::init() {
-    if (m_initialized) {
-        return true;
+    refreshRuntimeDisplayMetrics();
+
+    const uint16_t detectedWidth = runtimeDisplayWidth() > 0
+        ? runtimeDisplayWidth() : Config::DISPLAY_WIDTH;
+    const uint16_t detectedHeight = runtimeDisplayHeight() > 0
+        ? runtimeDisplayHeight() : Config::DISPLAY_HEIGHT;
+
+    m_screenWidth = detectedWidth;
+    m_screenHeight = detectedHeight;
+
+    m_gridWidth = static_cast<uint8_t>((m_screenWidth + DirtyConfig::TILE_SIZE - 1) / DirtyConfig::TILE_SIZE);
+    m_gridHeight = static_cast<uint8_t>((m_screenHeight + DirtyConfig::TILE_SIZE - 1) / DirtyConfig::TILE_SIZE);
+    m_gridWidth = std::min<uint8_t>(m_gridWidth, DirtyConfig::GRID_MAX_WIDTH);
+    m_gridHeight = std::min<uint8_t>(m_gridHeight, DirtyConfig::GRID_MAX_HEIGHT);
+    m_gridTotal = static_cast<uint16_t>(m_gridWidth) * m_gridHeight;
+    if (m_gridTotal == 0) {
+        m_gridWidth = 1;
+        m_gridHeight = 1;
+        m_gridTotal = 1;
+        m_screenWidth = 1;
+        m_screenHeight = 1;
     }
 
     // Clear all state
@@ -57,11 +82,17 @@ bool DirtyRegionTracker::init() {
         m_dirtyRects[i].clear();
     }
 
-    m_stats.reset();
-    m_initialized = true;
+    if (!m_initialized) {
+        m_stats.reset();
+        m_initialized = true;
+    }
 
-    GUI_LOG("DirtyRegionTracker initialized (%dx%d tiles, %d bytes)",
-            DirtyConfig::GRID_WIDTH, DirtyConfig::GRID_HEIGHT, DirtyConfig::BITMAP_SIZE);
+    GUI_LOG("DirtyRegionTracker initialized (%ux%u, tiles=%ux%u, bytes=%u)",
+            static_cast<unsigned>(m_screenWidth),
+            static_cast<unsigned>(m_screenHeight),
+            static_cast<unsigned>(m_gridWidth),
+            static_cast<unsigned>(m_gridHeight),
+            static_cast<unsigned>(DirtyConfig::BITMAP_SIZE));
 
     return true;
 }
@@ -78,17 +109,20 @@ void DirtyRegionTracker::shutdown() {
 void DirtyRegionTracker::markAllDirty() {
     if (!m_enabled) return;
 
-    // Set all valid tile bits (GRID_TOTAL may not fill the last byte)
-    memset(m_tileBitmap, 0xFF, sizeof(m_tileBitmap));
-    constexpr uint8_t tailBits = DirtyConfig::GRID_TOTAL % 8;
-    if constexpr (tailBits != 0) {
-        m_tileBitmap[DirtyConfig::BITMAP_SIZE - 1] =
-            static_cast<uint8_t>((1u << tailBits) - 1);
+    // Set all valid tile bits (grid total may not fill the last byte)
+    memset(m_tileBitmap, 0, sizeof(m_tileBitmap));
+    const uint8_t fullBytes = m_gridTotal >> 3;
+    const uint8_t tailBits = m_gridTotal & 7;
+    if (fullBytes > 0) {
+        memset(m_tileBitmap, 0xFF, fullBytes);
     }
-    m_dirtyTileCount.store(DirtyConfig::GRID_TOTAL, std::memory_order_relaxed);
+    if (tailBits != 0 && fullBytes < DirtyConfig::BITMAP_SIZE) {
+        m_tileBitmap[fullBytes] = static_cast<uint8_t>((1u << tailBits) - 1u);
+    }
+    m_dirtyTileCount.store(m_gridTotal, std::memory_order_relaxed);
 
     // Set merged rect to full screen
-    m_mergedRect = Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
+    m_mergedRect = Rect::make(0, 0, m_screenWidth, m_screenHeight);
 
     // Clear rect list and add full screen
     m_dirtyRectCount = 1;
@@ -113,7 +147,7 @@ void DirtyRegionTracker::markDirty(const Rect& rect) {
     if (rect.isEmpty()) return;
 
     // Clamp to screen bounds
-    Rect clipped = rect.intersection(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT));
+    Rect clipped = rect.intersection(Rect::make(0, 0, m_screenWidth, m_screenHeight));
     if (clipped.isEmpty()) return;
 
     m_stats.markDirtyCount++;
@@ -169,7 +203,7 @@ void DirtyRegionTracker::markDirty(const Rect& rect) {
 
 void DirtyRegionTracker::markDirty(int16_t x, int16_t y) {
     if (!m_enabled) return;
-    if (x < 0 || x >= Config::DISPLAY_WIDTH || y < 0 || y >= Config::DISPLAY_HEIGHT) return;
+    if (x < 0 || x >= m_screenWidth || y < 0 || y >= m_screenHeight) return;
 
     // Mark single tile
     uint8_t tileX = pixelToTileX(x);
@@ -211,6 +245,7 @@ bool DirtyRegionTracker::isDirty() const {
 
 bool DirtyRegionTracker::isDirty(const Rect& rect) const {
     if (!isDirty()) return false;
+    if (m_screenWidth == 0 || m_screenHeight == 0) return false;
 
     // Check if rect intersects merged dirty region
     if (!m_mergedRect.intersects(rect)) return false;
@@ -218,8 +253,8 @@ bool DirtyRegionTracker::isDirty(const Rect& rect) const {
     // Check individual tiles
     uint8_t startTileX = pixelToTileX(std::max<int16_t>(0, rect.x));
     uint8_t startTileY = pixelToTileY(std::max<int16_t>(0, rect.y));
-    uint8_t endTileX = pixelToTileX(std::min<int16_t>(Config::DISPLAY_WIDTH - 1, rect.right() - 1));
-    uint8_t endTileY = pixelToTileY(std::min<int16_t>(Config::DISPLAY_HEIGHT - 1, rect.bottom() - 1));
+    uint8_t endTileX = pixelToTileX(std::min<int16_t>(m_screenWidth - 1, rect.right() - 1));
+    uint8_t endTileY = pixelToTileY(std::min<int16_t>(m_screenHeight - 1, rect.bottom() - 1));
 
     for (uint8_t ty = startTileY; ty <= endTileY; ty++) {
         for (uint8_t tx = startTileX; tx <= endTileX; tx++) {
@@ -233,7 +268,7 @@ bool DirtyRegionTracker::isDirty(const Rect& rect) const {
 }
 
 bool DirtyRegionTracker::isTileDirty(uint8_t tileX, uint8_t tileY) const {
-    if (tileX >= DirtyConfig::GRID_WIDTH || tileY >= DirtyConfig::GRID_HEIGHT) {
+    if (tileX >= m_gridWidth || tileY >= m_gridHeight) {
         return false;
     }
 
@@ -250,7 +285,9 @@ uint16_t DirtyRegionTracker::dirtyTileCount() const {
 
 uint8_t DirtyRegionTracker::dirtyPercentage() const {
     uint16_t count = dirtyTileCount();
-    return static_cast<uint8_t>((count * 100) / DirtyConfig::GRID_TOTAL);
+    return m_gridTotal > 0
+        ? static_cast<uint8_t>((count * 100) / m_gridTotal)
+        : 0;
 }
 
 bool DirtyRegionTracker::shouldFullRefresh() const {
@@ -272,7 +309,7 @@ uint8_t DirtyRegionTracker::getDirtyRects(DirtyRect* rects, uint8_t maxRects) co
 
     // If should do full refresh, return single full-screen rect
     if (shouldFullRefresh()) {
-        rects[0].set(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT), 255);
+        rects[0].set(Rect::make(0, 0, m_screenWidth, m_screenHeight), 255);
         return 1;
     }
 
@@ -300,17 +337,17 @@ Rect DirtyRegionTracker::getOptimalDirtyRect() const {
 
     // If high dirty percentage, return full screen
     if (shouldFullRefresh()) {
-        return Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
+        return Rect::make(0, 0, m_screenWidth, m_screenHeight);
     }
 
     // Scan tiles to find tight bounding box
-    int16_t minX = Config::DISPLAY_WIDTH;
-    int16_t minY = Config::DISPLAY_HEIGHT;
+    int16_t minX = m_screenWidth;
+    int16_t minY = m_screenHeight;
     int16_t maxX = 0;
     int16_t maxY = 0;
 
-    for (uint8_t ty = 0; ty < DirtyConfig::GRID_HEIGHT; ty++) {
-        for (uint8_t tx = 0; tx < DirtyConfig::GRID_WIDTH; tx++) {
+    for (uint8_t ty = 0; ty < m_gridHeight; ty++) {
+        for (uint8_t tx = 0; tx < m_gridWidth; tx++) {
             if (isTileDirty(tx, ty)) {
                 int16_t tilePixelX = tileToPixelX(tx);
                 int16_t tilePixelY = tileToPixelY(ty);
@@ -324,8 +361,8 @@ Rect DirtyRegionTracker::getOptimalDirtyRect() const {
     }
 
     // Clamp to screen bounds
-    maxX = std::min(maxX, static_cast<int16_t>(Config::DISPLAY_WIDTH));
-    maxY = std::min(maxY, static_cast<int16_t>(Config::DISPLAY_HEIGHT));
+    maxX = std::min(maxX, static_cast<int16_t>(m_screenWidth));
+    maxY = std::min(maxY, static_cast<int16_t>(m_screenHeight));
 
     if (maxX <= minX || maxY <= minY) {
         return Rect::make(0, 0, 0, 0);
@@ -349,7 +386,7 @@ void DirtyRegionTracker::setFullRefreshThreshold(uint8_t percent) {
 // ============================================================================
 
 void DirtyRegionTracker::setTile(uint8_t tileX, uint8_t tileY) {
-    if (tileX >= DirtyConfig::GRID_WIDTH || tileY >= DirtyConfig::GRID_HEIGHT) return;
+    if (tileX >= m_gridWidth || tileY >= m_gridHeight) return;
 
     uint16_t index = tileIndex(tileX, tileY);
     uint8_t byteIdx, bitIdx;
@@ -359,7 +396,7 @@ void DirtyRegionTracker::setTile(uint8_t tileX, uint8_t tileY) {
 }
 
 void DirtyRegionTracker::clearTile(uint8_t tileX, uint8_t tileY) {
-    if (tileX >= DirtyConfig::GRID_WIDTH || tileY >= DirtyConfig::GRID_HEIGHT) return;
+    if (tileX >= m_gridWidth || tileY >= m_gridHeight) return;
 
     uint16_t index = tileIndex(tileX, tileY);
     uint8_t byteIdx, bitIdx;
@@ -375,8 +412,8 @@ void DirtyRegionTracker::markTilesInRect(const Rect& rect) {
     uint8_t endTileY = pixelToTileY(rect.bottom() - 1);
 
     // Clamp to grid bounds
-    endTileX = std::min(endTileX, static_cast<uint8_t>(DirtyConfig::GRID_WIDTH - 1));
-    endTileY = std::min(endTileY, static_cast<uint8_t>(DirtyConfig::GRID_HEIGHT - 1));
+    endTileX = std::min(endTileX, static_cast<uint8_t>(m_gridWidth - 1));
+    endTileY = std::min(endTileY, static_cast<uint8_t>(m_gridHeight - 1));
 
     uint16_t newDirtyCount = 0;
 

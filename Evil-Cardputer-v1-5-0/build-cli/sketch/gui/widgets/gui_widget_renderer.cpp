@@ -185,7 +185,7 @@ void WidgetRenderer::processInput() {
         } else {
             // Get regular key
             // M5Cardputer Keyboard returns keys via word
-            for (int i = 0; i < state.word.length(); i++) {
+            for (size_t i = 0; i < state.word.size(); i++) {
                 key = state.word[i];
                 break;  // Take first key
             }

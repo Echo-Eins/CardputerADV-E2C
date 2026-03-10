@@ -65,15 +65,15 @@ namespace DirtyConfig {
                                    (TILE_SIZE == 16) ? 4 :
                                    (TILE_SIZE == 32) ? 5 : 4;
 
-    // Grid dimensions for 240x135 display
-    constexpr uint8_t GRID_WIDTH = (Config::DISPLAY_WIDTH + TILE_SIZE - 1) / TILE_SIZE;   // 15
-    constexpr uint8_t GRID_HEIGHT = (Config::DISPLAY_HEIGHT + TILE_SIZE - 1) / TILE_SIZE; // 9
-    constexpr uint16_t GRID_TOTAL = GRID_WIDTH * GRID_HEIGHT;                              // 135 tiles
+    // Maximum grid dimensions (actual runtime grid is selected per active display).
+    constexpr uint8_t GRID_MAX_WIDTH = (Config::DISPLAY_WIDTH + TILE_SIZE - 1) / TILE_SIZE;
+    constexpr uint8_t GRID_MAX_HEIGHT = (Config::DISPLAY_HEIGHT + TILE_SIZE - 1) / TILE_SIZE;
+    constexpr uint16_t GRID_MAX_TOTAL = GRID_MAX_WIDTH * GRID_MAX_HEIGHT;
 
     // Bitmap size for tile grid (in bytes)
-    constexpr uint8_t BITMAP_SIZE = (GRID_TOTAL + 7) / 8;  // 17 bytes
+    constexpr uint8_t BITMAP_SIZE = (GRID_MAX_TOTAL + 7) / 8;
 
-    static_assert(GRID_WIDTH <= 32, "Grid width must fit in uint32_t for optimization");
+    static_assert(GRID_MAX_WIDTH <= 64, "Grid width must fit in bitmap index type");
 }
 
 // ============================================================================
@@ -214,9 +214,11 @@ public:
     // ========================================================================
 
     // Get grid dimensions
-    uint8_t gridWidth() const { return DirtyConfig::GRID_WIDTH; }
-    uint8_t gridHeight() const { return DirtyConfig::GRID_HEIGHT; }
+    uint8_t gridWidth() const { return m_gridWidth; }
+    uint8_t gridHeight() const { return m_gridHeight; }
     uint8_t tileSize() const { return DirtyConfig::TILE_SIZE; }
+    uint16_t screenWidth() const { return m_screenWidth; }
+    uint16_t screenHeight() const { return m_screenHeight; }
 
     // Get tile coordinates for pixel
     static uint8_t pixelToTileX(int16_t x) {
@@ -279,8 +281,8 @@ private:
     void markTilesInRect(const Rect& rect);
 
     // Calculate grid index
-    static uint16_t tileIndex(uint8_t tileX, uint8_t tileY) {
-        return static_cast<uint16_t>(tileY) * DirtyConfig::GRID_WIDTH + tileX;
+    uint16_t tileIndex(uint8_t tileX, uint8_t tileY) const {
+        return static_cast<uint16_t>(tileY) * m_gridWidth + tileX;
     }
 
     // Get bit position in bitmap
@@ -298,6 +300,13 @@ private:
 
     // Tile bitmap (1 bit per tile)
     uint8_t m_tileBitmap[DirtyConfig::BITMAP_SIZE];
+
+    // Active screen/grid dimensions (runtime-selected display profile).
+    uint8_t m_gridWidth;
+    uint8_t m_gridHeight;
+    uint16_t m_gridTotal;
+    uint16_t m_screenWidth;
+    uint16_t m_screenHeight;
 
     // Cached dirty rectangle list (for optimization)
     DirtyRect m_dirtyRects[GUI_MAX_DIRTY_RECTS];

@@ -49,10 +49,9 @@ bool hwIsCardputerADV();
 
 // Display backend types for future extensibility
 enum class DisplayBackend : uint8_t {
-    M5_UNIFIED = 0,    // Current: M5Unified Display
-    // Future backends can be added here:
-    // LVGL = 1,
-    // CUSTOM_FRAMEBUFFER = 2,
+    M5_UNIFIED = 0,         // Built-in M5 display
+    TFT_ESPI_ILI9488 = 1,   // External ILI9488 (TFT_eSPI profile)
+    LGFX_ILI9488 = 2,       // External ILI9488 (LovyanGFX profile)
 };
 
 // Display driver configuration

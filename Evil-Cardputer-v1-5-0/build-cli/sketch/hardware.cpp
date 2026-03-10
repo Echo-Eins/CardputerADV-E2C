@@ -14,6 +14,7 @@
 #include <AudioGeneratorMP3.h>
 #include <stdarg.h>
 #include "gui/gui.h"
+#include "display_runtime.h"
 
 using LB = GUI::LegacyBridge;
 
@@ -132,13 +133,33 @@ bool HardwareDisplay::_initialized = false;
 void HardwareDisplay::init() {
     if (_initialized) return;
 
-    _config.width = LB::width();
-    _config.height = LB::height();
+    _config.width = GUI::runtimeDisplayWidth() > 0 ? GUI::runtimeDisplayWidth() : LB::width();
+    _config.height = GUI::runtimeDisplayHeight() > 0 ? GUI::runtimeDisplayHeight() : LB::height();
     _config.rotation = LB::getRotation();
     _initialized = true;
 }
 
 DisplayConfig HardwareDisplay::getConfig() {
+    const DisplayProfile* profile = DisplayRuntime::getAppliedProfile();
+    if (profile) {
+        switch (profile->driver) {
+            case DisplayDriver::TFT_ESPI_ILI9488:
+                _config.backend = DisplayBackend::TFT_ESPI_ILI9488;
+                break;
+            case DisplayDriver::LGFX_ILI9488:
+                _config.backend = DisplayBackend::LGFX_ILI9488;
+                break;
+            case DisplayDriver::M5_BUILTIN:
+            default:
+                _config.backend = DisplayBackend::M5_UNIFIED;
+                break;
+        }
+    } else {
+        _config.backend = DisplayBackend::M5_UNIFIED;
+    }
+    _config.width = GUI::runtimeDisplayWidth() > 0 ? GUI::runtimeDisplayWidth() : LB::width();
+    _config.height = GUI::runtimeDisplayHeight() > 0 ? GUI::runtimeDisplayHeight() : LB::height();
+    _config.rotation = LB::getRotation();
     return _config;
 }
 

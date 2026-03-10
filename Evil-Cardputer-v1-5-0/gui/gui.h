@@ -79,6 +79,7 @@
 #include "gui_theme.h"
 
 // Core components
+#include "core/gui_display_target.h"
 #include "core/gui_render_queue.h"
 #include "core/gui_framebuffer.h"
 #include "core/gui_dma.h"

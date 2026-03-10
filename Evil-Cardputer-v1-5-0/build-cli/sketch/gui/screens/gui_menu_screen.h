@@ -294,6 +294,11 @@ protected:
     void clampSelection();
 
     /**
+     * @brief Number of items that fit in the current viewport
+     */
+    int visibleItemCount() const;
+
+    /**
      * @brief Emit item activated event
      */
     void emitItemActivated(int realIndex);

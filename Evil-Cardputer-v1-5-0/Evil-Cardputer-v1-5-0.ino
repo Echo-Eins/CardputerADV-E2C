@@ -110,6 +110,7 @@ enum SearchKind {
 #include "i2c_manager.h"
 #include "scroll_input.h"
 #include "display_config.h"
+#include "display_runtime.h"
 
 // GUI Framework - Async rendering system
 #include "gui/gui.h"
@@ -829,6 +830,7 @@ static const char* const kCaptiveIPStr[2] = {
 void setup() {
   Serial.begin(115200);
   M5.begin();
+  DisplayRuntime::init();
 
   // Initialize hardware abstraction layer
   hwDetectBoard();
@@ -1186,6 +1188,12 @@ void setup() {
     // Initialize configuration manager
     ConfigManager::init();
 
+    // Apply active display profile before startup renders (boot image/status UI).
+    DisplayProfileManager::init();
+    if (!DisplayRuntime::applyActiveProfile(true)) {
+      Serial.printf("[DisplayRuntime] active profile apply failed: %s\n", DisplayRuntime::getLastError());
+    }
+
     // Vérifier et créer le dossier audio s'il n'existe pas
     if (!SD.exists("/evil/audio")) {
       Serial.println(F("Audio folder not found, creating..."));
@@ -1300,9 +1308,8 @@ void setup() {
   // Initialize WiFi credentials manager
   wifiCredentialsInit();
 
-  // Initialize I2C bus manager, display config, and peripherals
+  // Initialize I2C bus manager and peripherals
   I2CManager::init();
-  DisplayProfileManager::init();
 
   // If I2C is enabled, auto-detect and initialize Scroll Unit
   if (I2CManager::isEnabled()) {
@@ -6165,16 +6172,26 @@ void showDisplaySelection() {
 
         uint8_t idx = i;
         dispOptions.push_back({label, [idx]() {
-            DisplayProfileManager::setActive(idx);
             LB::fillScreen(TFT_BLACK);
             LB::setCursor(5, LB::height() / 2 - 5);
-            LB::setTextColor(TFT_GREEN);
-            const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
-            if (sel) {
-                LB::print("Active: ");
-                LB::print(sel->name);
+            if (DisplayRuntime::applyProfileIndex(idx, true, true)) {
+                LB::setTextColor(TFT_GREEN);
+                const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
+                if (sel) {
+                    LB::print("Active: ");
+                    LB::print(sel->name);
+                } else {
+                    LB::print("Display switched");
+                }
+                delay(1000);
+            } else {
+                LB::setTextColor(TFT_RED);
+                LB::print("Switch failed:");
+                LB::setCursor(5, LB::height() / 2 + 10);
+                LB::setTextColor(TFT_YELLOW);
+                LB::print(DisplayRuntime::getLastError());
+                delay(1800);
             }
-            delay(1000);
         }});
     }
 
@@ -13866,7 +13883,10 @@ void sniffMaster(){
   memset(received_frames,0,sizeof(received_frames));
   qHead=qTail=0;
 
-  if(!SD.begin()){ Serial.println(F("SD fail")); return; }
+  {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
+    if(!SD.begin()){ Serial.println(F("SD fail")); return; }
+  }
   makeDirs(); openPCAP();
 
   WiFi.mode(WIFI_STA); WiFi.disconnect();
@@ -18054,6 +18074,7 @@ bool manageUsbPower(uint8_t powerState, bool start, bool loadEject) {
 
 // Initialisation des callbacks et configuration du média pour l'USB MSC
 void initializeUsbCallbacks() {
+  DisplayRuntime::ScopedSdDisplayRelease sdGuard;
   uint32_t sectorSize = SD.sectorSize();
   uint32_t totalSectors = SD.numSectors();
 
@@ -18074,6 +18095,7 @@ void initializeUsbCallbacks() {
 
 // Fonction principale qui passe du SD à l'USB
 void sdToUsb() {
+  DisplayRuntime::ScopedSdDisplayRelease sdGuard;
   // Arrêter l'accès à la carte SD
   SD.end();
   delay(100);

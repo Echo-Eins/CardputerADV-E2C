@@ -1,43 +1,10 @@
 /**
  * @file display_config.h
- * @brief Display configuration system with JSON persistence
+ * @brief Display profile configuration (JSON + validation)
  *
- * Manages display profiles stored in /evil/config/displays.json.
- * Supports internal (built-in ST7789V) and external (ILI9488 SPI) displays.
- * Allows selecting which display receives the rendered UI output.
- *
- * JSON format:
- * {
- *   "active": "internal",
- *   "displays": [
- *     {
- *       "name": "Internal",
- *       "port": "ST7789V",
- *       "interface": "SPI",
- *       "width": 240,
- *       "height": 135,
- *       "rotation": 1,
- *       "builtin": true
- *     },
- *     {
- *       "name": "External TFT",
- *       "port": "ILI9488",
- *       "interface": "SPI",
- *       "width": 480,
- *       "height": 320,
- *       "rotation": 0,
- *       "builtin": false,
- *       "pins": {
- *         "cs": 14,
- *         "dc": 27,
- *         "rst": 33,
- *         "mosi": 35,
- *         "sclk": 36,
- *         "miso": 37
- *       }
- *     }
- *   ]
- * }
+ * Profiles are stored in /evil/config/displays.json and define runtime
+ * display backend selection, SPI bus parameters, initialization order and
+ * SD arbitration policy.
  */
 
 #ifndef DISPLAY_CONFIG_H
@@ -51,10 +18,41 @@
 // Constants
 // ============================================================================
 
-#define DISPLAY_CONFIG_PATH     "/evil/config/displays.json"
-#define DISPLAY_MAX_PROFILES    4
-#define DISPLAY_NAME_MAX_LEN    24
-#define DISPLAY_PORT_MAX_LEN    16
+#define DISPLAY_CONFIG_PATH          "/evil/config/displays.json"
+#define DISPLAY_MAX_PROFILES         6
+#define DISPLAY_NAME_MAX_LEN         32
+#define DISPLAY_ERROR_MAX_LEN        160
+
+// ============================================================================
+// Enums / Helpers
+// ============================================================================
+
+enum class DisplayDriver : uint8_t {
+    M5_BUILTIN = 0,
+    TFT_ESPI_ILI9488 = 1,
+    LGFX_ILI9488 = 2,
+};
+
+enum class DisplaySpiHost : uint8_t {
+    AUTO = 0,
+    SPI2 = 1,
+    SPI3 = 2,
+};
+
+enum class DisplayInitOrder : uint8_t {
+    ACTIVE_FIRST = 0,
+    INTERNAL_FIRST = 1,
+    EXTERNAL_FIRST = 2,
+};
+
+const char* displayDriverToString(DisplayDriver driver);
+DisplayDriver displayDriverFromString(const char* value);
+
+const char* displaySpiHostToString(DisplaySpiHost host);
+DisplaySpiHost displaySpiHostFromString(const char* value);
+
+const char* displayInitOrderToString(DisplayInitOrder order);
+DisplayInitOrder displayInitOrderFromString(const char* value);
 
 // ============================================================================
 // Display Profile
@@ -67,34 +65,52 @@ struct DisplayPins {
     int8_t mosi;
     int8_t sclk;
     int8_t miso;
-    int8_t bl;      // Backlight (-1 if not used)
+    int8_t bl;  // Backlight pin (-1 = unused)
 
-    DisplayPins() : cs(-1), dc(-1), rst(-1), mosi(-1), sclk(-1), miso(-1), bl(-1) {}
+    DisplayPins()
+        : cs(-1)
+        , dc(-1)
+        , rst(-1)
+        , mosi(-1)
+        , sclk(-1)
+        , miso(-1)
+        , bl(-1) {}
 };
 
 struct DisplayProfile {
     char name[DISPLAY_NAME_MAX_LEN];
-    char port[DISPLAY_PORT_MAX_LEN];    // Controller name: "ST7789V", "ILI9488", "SSD1306"
-    char interface_type[8];              // "SPI", "I2C", "PAR"
+
+    DisplayDriver driver;
     uint16_t width;
     uint16_t height;
     uint8_t rotation;
-    bool builtin;                       // true = internal M5 display
+    uint8_t colorDepth;  // 16 or 24
+    bool builtin;
+
+    // SPI bus profile
+    DisplaySpiHost spiHost;
+    uint8_t spiMode;      // 0..3
+    uint32_t freqWrite;
+    uint32_t freqRead;
+    bool spi3Wire;
+    int8_t dmaChannel;    // -1 = auto
+    bool busShared;
+    bool useLock;
+
+    // Initialization policy
+    DisplayInitOrder initOrder;
+    uint16_t initDelayMs;
+
+    // SD arbitration policy
+    bool sharesBusWithSd;
+    bool releaseBeforeSd;
+
     DisplayPins pins;
 
-    bool isValid() const {
-        return (name[0] != '\0' && width > 0 && height > 0);
-    }
+    DisplayProfile();
 
-    String toString() const {
-        String s = name;
-        s += " (";
-        s += port;
-        s += " ";
-        s += String(width) + "x" + String(height);
-        s += ")";
-        return s;
-    }
+    bool isValidBasic() const;
+    String toString() const;
 };
 
 // ============================================================================
@@ -103,28 +119,25 @@ struct DisplayProfile {
 
 class DisplayProfileManager {
 public:
-    // Initialize and load config from SD
     static bool init();
     static bool isInitialized();
 
-    // Profile management
     static uint8_t getProfileCount();
     static const DisplayProfile* getProfile(uint8_t index);
     static const DisplayProfile* getProfileByName(const char* name);
     static const DisplayProfile* getActiveProfile();
     static int8_t getActiveIndex();
-
-    // Selection
-    static bool setActive(uint8_t index);
-    static bool setActiveByName(const char* name);
     static const char* getActiveName();
+    static const char* getLastError();
 
-    // Persistence
+    static bool setActive(uint8_t index, bool persist = true);
+    static bool setActiveByName(const char* name, bool persist = true);
+
     static bool save();
     static bool load();
     static bool createDefault();
+    static bool validate(String* reason = nullptr);
 
-    // Utility
     static String getDisplayListFormatted();
 
 private:
@@ -133,9 +146,18 @@ private:
     static uint8_t _profileCount;
     static int8_t _activeIndex;
     static char _activeName[DISPLAY_NAME_MAX_LEN];
+    static char _lastError[DISPLAY_ERROR_MAX_LEN];
+
+    static void setError(const String& reason);
+    static int8_t findProfileIndexByName(const char* name);
+    static bool loadProfileFromJson(DisplayProfile& p, JsonObjectConst d, bool validateOnly, String* reason);
+    static void saveProfileToJson(const DisplayProfile& p, JsonObject d);
+    static bool validateProfiles(String* reason);
+    static bool validateProfile(const DisplayProfile& p, String* reason);
+    static bool validatePairConflicts(const DisplayProfile& a, const DisplayProfile& b, String* reason);
 
     static void populateInternalProfile(DisplayProfile& p);
     static void populateExternalDefault(DisplayProfile& p);
 };
 
-#endif // DISPLAY_CONFIG_H
+#endif  // DISPLAY_CONFIG_H

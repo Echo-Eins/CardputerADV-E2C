@@ -339,7 +339,7 @@ void MenuItem::renderContent() {
     }
 
     uint16_t textColor = isFocused() ? MenuItemColors::TextFocused :
-                         (isEnabled() ? MenuItemColors::Text : LabelColors::Muted);
+                         (isEnabled() ? MenuItemColors::Text : themeColors().disabled);
 
     int16_t x = abs.x + style().padding.left;
     int16_t y = abs.y + (abs.height - charHeight) / 2;

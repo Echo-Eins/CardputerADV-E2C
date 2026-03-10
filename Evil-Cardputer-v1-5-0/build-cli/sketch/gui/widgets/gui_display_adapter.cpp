@@ -8,6 +8,7 @@
 #include "gui_draw.h"
 #include "../gui_config.h"
 #include "../core/gui_display_lock.h"
+#include "../core/gui_display_target.h"
 #include <M5Unified.h>
 #include <algorithm>
 #include <cmath>
@@ -101,12 +102,12 @@ void DisplayAdapter::queryDisplayInfo() {
     DisplayInfo info = m_displayInfo;
     DisplayLockGuard lockGuard;
     if (lockGuard.locked()) {
-        const int16_t hwWidth = static_cast<int16_t>(M5.Display.width());
-        const int16_t hwHeight = static_cast<int16_t>(M5.Display.height());
+        const int16_t hwWidth = static_cast<int16_t>(runtimeDisplay().width());
+        const int16_t hwHeight = static_cast<int16_t>(runtimeDisplay().height());
         if (hwWidth > 0 && hwHeight > 0) {
             info.width = hwWidth;
             info.height = hwHeight;
-            info.rotation = static_cast<uint8_t>(M5.Display.getRotation() & 0x03);
+            info.rotation = static_cast<uint8_t>(runtimeDisplay().getRotation() & 0x03);
         }
     }
 
@@ -143,13 +144,13 @@ void DisplayAdapter::setRotation(uint8_t rotation) {
     // Apply rotation to hardware first, then read effective dimensions back.
     DisplayLockGuard lockGuard;
     if (lockGuard.locked()) {
-        M5.Display.setRotation(normalized);
-        const int16_t hwWidth = static_cast<int16_t>(M5.Display.width());
-        const int16_t hwHeight = static_cast<int16_t>(M5.Display.height());
+        runtimeDisplay().setRotation(normalized);
+        const int16_t hwWidth = static_cast<int16_t>(runtimeDisplay().width());
+        const int16_t hwHeight = static_cast<int16_t>(runtimeDisplay().height());
         if (hwWidth > 0 && hwHeight > 0) {
             info.width = hwWidth;
             info.height = hwHeight;
-            info.rotation = static_cast<uint8_t>(M5.Display.getRotation() & 0x03);
+            info.rotation = static_cast<uint8_t>(runtimeDisplay().getRotation() & 0x03);
         } else {
             info.rotation = normalized;
         }

@@ -112,6 +112,7 @@ enum SearchKind {
 #include "i2c_manager.h"
 #include "scroll_input.h"
 #include "display_config.h"
+#include "display_runtime.h"
 
 // GUI Framework - Async rendering system
 #include "gui/gui.h"
@@ -322,1165 +323,1163 @@ static const char* ADMIN_USER  = "evil";
 
 // Returns true if the client is authenticated. If not, triggers a 401 challenge and returns false.
 // Also sets conservative security headers for subsequent responses on success.
-#line 323 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 324 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool guardAdmin();
-#line 337 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 338 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String adminPageStart(const String &title);
-#line 386 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 387 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String adminPageEnd();
-#line 390 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 391 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String wrapAdminPage(const String &title, const String &content);
-#line 398 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 399 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String htmlEscape(const String &in);
-#line 415 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 416 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String jsonEscape(const String &in);
-#line 608 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 609 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void ensureKarmaStorage();
-#line 829 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 830 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setup();
-#line 1567 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1572 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void firstScanWifiNetworks();
-#line 1605 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1610 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int getConnectedPeopleCount();
-#line 1611 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1616 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int getCapturedPasswordsCount();
-#line 1628 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1633 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void initTaskBarSprite();
-#line 1635 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1640 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void drawTaskBar();
-#line 1735 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1740 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void hopKarmaChannel();
-#line 1741 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1746 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void loop();
-#line 1841 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1846 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void drawMenu();
-#line 1878 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1883 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void executeMenuItem(int index);
-#line 1976 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1981 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void enterDebounce();
-#line 1984 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1989 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void backDebounce();
-#line 1991 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 1996 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleMenuInput();
-#line 2251 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2256 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void hexToString(const uint8_t* data, size_t length, char* output);
-#line 2258 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2263 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void doTheThing();
-#line 2283 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2288 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleDnsRequestSerial();
-#line 2289 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2294 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void listProbesSerial();
-#line 2309 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2314 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void selectProbeSerial(int index);
-#line 2341 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2346 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void checkSerialCommands();
-#line 2489 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2494 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getMonitoringStatus();
-#line 2513 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2518 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void checkCredentialsSerial();
-#line 2536 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2541 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void changePortal(int index);
-#line 2557 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2562 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void selectNetwork(int index);
-#line 2566 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2571 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void scanWifiNetworks();
-#line 2599 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2604 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showWifiList();
-#line 2808 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2813 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showWifiDetails(int networkIndex);
-#line 2904 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2909 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getWifiSecurity(int networkIndex);
-#line 2923 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2928 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String bssidToString(uint8_t* bssid);
-#line 2930 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2935 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void cloneSSIDForCaptivePortal(String ssid);
-#line 2947 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2952 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void logCookiesToSD(String cookies, String domain);
-#line 2961 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 2966 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleCookieSiphoning();
-#line 3019 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3024 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleLogRequest();
-#line 3058 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3063 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void servePortalFileWithReplace(const String &path, const String &replaceIP);
-#line 3088 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3093 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void createCaptivePortal();
-#line 3856 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3861 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static void le16(std::vector<uint8_t>& v, uint16_t x);
-#line 3857 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
-static void le32(std::vector<uint8_t>& v, uint32_t x);
-#line 3858 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
-static void push8(std::vector<uint8_t>& v, uint8_t x);
 #line 3862 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+static void le32(std::vector<uint8_t>& v, uint32_t x);
+#line 3863 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+static void push8(std::vector<uint8_t>& v, uint8_t x);
+#line 3867 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int detectNtlmMessageType(const String &b64);
-#line 3882 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3887 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveHashcatFormat(const std::vector<uint8_t>& buf, const IPAddress &clientIP);
-#line 3939 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3944 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void pushUTF16LE(std::vector<uint8_t>& v, const char* ascii);
-#line 3943 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 3948 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void avPair(std::vector<uint8_t>& ti, uint16_t type, const char* ascii);
-#line 4055 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4060 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void sendInitial407(WiFiClient &client);
-#line 4067 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4072 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void sendType2_407(WiFiClient &client, const String& type2b64);
-#line 4081 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4086 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleNTLMClient(WiFiClient &client);
-#line 4211 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4216 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static uint16_t rgb565(uint8_t r,uint8_t g,uint8_t b);
-#line 4215 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4220 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void hsv2rgb(uint16_t H, uint8_t S, uint8_t V, uint8_t &r, uint8_t &g, uint8_t &b);
-#line 4236 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
-uint16_t hsv565(uint16_t h, uint8_t s, uint8_t v);
 #line 4241 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+uint16_t hsv565(uint16_t h, uint8_t s, uint8_t v);
+#line 4246 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 float easeInOutSine(float x);
-#line 4247 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4252 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showWaitingAnimationNTLM();
-#line 4377 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4382 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void updateHashUiNTLM();
-#line 4433 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4438 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void wpadAbuse();
-#line 4533 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4538 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleSaveFileUpload();
-#line 4583 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4588 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleSdCardBrowse();
-#line 4628 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4633 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static String humanReadableSize(uint64_t bytes);
-#line 4645 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4650 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getDirectoryHtml(File dir, String path);
-#line 4695 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4700 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleFileDownload();
-#line 4715 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4720 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleDownloadAllFiles();
-#line 4760 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4765 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleFileUpload();
-#line 4821 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4826 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void listDirsRecursive(const String &basePath, String &out);
-#line 4854 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4859 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleListDirectories();
-#line 4868 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4873 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void listDirectories(File dir, String path, String & output);
-#line 4879 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4884 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleFileDelete();
-#line 4906 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4911 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void servePortalFile(const String & filename);
-#line 4920 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4925 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveCredentials(const String & email, const String & password, const String & portalName, const String & clonedSSID);
-#line 4952 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4957 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void stopCaptivePortal();
-#line 4977 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 4982 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void listPortalFiles();
-#line 5005 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5010 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void changePortal();
-#line 5089 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5094 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void readCredentialsFromFile();
-#line 5103 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5108 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void checkCredentials();
-#line 5148 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5153 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayCredentials(int index);
-#line 5202 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5207 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void okPopup(String message);
-#line 5229 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5234 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool confirmPopup(String message);
-#line 5275 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5280 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void deleteCredentials();
-#line 5298 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5303 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int countPasswordsInFile();
-#line 5328 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5333 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayMonitorPage1();
-#line 5416 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
-static bool containsMac(const String arr[], int n, const String &mac);
 #line 5421 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+static bool containsMac(const String arr[], int n, const String &mac);
+#line 5426 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static void copyMacList(const String src[], int n, String dst[]);
-#line 5425 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5430 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 static void logDiffsAndMakeTicker(const String before[], int nBefore, const String after[], int nAfter, String &tickerMsg, unsigned long &tickerUntilMs);
-#line 5448 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5453 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void updateConnectedMACs();
-#line 5466 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5471 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayMonitorPage2();
-#line 5627 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5632 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayMonitorPage3();
-#line 5717 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5722 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void probeSniffing();
-#line 5755 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5760 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void karmaAttack();
-#line 5759 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5764 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void waitAndReturnToMenu(String message);
-#line 5924 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 5929 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showWifiPasswordsMenu();
-#line 6053 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6058 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void toggleI2C();
-#line 6082 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6087 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showI2CDevices();
-#line 6143 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6148 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showDisplaySelection();
-#line 6184 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6199 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void showSettingsMenu();
-#line 6222 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6237 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setCPUFrequency();
-#line 6284 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6299 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setGPSBaudrate();
-#line 6348 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6363 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveGPSBaudrateConfig(int baudrate);
-#line 6428 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6443 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveStartupSoundConfig(const String& paramValue);
-#line 6462 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6477 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void loadStartupSoundConfig();
-#line 6475 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6490 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setStartupSound();
-#line 6577 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6592 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveStartupImageConfig(const String& paramValue);
-#line 6612 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6627 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void loadStartupImageConfig();
-#line 6626 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6641 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void toggleRandom();
-#line 6672 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6687 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getRandomImage();
-#line 6682 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6697 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getRandomSound();
-#line 6696 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6711 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setStartupImage();
-#line 6818 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6833 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void toggleSound();
-#line 6826 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6841 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void toggleLED();
-#line 6835 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6850 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void brightness();
-#line 6895 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6910 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void adjustVolume();
-#line 6954 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6969 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void generateDefaultNick();
-#line 6961 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6976 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void applyGpsPinsForMode(int mode);
-#line 6970 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 6985 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void toggleGpsPinsMode();
-#line 6991 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7006 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveCurrentPortalAndSSID();
-#line 7008 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7023 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 IPAddress getSelectedPortalIP();
-#line 7013 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7028 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setCaptivePortalIP();
-#line 7071 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7086 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void restoreConfigParameter(String key);
-#line 7347 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7362 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int getColorValue(const char* colorName);
-#line 7375 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7390 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void restoreThemeParameters();
-#line 7458 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7473 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void packetSnifferKarma(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 7518 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7533 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveSSIDToFile(const char* ssid);
-#line 7543 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7558 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void updateDisplayWithSSIDKarma(const char* ssidKarma, int count);
-#line 7590 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7605 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void drawStartButtonKarma();
-#line 7599 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7614 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void drawStopButtonKarma();
-#line 7606 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7621 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void startScanKarma();
-#line 7631 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7646 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void stopScanKarma();
-#line 7690 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7705 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void handleMenuInputKarma();
-#line 7736 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7751 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void drawMenuKarma();
-#line 7761 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7776 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void executeMenuItemKarma(int indexKarma);
-#line 7773 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7788 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void startAPWithSSIDKarma(const char* ssid);
-#line 7866 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7881 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void listProbes();
-#line 7961 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 7976 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void deleteProbe();
-#line 8058 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8073 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int showProbesAndSelect(String probes[], int numProbes);
-#line 8120 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8135 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool removeProbeFromFile(const char* filepath, const String & probeToRemove);
-#line 8163 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8178 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void deleteAllProbes();
-#line 8194 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8209 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveOriginalMAC();
-#line 8198 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8213 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void restoreOriginalMAC();
-#line 8202 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8217 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String generateRandomSSID(int length);
-#line 8212 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8227 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String generateRandomMAC();
-#line 8222 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8237 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setRandomMAC_STA();
-#line 8260 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8275 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void sendProbeRequest(const char* ssid);
-#line 8297 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8312 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void probeAttack();
-#line 8393 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8408 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setNextWiFiChannel();
-#line 8403 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8418 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void restoreOriginalWiFiSettings();
-#line 8428 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8443 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void startAutoKarma();
-#line 8453 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8468 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void autoKarmaPacketSniffer(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 8478 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8493 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool readConfigFile(const char* filename);
-#line 8507 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8522 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool isSSIDWhitelisted(const char* ssid);
-#line 8527 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8542 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void saveOriginalMACKarma();
-#line 8531 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8546 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void restoreOriginalMACKarma();
-#line 8535 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8550 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String generateRandomMACKarma();
-#line 8548 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8563 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setRandomMAC_APKarma();
-#line 8581 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8596 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getMACAddress();
-#line 8590 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8605 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void loopAutoKarma();
-#line 8638 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8653 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void activateAPForAutoKarma(const char* ssid);
-#line 8732 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8747 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayWaitingForProbe();
-#line 8767 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8782 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayAPStatus(const char* ssid, unsigned long startTime, int autoKarmaAPDuration);
-#line 8816 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8831 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String createPreHeader();
-#line 8828 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8843 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String createHeader();
-#line 8837 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 8852 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void wardrivingMode();
-#line 9000 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9015 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String getCapabilities(wifi_auth_mode_t encryptionType);
-#line 9012 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9027 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String formatTimeFromGPS();
-#line 9024 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9039 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void createKarmaList(int maxIndex);
-#line 9073 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9088 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool isNetworkOpen(const String & line);
-#line 9080 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9095 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 String extractSSID(const String & line);
-#line 9087 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9102 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 int nthIndexOf(const String & str, char toFind, int nth);
-#line 9103 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9118 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void karmaSpear();
-#line 9215 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9230 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void nextChannel();
-#line 9223 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9238 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void generateRandomWiFiMac(uint8_t *mac);
-#line 9229 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9244 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 char * randomSSID();
-#line 9239 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9254 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setSSID(const char* ssid, uint8_t len);
-#line 9246 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9261 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void prepareBeacon(const char* ssid, uint8_t len, const uint8_t* mac);
-#line 9267 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9282 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void beaconSpamList(const char* list, size_t listSize);
-#line 9305 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9320 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void beaconAttack();
-#line 9354 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9369 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setWifiSSID();
-#line 9415 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9430 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setWifiPassword();
-#line 9479 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9494 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setMacAddress();
-#line 9544 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
-bool isValidMacAddress(String mac);
 #line 9559 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+bool isValidMacAddress(String mac);
+#line 9574 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void setDeviceMacAddress(String mac);
-#line 9617 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9632 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void snifferCallback(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 9764 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9779 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void displayPwnagotchiDetails(const String& name, const String& pwndnb);
-#line 9776 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9791 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void printAddress(const uint8_t* addr);
-#line 9784 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9799 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void printAddressLCD(const uint8_t* addr);
-#line 9796 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9811 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void deauthDetect();
-#line 9903 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9918 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool estUnPaquetEAPOL(const wifi_promiscuous_pkt_t* packet);
-#line 9955 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9970 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void ecrireEntetePCAP(File &file);
-#line 9969 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 9984 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 void enregistrerDansFichierPCAP(const wifi_promiscuous_pkt_t* packet, bool beacon);
-#line 10056 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3);
-#line 10065 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10082 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void updateMacAddresses(const uint8_t* bssid);
-#line 10076 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10093 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void deauthAttack(int networkIndex);
-#line 10216 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10233 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDeauthPacket();
-#line 10222 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10239 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void snifferCallbackDeauth(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 10294 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10311 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool macFromString(const std::string& macStr, uint8_t* macArray);
-#line 10308 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10325 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void broadcastDeauthAttack(const uint8_t* ap_mac, int channel);
-#line 10339 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10356 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDeauthToClient(const uint8_t* client_mac, const uint8_t* ap_mac, int channel);
-#line 10370 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10387 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendBroadcastDeauths();
-#line 10418 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10435 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" std::string mac_to_string(const uint8_t* mac);
-#line 10424 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10441 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void changeChannel();
-#line 10470 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10487 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void wifi_scan();
-#line 10524 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10541 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isRegularAP(const std::string& mac);
-#line 10528 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10545 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void print_connections();
-#line 10571 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10588 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void promiscuous_callback(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 10659 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10676 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void purgeAllAPData();
-#line 10666 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10683 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void deauthClients();
-#line 10850 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10867 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String macToString(const uint8_t* m);
-#line 10854 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10871 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String makeFullPath(const String& n);
-#line 10860 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10877 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool handlePcapSliding(const String& path, bool& hasBeacon, bool& has4Way, bool& hasPMKID, String& apMac, String& staMac);
-#line 10975 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 10992 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showPcapInfo(int index);
-#line 11005 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11022 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void viewPcapDetails();
-#line 11046 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11063 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void analyzeAllPcaps();
-#line 11080 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11097 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void loadPcapFiles();
-#line 11090 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11107 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayPcapList();
-#line 11103 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11120 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void navigatePcapList(bool next);
-#line 11112 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11129 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void checkHandshakes();
-#line 11162 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11179 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool connectToWiFi(const String& ssid, const String& password);
-#line 11205 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11222 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String inputWifiPassword(const String& ssidName);
-#line 11257 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11274 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void connectWifi(int networkIndex);
-#line 11360 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void testConnectivity(const char *host);
 #line 11377 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void testConnectivity(const char *host);
+#line 11394 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" ssh_session connect_ssh(const char *host, const char *user, int port);
-#line 11400 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11417 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int authenticate_console(ssh_session session, const char *password);
-#line 11412 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11429 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sshConnectTask(void *pvParameters);
-#line 11503 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11520 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void parseUserHostPort(const String &input, String &user, String &host, int &port);
-#line 11515 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11532 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sshConnect(const char *host);
-#line 11594 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11611 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" std::string StringToStdString(const String &input);
-#line 11599 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11616 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String StdStringToString(const std::string &input);
-#line 11604 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11621 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String removeANSIEscapeCodes(const String &input);
-#line 11623 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11640 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String trimString(const String &str);
-#line 11637 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11654 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sshTask(void *pvParameters);
-#line 11855 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11872 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanIpPort();
-#line 11912 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11929 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayUrls();
-#line 11933 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11950 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void addUrl(const String &url);
-#line 11940 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11957 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scrollUp();
-#line 11941 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11958 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scrollDown();
-#line 11946 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11963 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isDigitCharCrawl(char c);
-#line 11948 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 11965 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool parseUrlCrawl(const String &inputRaw, UrlPartsCrawl &out);
-#line 11989 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12006 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String buildUrlCrawl(const UrlPartsCrawl &u);
-#line 11999 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12016 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String resolveRedirectCrawl(const UrlPartsCrawl &base, const String &locationRaw);
-#line 12032 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12049 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void setupHttpClientCrawl(HTTPClient &http, WiFiClient &client, WiFiClientSecure &sclient, const UrlPartsCrawl &u);
-#line 12046 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12063 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool httpGetWithRedirectsCrawl(UrlPartsCrawl &url, int &lastCode);
-#line 12091 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12108 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void webCrawling(const String &urlOrIp);
-#line 12234 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12251 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void logARPResult(IPAddress host, bool responded);
-#line 12245 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12262 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool arpRequest(IPAddress host);
-#line 12259 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12276 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanHosts();
-#line 12264 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12281 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void local_scan_setup();
-#line 12374 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12391 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayHostOptions(const std::vector<IPAddress>& hostslist);
-#line 12441 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12458 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void afterScanOptions(IPAddress ip, const std::vector<IPAddress>& hostslist);
-#line 12519 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12536 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanPorts(IPAddress host);
-#line 12597 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12614 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String generate_random_identity();
-#line 12606 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12623 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void send_pwnagotchi_beacon(uint8_t channel, const char* face, const char* name);
-#line 12665 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12682 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void beacon_task(void* pvParameters);
-#line 12799 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12816 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void send_pwnagotchi_beacon_main();
-#line 12904 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 12921 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void skimmerDetection();
-#line 12987 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13004 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void key_input(FS &fs, const String &bad_script);
-#line 13151 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13168 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void chooseKb(const uint8_t *layout);
-#line 13161 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13178 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showKeyboardLayoutOptions();
-#line 13186 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13203 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showScriptOptions();
-#line 13214 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void runScript(const String &scriptName);
 #line 13231 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void runScript(const String &scriptName);
+#line 13248 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void badUSB();
-#line 13295 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13312 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ensureBoardStorage();
-#line 13318 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13335 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void OnDataRecv(const esp_now_recv_info_t* recvInfo, const uint8_t* incomingData, int len);
-#line 13366 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13383 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void updateFileName();
-#line 13380 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13397 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void printHeader();
-#line 13395 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13412 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayGeneralInfo();
-#line 13477 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13494 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayReceivedData();
-#line 13540 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13557 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void loopwardrivingmaster();
-#line 13586 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13603 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void smartDelay(unsigned long ms);
-#line 13597 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13614 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void stopEspNow();
-#line 13605 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13622 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startWardivingMaster();
-#line 13676 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13693 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool qFull();
-#line 13677 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13694 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool qEmpty();
-#line 13679 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13696 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void qPush(const uint8_t* d, uint8_t l);
-#line 13686 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13703 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool qPop(uint8_t* dst, uint8_t* l);
-#line 13700 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13717 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" const char * tmpFile(uint8_t idx);
-#line 13702 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void makeDirs();
-#line 13709 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void openPCAP();
 #line 13719 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void makeDirs();
+#line 13726 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void openPCAP();
+#line 13736 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void addFrameToPCAP(const char* p,uint32_t len);
-#line 13739 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13756 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void extractSSIDFromFrame(const char* path);
-#line 13762 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13779 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleFragment(const uint8_t* d, uint8_t len);
-#line 13800 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13817 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayStatus();
-#line 13856 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13873 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sniffMaster();
-#line 13901 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 13921 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void wifiVisualizer();
-#line 14078 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14098 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void writePCAPHeader_snifferAll(File &file);
-#line 14093 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14113 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void recordPacketToPCAPFile_snifferAll(const wifi_promiscuous_pkt_t* packet);
-#line 14155 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14175 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void allTrafficCallback_snifferAll(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 14160 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14180 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void findNextAvailableFileID();
-#line 14179 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14199 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void allTrafficSniffer();
-#line 14306 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14326 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void recordPacketToPCAPFile_MITM(const wifi_promiscuous_pkt_t* packet);
-#line 14372 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14392 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void findNextAvailableFileIDClient();
-#line 14390 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14410 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void TrafficMITMCallback(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 14395 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14415 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sniffNetwork();
-#line 14492 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14512 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int getNextFileIndex();
-#line 14515 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14535 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void logScanResult(String result);
-#line 14531 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14551 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void FullNetworkAnalysis(bool isWebCommand);
-#line 14611 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14631 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool connectWithTimeout(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms);
-#line 14659 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14679 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayHostsAndScanPorts(const std::vector<IPAddress>& hostslist, int scanIndex, bool isWebCommand);
-#line 14818 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14838 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayResults(int displayStart, int maxLines, const std::vector<String>& scanResults);
-#line 14831 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14851 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool handleScrolling(int& displayStart, int maxLines, int totalLines);
-#line 14844 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14864 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fetchWebsites(const std::vector<IPAddress>& hostslist, const std::map<IPAddress, std::vector<int>>& openPorts, int scanIndex);
-#line 14899 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14919 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isLikelyWebPort(int port);
-#line 14906 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14926 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String getHttpContentWithRedirect(String url);
-#line 14923 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 14943 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void saveWebsiteContent(String folderPath, String identifier, String content);
-#line 14981 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15001 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayFileList(const std::vector<String>& files);
-#line 15038 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15058 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void viewFileContent(String filePath);
-#line 15097 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15117 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ListNetworkAnalysis();
-#line 15118 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15138 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isBackspacePressed();
-#line 15127 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15147 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void reverseTCPTunnel();
-#line 15218 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15238 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleDataTransfer(WiFiClient &client);
-#line 15389 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15409 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void initClients();
-#line 15497 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15517 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint8_t getDHCPMessageType(uint8_t *packetRogue, int packetSizeRogue);
-#line 15518 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15538 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void parseDHCPOptions(uint8_t *packetRogue, int packetSizeRogue, IPAddress &requestedIP, IPAddress &serverID);
-#line 15543 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15563 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void prepareDHCPResponse(uint8_t *packetRogue, int &packetSizeRogue, uint8_t messageTypeRogue, uint8_t &offeredIpSuffix);
-#line 15713 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15733 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDHCPResponse(uint8_t *packetRogue, int packetSizeRogue, bool isAck, uint8_t offeredIpSuffix);
-#line 15722 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15742 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint8_t allocateIpAddress(uint8_t *clientMac);
-#line 15749 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15769 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void updateDisplay(const char* message);
-#line 15783 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15803 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint32_t calculateTotalIPs(IPAddress subnetMask);
-#line 15820 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15840 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void saveCurrentNetworkConfig();
-#line 15850 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15870 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void disconnectWiFi();
-#line 15862 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void configureStaticIP();
 #line 15882 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void configureStaticIP();
+#line 15902 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void reconnectWiFi(int networkIndex);
-#line 15913 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 15933 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void detectDHCPServer();
-#line 16000 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16020 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawDHCPProgress(int pct, int disc, int offer, int req, int ack, int nak, const IPAddress& lastIP);
-#line 16015 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16035 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startDHCPStarvation();
-#line 16148 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16168 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void generateRandomMAC(uint8_t *mac, uint16_t iteration);
-#line 16163 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16183 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDHCPDiscover(uint8_t *mac);
-#line 16267 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16287 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDHCPRequest(uint8_t *mac, IPAddress offeredIP, IPAddress dhcpServerIP);
-#line 16378 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16398 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void completeDHCPTransaction(uint8_t *mac);
-#line 16437 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16457 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint8_t parseDHCPMessageType(uint8_t *packet, int packetSize);
-#line 16454 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16474 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void switchDNS();
-#line 16475 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16495 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void rogueDHCPAuto();
-#line 16535 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16555 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showDHCPExplainStep(const char* text);
-#line 16544 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16564 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void DHCPAttackAuto();
-#line 16621 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16641 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool validateBaseIP(const String& baseIP);
-#line 16630 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16650 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String getNetworkBase();
-#line 16664 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16684 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void detectPrinter();
-#line 16728 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16748 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void printFile();
-#line 16866 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16886 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int encodeOID(const char* oidStr, uint8_t* outBuffer, size_t outSize);
-#line 16896 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 16916 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool parseSNMPResponse(const uint8_t* buffer, size_t bufferLen, String &outValue);
-#line 17032 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17052 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool sendSNMPRequest(IPAddress printerIP, const char* oid, String& response);
-#line 17140 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17160 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void checkPrinterStatus();
-#line 17305 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17325 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startHoneypot();
-#line 17328 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17348 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void honeypotLoop();
-#line 17342 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17362 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void logHoneypotCommand(String clientIP, String command);
-#line 17387 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17407 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void redrawScreenWithLogs();
-#line 17405 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17425 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleHoneypotClient(WiFiClient client);
-#line 17971 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 17991 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String readLine(WiFiClient &client, bool echo);
-#line 18017 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18037 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int32_t handleUsbWrite(uint32_t logicalBlockAddr, uint32_t dataOffset, uint8_t* dataBuffer, uint32_t bufferSize);
-#line 18036 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18056 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int32_t handleUsbRead(uint32_t logicalBlockAddr, uint32_t dataOffset, void* dataBuffer, uint32_t bufferSize);
-#line 18049 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18069 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool manageUsbPower(uint8_t powerState, bool start, bool loadEject);
-#line 18054 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void initializeUsbCallbacks();
 #line 18074 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void initializeUsbCallbacks();
+#line 18095 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sdToUsb();
-#line 18138 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18160 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void save_mac(unsigned char* mac);
-#line 18151 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18173 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" boolean seen_mac(unsigned char* mac);
-#line 18163 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18185 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" boolean mac_cmp(struct mac_addr addr1, struct mac_addr addr2);
-#line 18172 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18194 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void clear_mac_history();
-#line 18183 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18205 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendDeauthPacketAuto(uint8_t *apMac, uint8_t channel);
-#line 18207 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" String security_int_to_string(int security_type);
 #line 18229 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" String security_int_to_string(int security_type);
+#line 18251 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isBeacon(const wifi_promiscuous_pkt_t* packet);
-#line 18248 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18270 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void captureAssociatedBeacon(uint8_t *bssidTarget);
-#line 18279 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18301 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void displayAPInfo(String ssid, String bssid, String security, int32_t rssi, int32_t channel);
-#line 18293 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18315 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void extractBSSID(const uint8_t* payload, uint16_t frameControl, uint8_t* bssid);
-#line 18319 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18341 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapolSnifferAutoCallback(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 18358 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18380 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void autoDeauther();
-#line 18497 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18519 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void runMouseJiggler();
-#line 18602 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18624 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startEvilTwin(int index);
-#line 18732 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18754 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void simpleHash(const char* s, char* outHash);
-#line 18739 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18761 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint16_t crc16(const uint8_t* data, size_t len);
-#line 18750 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18772 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool hasSeenId(const char* id);
-#line 18756 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18778 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void rememberId(const char* id);
-#line 18764 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18786 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void addMessage(const char* m);
-#line 18824 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18846 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleCommand(const char* in);
-#line 18861 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18883 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void broadcastChatMessage(const char* from, const char* body);
-#line 18923 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18945 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void checkPresenceTimeouts();
-#line 18938 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18960 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleKeyboard();
-#line 18974 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 18996 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void EvilChatMesh();
-#line 19096 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19118 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void encodeNetBIOSName(const char* name, uint8_t out[32]);
-#line 19117 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19139 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" IPAddress getIPAddress();
-#line 19135 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19157 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint64_t getWindowsTimestamp();
-#line 19147 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19169 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void buildNTLMType2Msg(uint8_t *challenge, uint8_t *buffer, uint16_t *len);
-#line 19220 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19242 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String readUTF16(uint8_t* pkt, uint32_t offset, uint16_t len);
-#line 19228 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19250 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void extractAndPrintHash(uint8_t* pkt, uint32_t smbLength, uint8_t* ntlm);
-#line 19306 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19328 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void terminateSMB1();
-#line 19325 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19347 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendSMB1NegotiateResponse(uint8_t* req);
-#line 19375 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19397 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendSMB1Type2(uint8_t* req, uint8_t* ntlm1);
-#line 19420 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19442 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void handleSMB1(uint8_t* pkt, uint32_t len);
-#line 19469 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19491 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendSMB2NegotiateFromSMB1();
-#line 19523 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19545 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void addDetectionPoint();
-#line 19543 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19565 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showWaitingAnimation();
-#line 19615 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19637 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showActiveAnimation();
-#line 19670 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19692 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void updateHashUI();
-#line 19712 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19734 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void decodeNetBIOSLabel(const uint8_t* enc32, char* out, size_t outSize);
-#line 19748 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 19770 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void responder();
-#line 20190 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20212 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void previewTextFile(const char *path);
-#line 20320 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20342 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fileManager();
-#line 20492 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20514 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanFileManager(const char *path);
-#line 20569 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20591 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void markDirty();
-#line 20572 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20594 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void flushDisplayIfNeeded();
-#line 20582 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20604 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drainUART();
-#line 20598 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20620 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void renderScreen();
-#line 20625 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20647 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fastPrintNoFlush(const String& s);
-#line 20638 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20660 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fastPrint(const String& s);
-#line 20644 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20666 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void pushChar(uint8_t c);
-#line 20681 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20703 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawBaudMenu(int idx);
-#line 20699 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20721 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int selectBaudMenu();
-#line 20719 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20741 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int detectBaud();
-#line 20770 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20792 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startUARTShell();
-#line 20946 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20968 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isHttpsPort(uint16_t p);
-#line 20954 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20976 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" const char * protoFromPort(uint16_t p);
-#line 20959 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 20981 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void httpBeginAuto(HTTPClient& http, WiFiClient& cli, WiFiClientSecure& tls, const String& fullUrl);
-#line 21164 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21186 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void trimStringCCTV(String &s);
-#line 21188 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21210 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int uiMaxLines();
-#line 21190 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21212 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiPrintAt(int16_t x, int16_t y, const String& s, uint16_t color);
-#line 21196 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21218 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiDrawHeader();
-#line 21204 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21226 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiDrawContent();
-#line 21220 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21242 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiBeginHost(const IPAddress& ip);
-#line 21228 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21250 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiPhase(const String& phase);
-#line 21233 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21255 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiReportOnly(const String& line);
-#line 21245 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21267 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiEndHostAndSave();
-#line 21262 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21284 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int countCVEsForBrand(const String& brand);
-#line 21273 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21295 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int chooseScanModeMenu();
-#line 21328 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21350 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool promptIPv4(IPAddress& out);
-#line 21348 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21370 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool headerContainsAny(const String& hdr, const char * const * keys, size_t n);
-#line 21358 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21380 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool httpRequest(IPAddress ip, uint16_t port, const char* path, String& respHdr, String& first512);
-#line 21384 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21406 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void local_scan_CCTV();
-#line 21477 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21499 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void appendMjpegToLiveList(const IPAddress& ip, uint16_t port, const char* path);
-#line 21498 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21520 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void findLoginPages(IPAddress ip, const std::vector<uint16_t>& ports);
-#line 21545 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21567 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void lookupCVEs(const String& brand);
-#line 21556 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21578 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void printCveLinks(const String& brand);
-#line 21577 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21599 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void testDefaultCreds(IPAddress ip, const std::vector<uint16_t>& ports);
-#line 21708 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21730 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool fingerprintHikvision(IPAddress ip, uint16_t p);
-#line 21743 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21765 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool fingerprintDahua(IPAddress ip, uint16_t p);
-#line 21755 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21777 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool fingerprintAxis(IPAddress ip, uint16_t p);
-#line 21792 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" bool fingerprintCPPlus(IPAddress ip, uint16_t p);
 #line 21814 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" bool fingerprintCPPlus(IPAddress ip, uint16_t p);
+#line 21836 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool fingerprintGeneric(IPAddress ip, uint16_t p);
-#line 21856 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21878 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fingerprintCamera(IPAddress ip, const std::vector<uint16_t>& ports, const String& brand);
-#line 21929 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21951 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool rtspDescribe(IPAddress ip, uint16_t port, const char* path, int& codeOut, bool& sdpOut);
-#line 21974 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 21996 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String normalizeRtspBrandFromServer(const String& srvRaw);
-#line 21990 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22012 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isCamera(IPAddress ip, const std::vector<uint16_t>& ports, String& brandOut);
-#line 22130 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" bool isHttpLikePort(uint16_t p);
 #line 22152 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" bool isHttpLikePort(uint16_t p);
+#line 22174 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String makeRandomInvalidRtspPath();
-#line 22160 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22182 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool fileContainsToken(const char* path, const String& token);
-#line 22172 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22194 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ensureCCTVDir();
-#line 22187 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22209 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void detectStreams(IPAddress ip, const std::vector<uint16_t>& ports);
-#line 22475 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22497 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void showIpInfo(const String& publicIp);
-#line 22502 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22524 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void processCCTVHost(const IPAddress& ip);
-#line 22549 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void scanCCTVCamerasLocal();
 #line 22571 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void scanCCTVCamerasLocal();
+#line 22593 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanCCTVCamerasSingleIP();
-#line 22591 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22613 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool loadIPsFromSD(const char* path, std::vector<IPAddress>& out);
-#line 22620 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22642 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanCCTVCamerasFromFile();
-#line 22712 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22734 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void uiPrintf(int x, int y, uint32_t fg, const char* fmt, ...);
-#line 22721 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22743 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int readLineCCTV(WiFiClient& c, char* buf, size_t maxlen);
-#line 22731 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22753 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" size_t readN(WiFiClient& c, uint8_t* dst, size_t n, uint32_t deadline_ms);
-#line 22754 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" bool parseUrl(const String& url, UrlParts& o);
 #line 22776 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" bool parseUrl(const String& url, UrlParts& o);
+#line 22798 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String extractBoundaryCI(const String& contentTypeRaw);
-#line 22801 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22823 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool getJpegSize(fs::FS& fs, const char* path, int& outW, int& outH);
-#line 22844 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22866 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ensureSpriteSize(int w, int h);
-#line 22852 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22874 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawTopBar(const String& left, float fps);
-#line 22865 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22887 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawScaledJpg(fs::FS& fs, const char* filepath);
-#line 22919 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22941 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String trimBoth(const String& s);
-#line 22922 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22944 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isCommentOrEmpty(const String& s);
-#line 22928 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22950 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String guessNameFromUrl(const String& url);
-#line 22933 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22955 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int streamCount();
-#line 22937 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 22959 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool loadStreamsFromFile(fs::FS& fs, const char* path);
-#line 22987 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23009 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void loadFallbackStreams();
-#line 22994 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23016 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String buildUrl(const StreamItem& s, const char* res, int comp);
-#line 23012 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23034 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void menuDrawStatic();
-#line 23018 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23040 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void menuDrawFields(int streamIdx, int resIdx, int comp);
-#line 23027 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23049 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool runMenu();
-#line 23100 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23122 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool mjpegViewerFS(const char* url, fs::FS& fs, const char* pathA, const char* pathB);
-#line 23495 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23517 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void runCCTV_MJPEGViewer();
-#line 23673 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23695 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void pgmReadString(const char* p, char* out, size_t outLen);
-#line 23677 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23699 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool pgmStringStartsWith(const char* p, const char* up);
-#line 23682 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23704 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void toUpperTrim(char* s);
-#line 23688 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23710 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void bssidToStrHC(const uint8_t* b, char* out, size_t outLen);
-#line 23691 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23713 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ouiFromBssidHC(const char* bssid, char* oui, size_t outLen);
-#line 23694 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23716 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool looksLikeFdigits(const char* up);
-#line 23701 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23723 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool looksLikeA9Style(const char* up);
-#line 23715 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23737 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" const char * authToTextHC(wifi_auth_mode_t m);
-#line 23727 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23749 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawSpycamScreenHC(const char* text, bool alert);
-#line 23744 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23766 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isSpyBySSIDHC(const char* ssid, char* reasonOut, size_t reasonLen);
-#line 23767 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23789 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool isSpyByOUIHC(const char* oui, char* reasonOut, size_t reasonLen);
-#line 23784 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23806 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanCCTV_SpyDectection();
-#line 23867 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23889 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void scanCCTVCameras();
-#line 23960 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 23982 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawNTLMInitUser(const String &user);
-#line 23980 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24002 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawNTLMTries(uint32_t tried);
-#line 24009 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24031 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ensureFilesExist();
-#line 24046 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24068 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawProgressBar(uint32_t current, uint32_t total);
-#line 24062 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24084 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawHashrate(uint32_t hps);
-#line 24077 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24099 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void crackNTLMv2();
-#line 24284 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24306 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint64_t fnv1a64_init();
-#line 24285 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24307 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint64_t fnv1a64_update(uint64_t h, const char* data, size_t len);
-#line 24346 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24368 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawResultUI(bool ok, const CleanStats& st);
-#line 24371 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24393 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool cleanDuplicatesUserDomain_UI(const char *filePath, CleanStats &stats);
-#line 24487 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24509 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void CleanNTLMHashes();
-#line 24606 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24628 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool clockIsValid();
-#line 24611 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24633 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void makeUuidV4(char out[37]);
-#line 24622 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24644 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void trimInPlace(char* s);
-#line 24629 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24651 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void loadDeviceNames();
-#line 24669 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24691 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void getFriendlyName(int idx, char* out, size_t outsz);
-#line 24686 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24708 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void registerScpdRoutesOnce();
-#line 24742 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24764 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" SearchKind classifyST(const String& st, String &normalized);
-#line 24773 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24795 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String shortType(const char* full);
-#line 24783 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24805 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void selectTypesUI();
-#line 24847 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24869 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void prepareDevices();
-#line 24860 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24882 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void updateFakeSSDPUI();
-#line 24899 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 24921 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void fakeSSDP();
-#line 25135 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25157 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void drawSkyjackStatus(const char* msg);
-#line 25155 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25177 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void buildDeauthPacket(uint8_t *packet, const String& bssid);
-#line 25174 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25196 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void sendATCommandToDrone(WiFiClient& client, const String& command);
-#line 25180 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25202 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void skyjackDroneMode();
-#line 25360 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25382 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String ddUrlEncode(const String& in);
-#line 25375 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25397 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String ddHtmlEscape(const String& in);
-#line 25388 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25410 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String ddMimeFromExt(const String& name);
-#line 25406 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25428 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String ddSafeName(const String& in);
-#line 25416 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" int ddCountFiles();
 #line 25438 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" int ddCountFiles();
+#line 25460 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddDrawHeader(const char* title);
-#line 25446 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25468 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddDrawTextLine(int x, int y, const char* label, const char* value);
-#line 25454 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25476 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddDrawTileFrame(int x, int y, int w, int h, const char* caption);
-#line 25489 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25511 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddDashboardInit(const char* ssid, const String& ip);
-#line 25515 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void ddDrawValueInTile(int x, int y, int w, int h, const char* txt);
-#line 25523 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void ddUpdateTileClients(int v);
-#line 25530 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void ddUpdateTileUploads(unsigned long v);
 #line 25537 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void ddDrawValueInTile(int x, int y, int w, int h, const char* txt);
+#line 25545 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void ddUpdateTileClients(int v);
+#line 25552 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void ddUpdateTileUploads(unsigned long v);
+#line 25559 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddUpdateTileDownloads(unsigned long v);
-#line 25544 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25566 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddUpdateTileFiles(int v);
-#line 25551 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25573 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddUpdateTileIO(unsigned long inKBs, unsigned long outKBs);
-#line 25557 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25579 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddPushHistory(uint8_t clientsScaled, uint8_t inScaled, uint8_t outScaled);
-#line 25571 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25593 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ddUiTask(void* pv);
-#line 25622 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25644 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void setupDeadDropRoutes();
-#line 25887 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 25909 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void WifiDeadDrop();
-#line 25993 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26015 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void upnpProxyTask(void* pv);
-#line 26044 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26066 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void startProxyTo80(uint16_t localPort);
-#line 26077 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26099 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int menuSelectList(const std::vector<String>& items, const char* title);
-#line 26138 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26160 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool scanNetbiosName(IPAddress ip, String& outName);
-#line 26172 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26194 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool upnpDiscoverControlURL(String& controlURL, IPAddress& routerIP, uint16_t& routerPort, String& serviceType);
-#line 26281 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26303 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool upnpAddPortMapping(IPAddress targetIP, uint16_t internalPort, uint16_t externalPort);
-#line 26349 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26371 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String getExternalWANIP();
-#line 26405 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26427 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void upnpAllHostsAllPorts(const std::vector<IPAddress>& hosts);
-#line 26687 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26709 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int extractSoapErrorCode(const String& response);
-#line 26696 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26718 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" String extractXmlTag(const String& xml, const String& tag);
-#line 26863 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26885 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_markDirty();
-#line 26900 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void eapMon_macToStr(const uint8_t* payload, char out[18]);
-#line 26905 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" uint32_t eapMon_fnv1a32(const uint8_t* data, int len);
-#line 26911 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
- extern "C" void eapMon_logToSD(const char* macFrom, const char* macTo, const char* imsi);
 #line 26922 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void eapMon_macToStr(const uint8_t* payload, char out[18]);
+#line 26927 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" uint32_t eapMon_fnv1a32(const uint8_t* data, int len);
+#line 26933 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+ extern "C" void eapMon_logToSD(const char* macFrom, const char* macTo, const char* imsi);
+#line 26944 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_getDstMac(const uint8_t* p, char out[18]);
-#line 26938 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26960 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_handleAutoChannel();
-#line 26957 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 26979 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool eapMon_extractIMSI(const uint8_t* payload, int len, char outImsi[17]);
-#line 26984 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27006 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void snifferCallbackImsi(void* buf, wifi_promiscuous_pkt_type_t type);
-#line 27003 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27025 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool eapMon_seenimsi(const char imsi[17]);
-#line 27011 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27033 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_changeChannel(int direction);
-#line 27023 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27045 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_addHit(const char mac[18], const char imsi[17]);
-#line 27066 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27088 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawHeader();
-#line 27085 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27107 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawCards();
-#line 27112 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27134 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawStatusBar();
-#line 27139 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27161 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawLastSeen();
-#line 27169 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27191 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawList();
-#line 27205 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27227 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_drawIdleAnim();
-#line 27225 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27247 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_updateStatusUi();
-#line 27254 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27276 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void eapMon_renderIfNeeded();
-#line 27284 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27306 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool estUnPaquetEAP(const wifi_promiscuous_pkt_t* packet);
-#line 27321 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27343 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void imsiCatcher();
-#line 27524 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27546 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_printClippedSSID_px(const String &s, int maxPixelW);
-#line 27555 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27577 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_printClippedSSID_px_canvas(M5Canvas &c, const String &s, int maxPixelW);
-#line 27582 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27604 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_printClippedSSID(const String &s);
-#line 27602 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27624 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_uiInitSprites();
-#line 27622 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27644 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_uiFreeSprites();
-#line 27631 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27653 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_beepFoundInternet();
-#line 27638 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27660 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool ow_checkInternet();
-#line 27651 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27673 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" uint8_t ow_testOpenNetwork(const String &ssid);
-#line 27686 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27708 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_upsertNetwork(const String &ssid, int32_t rssi, uint8_t type, unsigned long now);
-#line 27727 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27749 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_startAsyncScan();
-#line 27742 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27764 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_processScanResults();
-#line 27788 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27810 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_purgeOld();
-#line 27814 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27836 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_drawFrame();
-#line 27851 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27873 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_drawStatsPanel();
-#line 27923 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27945 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" int ow_findBestGreen(int used[]);
-#line 27941 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 27963 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void ow_drawWifiList();
-#line 28019 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 28041 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" bool ow_testOneUnknownOpen();
-#line 28065 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 28087 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
  extern "C" void openWifiDashboardLoop();
-#line 323 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
+#line 324 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\Evil-Cardputer-v1-5-0.ino"
 bool guardAdmin() {
   if (server.authenticate(ADMIN_USER, accessWebPassword.c_str())) {
     server.sendHeader("Cache-Control", "no-store");
@@ -1990,6 +1989,7 @@ static const char* const kCaptiveIPStr[2] = {
 void setup() {
   Serial.begin(115200);
   M5.begin();
+  DisplayRuntime::init();
 
   // Initialize hardware abstraction layer
   hwDetectBoard();
@@ -2464,6 +2464,9 @@ void setup() {
   // Initialize I2C bus manager, display config, and peripherals
   I2CManager::init();
   DisplayProfileManager::init();
+  if (!DisplayRuntime::applyActiveProfile(true)) {
+    Serial.printf("[DisplayRuntime] active profile apply failed: %s\n", DisplayRuntime::getLastError());
+  }
 
   // If I2C is enabled, auto-detect and initialize Scroll Unit
   if (I2CManager::isEnabled()) {
@@ -7326,16 +7329,26 @@ void showDisplaySelection() {
 
         uint8_t idx = i;
         dispOptions.push_back({label, [idx]() {
-            DisplayProfileManager::setActive(idx);
             LB::fillScreen(TFT_BLACK);
             LB::setCursor(5, LB::height() / 2 - 5);
-            LB::setTextColor(TFT_GREEN);
-            const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
-            if (sel) {
-                LB::print("Active: ");
-                LB::print(sel->name);
+            if (DisplayRuntime::applyProfileIndex(idx, true, true)) {
+                LB::setTextColor(TFT_GREEN);
+                const DisplayProfile* sel = DisplayProfileManager::getProfile(idx);
+                if (sel) {
+                    LB::print("Active: ");
+                    LB::print(sel->name);
+                } else {
+                    LB::print("Display switched");
+                }
+                delay(1000);
+            } else {
+                LB::setTextColor(TFT_RED);
+                LB::print("Switch failed:");
+                LB::setCursor(5, LB::height() / 2 + 10);
+                LB::setTextColor(TFT_YELLOW);
+                LB::print(DisplayRuntime::getLastError());
+                delay(1800);
             }
-            delay(1000);
         }});
     }
 
@@ -11214,11 +11227,13 @@ uint8_t deauth_frame[26] = {
 
 // Warning
 // You need to bypass the ESP32 firmware with script in utilities folder before compiling or the code can't compile due to restrictions on ESP32 firmware
-extern "C" int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
-  if (arg == 31337)
-    return 1;
-  else
-    return 0;
+// Keep this hook weak: on newer ESP32 cores the symbol is already provided by
+// libnet80211, and a strong duplicate would break linking.
+extern "C" int __attribute__((weak))
+ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
+  (void)arg2;
+  (void)arg3;
+  return (arg == 31337) ? 1 : 0;
 }
 // Warning
 
@@ -15025,7 +15040,10 @@ void sniffMaster(){
   memset(received_frames,0,sizeof(received_frames));
   qHead=qTail=0;
 
-  if(!SD.begin()){ Serial.println(F("SD fail")); return; }
+  {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
+    if(!SD.begin()){ Serial.println(F("SD fail")); return; }
+  }
   makeDirs(); openPCAP();
 
   WiFi.mode(WIFI_STA); WiFi.disconnect();
@@ -19213,6 +19231,7 @@ bool manageUsbPower(uint8_t powerState, bool start, bool loadEject) {
 
 // Initialisation des callbacks et configuration du média pour l'USB MSC
 void initializeUsbCallbacks() {
+  DisplayRuntime::ScopedSdDisplayRelease sdGuard;
   uint32_t sectorSize = SD.sectorSize();
   uint32_t totalSectors = SD.numSectors();
 
@@ -19233,6 +19252,7 @@ void initializeUsbCallbacks() {
 
 // Fonction principale qui passe du SD à l'USB
 void sdToUsb() {
+  DisplayRuntime::ScopedSdDisplayRelease sdGuard;
   // Arrêter l'accès à la carte SD
   SD.end();
   delay(100);

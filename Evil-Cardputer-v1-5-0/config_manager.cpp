@@ -4,6 +4,7 @@
  */
 
 #include "config_manager.h"
+#include "display_runtime.h"
 
 // Static member initialization
 bool ConfigManager::_initialized = false;
@@ -33,6 +34,7 @@ bool ConfigManager::isInitialized() {
 }
 
 bool ConfigManager::ensureConfigFolder() {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     if (!SD.exists(CONFIG_FOLDER_PATH)) {
         if (!SD.mkdir(CONFIG_FOLDER_PATH)) {
             // Try creating parent folder first
@@ -52,6 +54,7 @@ bool ConfigManager::ensureConfigFolder() {
 // ============================================================================
 
 String ConfigManager::readConfigFile() {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     String content = "";
 
     if (!SD.exists(CONFIG_FILE_PATH)) {
@@ -73,6 +76,7 @@ String ConfigManager::readConfigFile() {
 }
 
 bool ConfigManager::writeConfigFile(const String& content) {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     ensureConfigFolder();
 
     File configFile = SD.open(CONFIG_FILE_PATH, FILE_WRITE);
@@ -167,6 +171,7 @@ bool ConfigManager::loadBool(const String& key, bool defaultValue) {
 }
 
 String ConfigManager::loadString(const String& key, const String& defaultValue) {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     if (!SD.exists(CONFIG_FILE_PATH)) {
         return defaultValue;
     }
@@ -246,6 +251,7 @@ void saveConfigParameter(String key, int value) {
 
 // String save functions - these have special handling for specific keys
 void savePortalFileConfig(const String& pathIn) {
+    DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     String portalPath = pathIn;
     if (!portalPath.startsWith("/evil/sites/")) {
         portalPath = "/evil/sites/" + portalPath;

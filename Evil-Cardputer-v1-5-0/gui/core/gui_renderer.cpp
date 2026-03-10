@@ -12,6 +12,7 @@
 
 #include "gui_renderer.h"
 #include "gui_display_lock.h"
+#include "gui_display_target.h"
 #if GUI_DIRTY_TRACKING
 #include "gui_dirty_region.h"
 #endif
@@ -47,9 +48,9 @@ Renderer::Renderer()
 #else
     , m_renderMode(RenderMode::Direct)
 #endif
-    , m_displayWidth(Config::DISPLAY_WIDTH)
-    , m_displayHeight(Config::DISPLAY_HEIGHT)
-    , m_clipRect(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT))
+    , m_displayWidth(0)
+    , m_displayHeight(0)
+    , m_clipRect(Rect::make(0, 0, 0, 0))
     , m_clipEnabled(false)
     , m_running(false)
     , m_startGate(nullptr)
@@ -77,15 +78,20 @@ bool Renderer::init() {
         return false;
     }
 
-    // Validate that M5.Display is available (M5.begin() must have been called).
-    // width()/height() return 0 if the display panel isn't initialized yet.
+    // Validate that active runtime display is available.
+    // width()/height() return 0 if panel is not initialized yet.
+    refreshRuntimeDisplayMetrics();
     {
         DisplayLockGuard lockGuard;
-        m_displayWidth = M5.Display.width();
-        m_displayHeight = M5.Display.height();
+        m_displayWidth = runtimeDisplayWidth();
+        m_displayHeight = runtimeDisplayHeight();
+        if (m_displayWidth == 0 || m_displayHeight == 0) {
+            m_displayWidth = runtimeDisplay().width();
+            m_displayHeight = runtimeDisplay().height();
+        }
     }
     if (m_displayWidth == 0 || m_displayHeight == 0) {
-        GUI_LOG_ERROR("M5.Display not initialized (width=%d, height=%d). Call M5.begin() first!",
+        GUI_LOG_ERROR("Runtime display not initialized (width=%d, height=%d)",
                       m_displayWidth, m_displayHeight);
         return false;
     }
@@ -503,9 +509,9 @@ void Renderer::handleFillRect(const RenderOp& op) {
     if (m_clipEnabled) {
         Rect clipped = r.rect.intersection(m_clipRect);
         if (clipped.isEmpty()) return;
-        M5.Display.fillRect(clipped.x, clipped.y, clipped.width, clipped.height, r.color);
+        runtimeDisplay().fillRect(clipped.x, clipped.y, clipped.width, clipped.height, r.color);
     } else {
-        M5.Display.fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
+        runtimeDisplay().fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
     }
 }
 
@@ -514,54 +520,54 @@ void Renderer::handleDrawRect(const RenderOp& op) {
 
     // Note: M5GFX doesn't support thickness for drawRect, so we draw multiple rects
     if (r.thickness <= 1) {
-        M5.Display.drawRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
+        runtimeDisplay().drawRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
     } else {
         // Draw thick outline using multiple fillRects
         int16_t t = r.thickness;
         // Top
-        M5.Display.fillRect(r.rect.x, r.rect.y, r.rect.width, t, r.color);
+        runtimeDisplay().fillRect(r.rect.x, r.rect.y, r.rect.width, t, r.color);
         // Bottom
-        M5.Display.fillRect(r.rect.x, r.rect.y + r.rect.height - t, r.rect.width, t, r.color);
+        runtimeDisplay().fillRect(r.rect.x, r.rect.y + r.rect.height - t, r.rect.width, t, r.color);
         // Left
-        M5.Display.fillRect(r.rect.x, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
+        runtimeDisplay().fillRect(r.rect.x, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
         // Right
-        M5.Display.fillRect(r.rect.x + r.rect.width - t, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
+        runtimeDisplay().fillRect(r.rect.x + r.rect.width - t, r.rect.y + t, t, r.rect.height - 2 * t, r.color);
     }
 }
 
 void Renderer::handleDrawLine(const RenderOp& op) {
     const auto& l = op.data.line;
-    M5.Display.drawLine(l.p1.x, l.p1.y, l.p2.x, l.p2.y, l.color);
+    runtimeDisplay().drawLine(l.p1.x, l.p1.y, l.p2.x, l.p2.y, l.color);
 }
 
 void Renderer::handleDrawPixel(const RenderOp& op) {
     const auto& p = op.data.pixel;
-    M5.Display.drawPixel(p.pos.x, p.pos.y, p.color);
+    runtimeDisplay().drawPixel(p.pos.x, p.pos.y, p.color);
 }
 
 void Renderer::handleDrawText(const RenderOp& op) {
     const auto& t = op.data.text;
 
     // Configure text rendering
-    M5.Display.setTextColor(t.fg, t.bg);
-    M5.Display.setTextFont(t.font.font);
-    M5.Display.setTextSize(t.font.getSize());
-    M5.Display.setCursor(t.pos.x, t.pos.y);
+    runtimeDisplay().setTextColor(t.fg, t.bg);
+    runtimeDisplay().setTextFont(t.font.font);
+    runtimeDisplay().setTextSize(t.font.getSize());
+    runtimeDisplay().setCursor(t.pos.x, t.pos.y);
 
     // Draw text (embedded in structure, max 12 chars)
     if (t.textLen > 0) {
-        M5.Display.print(t.text);
+        runtimeDisplay().print(t.text);
     }
 }
 
 void Renderer::handleDrawChar(const RenderOp& op) {
     const auto& c = op.data.chr;
 
-    M5.Display.setTextColor(c.fg, c.bg);
-    M5.Display.setTextFont(c.font.font);
-    M5.Display.setTextSize(c.font.getSize());
-    M5.Display.setCursor(c.pos.x, c.pos.y);
-    M5.Display.print(c.ch);
+    runtimeDisplay().setTextColor(c.fg, c.bg);
+    runtimeDisplay().setTextFont(c.font.font);
+    runtimeDisplay().setTextSize(c.font.getSize());
+    runtimeDisplay().setCursor(c.pos.x, c.pos.y);
+    runtimeDisplay().print(c.ch);
 }
 
 void Renderer::handleDrawBitmap(const RenderOp& op) {
@@ -569,7 +575,7 @@ void Renderer::handleDrawBitmap(const RenderOp& op) {
 
     if (b.data != nullptr) {
         // Use M5GFX pushImage for efficient bitmap transfer
-        M5.Display.pushImage(b.rect.x, b.rect.y, b.rect.width, b.rect.height, b.data);
+        runtimeDisplay().pushImage(b.rect.x, b.rect.y, b.rect.width, b.rect.height, b.data);
     }
 
     if (b.ownsData && b.data) {
@@ -582,7 +588,7 @@ void Renderer::handleDrawJpeg(const RenderOp& op) {
 
     if (j.data != nullptr && j.len > 0) {
         // Use M5GFX JPEG decoder
-        M5.Display.drawJpg(j.data, j.len, j.pos.x, j.pos.y, j.maxWidth, j.maxHeight);
+        runtimeDisplay().drawJpg(j.data, j.len, j.pos.x, j.pos.y, j.maxWidth, j.maxHeight);
     }
 
     if (j.ownsData && j.data) {
@@ -595,7 +601,7 @@ void Renderer::handleSetClip(const RenderOp& op) {
     m_clipEnabled = true;
 
     // M5GFX supports setClipRect
-    M5.Display.setClipRect(m_clipRect.x, m_clipRect.y,
+    runtimeDisplay().setClipRect(m_clipRect.x, m_clipRect.y,
                            m_clipRect.width, m_clipRect.height);
 }
 
@@ -604,20 +610,20 @@ void Renderer::handleClearClip(const RenderOp& op) {
     m_clipRect = Rect::make(0, 0, m_displayWidth, m_displayHeight);
 
     // Clear clip in M5GFX
-    M5.Display.clearClipRect();
+    runtimeDisplay().clearClipRect();
 }
 
 void Renderer::handleClear(const RenderOp& op) {
-    M5.Display.fillScreen(op.data.fill.color);
+    runtimeDisplay().fillScreen(op.data.fill.color);
 }
 
 void Renderer::handleFillScreen(const RenderOp& op) {
-    M5.Display.fillScreen(op.data.fill.color);
+    runtimeDisplay().fillScreen(op.data.fill.color);
 }
 
 void Renderer::handleSetBrightness(const RenderOp& op) {
     DisplayLockGuard displayLock;
-    M5.Display.setBrightness(op.data.brightness.level);
+    runtimeDisplay().setBrightness(op.data.brightness.level);
 }
 
 void Renderer::handleSync(const RenderOp& op) {
@@ -639,39 +645,39 @@ void Renderer::handleEndFrame(const RenderOp& op) {
 
 void Renderer::handleDrawCircle(const RenderOp& op) {
     const auto& c = op.data.circle;
-    M5.Display.drawCircle(c.center.x, c.center.y, c.radius, c.color);
+    runtimeDisplay().drawCircle(c.center.x, c.center.y, c.radius, c.color);
 }
 
 void Renderer::handleFillCircle(const RenderOp& op) {
     const auto& c = op.data.circle;
-    M5.Display.fillCircle(c.center.x, c.center.y, c.radius, c.color);
+    runtimeDisplay().fillCircle(c.center.x, c.center.y, c.radius, c.color);
 }
 
 void Renderer::handleDrawRoundRect(const RenderOp& op) {
     const auto& r = op.data.roundRect;
-    M5.Display.drawRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+    runtimeDisplay().drawRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
                              r.radius, r.color);
 }
 
 void Renderer::handleFillRoundRect(const RenderOp& op) {
     const auto& r = op.data.roundRect;
-    M5.Display.fillRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
+    runtimeDisplay().fillRoundRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height,
                              r.radius, r.color);
 }
 
 void Renderer::handleDrawTriangle(const RenderOp& op) {
     const auto& t = op.data.triangle;
-    M5.Display.drawTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
+    runtimeDisplay().drawTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
 }
 
 void Renderer::handleFillTriangle(const RenderOp& op) {
     const auto& t = op.data.triangle;
-    M5.Display.fillTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
+    runtimeDisplay().fillTriangle(t.p1.x, t.p1.y, t.p2.x, t.p2.y, t.p3.x, t.p3.y, t.color);
 }
 
 void Renderer::handleScroll(const RenderOp& op) {
     const auto& s = op.data.scroll;
-    M5.Display.scroll(s.dx, s.dy);
+    runtimeDisplay().scroll(s.dx, s.dy);
 }
 
 // ============================================================================
@@ -722,7 +728,7 @@ void Renderer::flushDisplay() {
                 dirty.incrementPartialRefresh();
 
                 // Calculate saved pixels
-                uint32_t fullArea = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
+                uint32_t fullArea = static_cast<uint32_t>(fb.width()) * fb.height();
                 uint32_t partialArea = dirtyRect.area();
                 if (partialArea < fullArea) {
                     dirty.addSavedPixels(fullArea - partialArea);
@@ -756,7 +762,7 @@ void Renderer::flushDisplay() {
         GUI_LOG_ERROR("Renderer: display lock acquisition failed during flush");
         return;
     }
-    M5.Display.display();
+    runtimeDisplay().display();
     m_stats.displayFlushCount++;
 }
 
@@ -1038,22 +1044,23 @@ void Renderer::handleFillRectFB(const RenderOp& op) {
     Framebuffer::instance().fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height, r.color);
 }
 
-// Cohen-Sutherland outcodes for line clipping
-static inline uint8_t csOutcode(int16_t x, int16_t y) {
-    uint8_t code = 0;
-    if (x < 0) code |= 1;
-    else if (x >= Config::DISPLAY_WIDTH) code |= 2;
-    if (y < 0) code |= 4;
-    else if (y >= Config::DISPLAY_HEIGHT) code |= 8;
-    return code;
-}
-
 void Renderer::handleDrawLineFB(const RenderOp& op) {
     const auto& l = op.data.line;
     Framebuffer& fb = Framebuffer::instance();
+    const int16_t fbWidth = static_cast<int16_t>(fb.width());
+    const int16_t fbHeight = static_cast<int16_t>(fb.height());
 
     int16_t x0 = l.p1.x, y0 = l.p1.y;
     int16_t x1 = l.p2.x, y1 = l.p2.y;
+
+    auto csOutcode = [fbWidth, fbHeight](int16_t x, int16_t y) -> uint8_t {
+        uint8_t code = 0;
+        if (x < 0) code |= 1;
+        else if (x >= fbWidth) code |= 2;
+        if (y < 0) code |= 4;
+        else if (y >= fbHeight) code |= 8;
+        return code;
+    };
 
     // Cohen-Sutherland pre-clipping — reject/clip before iterating pixels
     for (;;) {
@@ -1066,14 +1073,14 @@ void Renderer::handleDrawLineFB(const RenderOp& op) {
         int16_t x, y;
         int16_t dx = x1 - x0, dy = y1 - y0;
         if (out & 8) {
-            x = x0 + dx * (Config::DISPLAY_HEIGHT - 1 - y0) / dy;
-            y = Config::DISPLAY_HEIGHT - 1;
+            x = x0 + dx * (fbHeight - 1 - y0) / dy;
+            y = fbHeight - 1;
         } else if (out & 4) {
             x = x0 + dx * (-y0) / dy;
             y = 0;
         } else if (out & 2) {
-            y = y0 + dy * (Config::DISPLAY_WIDTH - 1 - x0) / dx;
-            x = Config::DISPLAY_WIDTH - 1;
+            y = y0 + dy * (fbWidth - 1 - x0) / dx;
+            x = fbWidth - 1;
         } else {
             y = y0 + dy * (-x0) / dx;
             x = 0;

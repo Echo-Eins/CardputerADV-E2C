@@ -19,12 +19,13 @@ namespace Config {
 // Display Configuration
 // ============================================================================
 
-// Internal display (ST7789V)
-constexpr uint16_t DISPLAY_WIDTH  = 240;
-constexpr uint16_t DISPLAY_HEIGHT = 135;
+// Maximum supported runtime display dimensions.
+// Actual active panel size is selected at runtime from display profiles.
+constexpr uint16_t DISPLAY_WIDTH  = 480;
+constexpr uint16_t DISPLAY_HEIGHT = 320;
 constexpr uint8_t  DISPLAY_BPP    = 16;  // Bits per pixel (RGB565)
 
-// Framebuffer size in bytes (240 * 135 * 2 = 64,800)
+// Maximum framebuffer size in bytes (480 * 320 * 2 = 307,200)
 constexpr uint32_t FRAMEBUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * (DISPLAY_BPP / 8);
 
 // ============================================================================

@@ -227,10 +227,10 @@ void ScrollView::renderContent() {
     }
 
     // Set clip rectangle for scrolling content
-    Draw::setClip(abs.x + style().padding.left,
-                  abs.y + style().padding.top,
-                  viewport.width - (m_showScrollbar && canScrollVertically() ? m_scrollbarWidth : 0),
-                  viewport.height);
+    WidgetDraw::setClip(abs.x + style().padding.left,
+                        abs.y + style().padding.top,
+                        viewport.width - (m_showScrollbar && canScrollVertically() ? m_scrollbarWidth : 0),
+                        viewport.height);
 
     // Render visible children with scroll offset
     for (Widget* child : children()) {
@@ -256,7 +256,7 @@ void ScrollView::renderContent() {
     }
 
     // Clear clip
-    Draw::clearClip();
+    WidgetDraw::clearClip();
 
     // Draw scrollbar
     if (m_showScrollbar) {

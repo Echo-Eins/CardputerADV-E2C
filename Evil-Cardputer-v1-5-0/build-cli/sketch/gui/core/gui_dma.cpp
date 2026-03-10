@@ -19,6 +19,7 @@
 
 #include "gui_dma.h"
 #include "gui_display_lock.h"
+#include "gui_display_target.h"
 #include <M5Unified.h>
 #include <Arduino.h>
 #include <esp_timer.h>
@@ -117,7 +118,7 @@ bool DmaTransfer::startFullTransfer(const uint16_t* buffer, uint32_t size) {
         return false;
     }
 
-    const uint32_t fullFrameBytes = Config::FRAMEBUFFER_SIZE;
+    const uint32_t fullFrameBytes = Framebuffer::instance().getBufferSize();
     if (size < fullFrameBytes || (size & 0x1u) != 0) {
         GUI_LOG_ERROR("DMA full transfer invalid size=%lu (expected >=%lu and even)",
                       static_cast<unsigned long>(size),
@@ -149,8 +150,8 @@ bool DmaTransfer::startFullTransfer(const uint16_t* buffer, uint32_t size) {
     m_state.store(DmaState::Transferring, std::memory_order_release);
 
     const uint32_t pixelCount = fullFrameBytes / sizeof(uint16_t);
-    const uint16_t transferWidth = Config::DISPLAY_WIDTH;
-    const uint16_t transferHeight = static_cast<uint16_t>(pixelCount / transferWidth);
+    const uint16_t transferWidth = Framebuffer::instance().width();
+    const uint16_t transferHeight = Framebuffer::instance().height();
 
     {
         DisplayLockGuard displayLock;
@@ -161,11 +162,11 @@ bool DmaTransfer::startFullTransfer(const uint16_t* buffer, uint32_t size) {
         }
 
         Framebuffer::instance().markDmaStarted();
-        M5.Display.setAddrWindow(0, 0, transferWidth, transferHeight);
-        M5.Display.pushPixelsDMA(buffer, pixelCount);
+        runtimeDisplay().setAddrWindow(0, 0, transferWidth, transferHeight);
+        runtimeDisplay().pushPixelsDMA(buffer, pixelCount);
 
         // Deterministic completion barrier. Keep ownership simple.
-        M5.Display.waitDMA();
+        runtimeDisplay().waitDMA();
     }
 
     handleTransferComplete(true, fullFrameBytes);
@@ -209,9 +210,9 @@ bool DmaTransfer::startPartialTransfer(const uint16_t* buffer,
         }
 
         Framebuffer::instance().markDmaStarted();
-        M5.Display.setAddrWindow(x, y, width, height);
-        M5.Display.pushPixelsDMA(buffer, pixelCount);
-        M5.Display.waitDMA();
+        runtimeDisplay().setAddrWindow(x, y, width, height);
+        runtimeDisplay().pushPixelsDMA(buffer, pixelCount);
+        runtimeDisplay().waitDMA();
     }
 
     handleTransferComplete(true, pixelCount * sizeof(uint16_t));
@@ -242,7 +243,7 @@ void DmaTransfer::handleTransferComplete(bool success, uint32_t bytesTransferred
     if (success) {
         m_stats.transferCount++;
         m_stats.bytesTransferred += bytesTransferred > 0
-            ? bytesTransferred : Config::FRAMEBUFFER_SIZE;
+            ? bytesTransferred : Framebuffer::instance().getBufferSize();
         m_stats.totalTransferTimeUs += elapsedUs;
         if (elapsedUs > m_stats.maxTransferTimeUs) {
             m_stats.maxTransferTimeUs = elapsedUs;
@@ -280,7 +281,7 @@ void DmaTransfer::blockingTransfer(const uint16_t* buffer, uint32_t size) {
     if (!buffer) return;
 
     uint32_t startUs = esp_timer_get_time();
-    const uint32_t fullFrameBytes = Config::FRAMEBUFFER_SIZE;
+    const uint32_t fullFrameBytes = Framebuffer::instance().getBufferSize();
     uint32_t transferBytes = std::min<uint32_t>(size, fullFrameBytes);
     if ((transferBytes & 0x1u) != 0) {
         transferBytes -= 1;
@@ -304,8 +305,8 @@ void DmaTransfer::blockingTransfer(const uint16_t* buffer, uint32_t size) {
             portEXIT_CRITICAL(&s_statsLock);
             return;
         }
-        M5.Display.setAddrWindow(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT);
-        M5.Display.pushPixels(buffer, pixelCount);
+        runtimeDisplay().setAddrWindow(0, 0, Framebuffer::instance().width(), Framebuffer::instance().height());
+        runtimeDisplay().pushPixels(buffer, pixelCount);
     }
 
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
@@ -337,8 +338,8 @@ void DmaTransfer::blockingPartialTransfer(const uint16_t* buffer,
             portEXIT_CRITICAL(&s_statsLock);
             return;
         }
-        M5.Display.setAddrWindow(x, y, width, height);
-        M5.Display.pushPixels(buffer, width * height);
+        runtimeDisplay().setAddrWindow(x, y, width, height);
+        runtimeDisplay().pushPixels(buffer, width * height);
     }
 
     uint32_t elapsedUs = esp_timer_get_time() - startUs;
@@ -449,20 +450,23 @@ void DisplayUpdater::pushRegion(const Rect& region) {
     const int16_t x = std::max<int16_t>(0, region.x);
     const int16_t y = std::max<int16_t>(0, region.y);
 
+    const uint16_t displayW = fb.width();
+    const uint16_t displayH = fb.height();
+
     // Bail out if origin is already beyond the screen to prevent underflow.
-    if (x >= Config::DISPLAY_WIDTH || y >= Config::DISPLAY_HEIGHT) {
+    if (x >= displayW || y >= displayH) {
         return;
     }
 
-    const uint16_t w = std::min<uint16_t>(region.width, Config::DISPLAY_WIDTH - x);
-    const uint16_t h = std::min<uint16_t>(region.height, Config::DISPLAY_HEIGHT - y);
+    const uint16_t w = std::min<uint16_t>(region.width, displayW - x);
+    const uint16_t h = std::min<uint16_t>(region.height, displayH - y);
     if (w == 0 || h == 0) {
         return;
     }
 
     // If region covers most of the screen, a full transfer is cheaper.
     const uint32_t regionPixels = static_cast<uint32_t>(w) * h;
-    const uint32_t totalPixels = Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT;
+    const uint32_t totalPixels = static_cast<uint32_t>(displayW) * displayH;
     if (regionPixels > (totalPixels * 3u) / 4u) {
         pushFramebuffer();
         return;
@@ -483,10 +487,10 @@ void DisplayUpdater::pushRegion(const Rect& region) {
     }
 
     const uint16_t* srcBuffer = m_useDoubleBuffer ? fb.getFrontBuffer() : fb.getBackBuffer();
-    const uint16_t* srcRow = srcBuffer + y * Config::DISPLAY_WIDTH + x;
+    const uint16_t* srcRow = srcBuffer + y * displayW + x;
     for (uint16_t row = 0; row < h; ++row) {
         memcpy(tempBuffer + row * w, srcRow, w * sizeof(uint16_t));
-        srcRow += Config::DISPLAY_WIDTH;
+        srcRow += displayW;
     }
 
     // Transfer contiguous region to display.

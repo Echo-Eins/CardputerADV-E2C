@@ -13,6 +13,7 @@
 
 #include "gui_framebuffer.h"
 #include "gui_dma.h"
+#include "gui_display_target.h"
 #if GUI_DIRTY_TRACKING
 #include "gui_dirty_region.h"
 #endif
@@ -43,14 +44,20 @@ Framebuffer::Framebuffer()
     , m_buffer1(nullptr)
     , m_frontBuffer(nullptr)
     , m_backBuffer(nullptr)
-    , m_clipRect(Rect::make(0, 0, Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT))
+    , m_clipRect(Rect::make(0, 0, 0, 0))
     , m_dmaActive(false)
     , m_mutex(nullptr)
     , m_initialized(false)
 {
+    refreshRuntimeDisplayMetrics();
+    const uint16_t defaultWidth = runtimeDisplayWidth() > 0
+        ? runtimeDisplayWidth() : Config::DISPLAY_WIDTH;
+    const uint16_t defaultHeight = runtimeDisplayHeight() > 0
+        ? runtimeDisplayHeight() : Config::DISPLAY_HEIGHT;
+
     // Default config
-    m_config.width = Config::DISPLAY_WIDTH;
-    m_config.height = Config::DISPLAY_HEIGHT;
+    m_config.width = defaultWidth;
+    m_config.height = defaultHeight;
     m_config.bitsPerPixel = 16;
     m_config.useDoubleBuffer = true;
     m_config.usePSRAM = true;
@@ -67,9 +74,15 @@ Framebuffer::~Framebuffer() {
 // ============================================================================
 
 bool Framebuffer::init() {
+    refreshRuntimeDisplayMetrics();
+    const uint16_t defaultWidth = runtimeDisplayWidth() > 0
+        ? runtimeDisplayWidth() : Config::DISPLAY_WIDTH;
+    const uint16_t defaultHeight = runtimeDisplayHeight() > 0
+        ? runtimeDisplayHeight() : Config::DISPLAY_HEIGHT;
+
     FramebufferConfig defaultConfig;
-    defaultConfig.width = Config::DISPLAY_WIDTH;
-    defaultConfig.height = Config::DISPLAY_HEIGHT;
+    defaultConfig.width = defaultWidth;
+    defaultConfig.height = defaultHeight;
     defaultConfig.bitsPerPixel = 16;
     defaultConfig.useDoubleBuffer = true;
     defaultConfig.usePSRAM = true;

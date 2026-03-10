@@ -494,10 +494,12 @@ C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\Evil-Cardputer
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\i2c_manager.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\scroll_input.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\display_config.h \
+ C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\display_runtime.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/gui.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/gui_config.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/gui_types.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/gui_theme.h \
+ C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/core/gui_display_target.h \
  C:\Coding\CardputerADV-E2C\Evil-Cardputer-v1-5-0\build-cli\sketch\gui/core/gui_render_queue.h \
  C:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/build-cli/sketch/gui/gui_types.h \
  C:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/build-cli/sketch/gui/gui_config.h \
