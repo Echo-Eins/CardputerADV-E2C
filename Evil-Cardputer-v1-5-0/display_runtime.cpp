@@ -150,6 +150,15 @@ private:
 
 LgfxIli9488Device s_externalLgfx;
 
+void configureBacklightPin(const DisplayProfile& profile) {
+    if (profile.pins.bl < 0) {
+        return;
+    }
+    pinMode(profile.pins.bl, OUTPUT);
+    // Current profile schema has no polarity flag; default to active-high.
+    digitalWrite(profile.pins.bl, HIGH);
+}
+
 bool restartGuiForCurrentDisplay() {
     if (!GUI::guiInit()) {
         return false;
@@ -238,6 +247,7 @@ bool applyProfileInternal(const DisplayProfile& profile,
             fallbackToBuiltin(restartGuiPipeline);
             return false;
         }
+        configureBacklightPin(profile);
         targetDevice = &s_externalLgfx;
     }
 

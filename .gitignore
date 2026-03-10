@@ -1,2 +1,6 @@
 cardputer-remote/target/
 cardputer-remote/config.toml
+/_bin_release
+/_build_check
+/_build_release
+NUL.d
