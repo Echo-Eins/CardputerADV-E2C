@@ -12,8 +12,15 @@
  * - Character limit
  */
 
+#pragma once
+
+#ifndef E2C_GUI_WIDGET_INPUT_H
+#define E2C_GUI_WIDGET_INPUT_H
+
+// Backward-compatible macro for legacy include checks.
 #ifndef GUI_INPUT_H
 #define GUI_INPUT_H
+#endif
 
 #include "gui_widget.h"
 
@@ -285,4 +292,4 @@ namespace InputColors {
 
 } // namespace GUI
 
-#endif // GUI_INPUT_H
+#endif // E2C_GUI_WIDGET_INPUT_H

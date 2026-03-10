@@ -223,19 +223,11 @@ struct RenderOp {
     DisplayTarget target;       // 1 byte
     uint8_t flags;              // 1 byte
 
-    // Zero-init header fields explicitly; union is zeroed via its raw member
-    // to avoid UB from memset on non-trivial union members.
-    RenderOp()
-        : type(RenderOpType::Nop)
-        , priority(RenderPriority::Normal)
-        , target(DisplayTarget::Internal)
-        , flags(0)
-    {
-        memset(&data, 0, sizeof(data));
-    }
-
-    // Data union (28 bytes to make total 32 bytes)
-    union {
+    // Data union (28 bytes to make total 32 bytes).
+    // Named union with explicit constructor keeps this type constructible even
+    // when nested payload structs contain non-trivial default constructors.
+    union Data {
+        uint8_t raw[28];        // Raw zero-init storage
         RenderOpRect rect;
         RenderOpLine line;
         RenderOpPixel pixel;
@@ -250,8 +242,19 @@ struct RenderOp {
         RenderOpRoundRect roundRect;
         RenderOpTriangle triangle;
         RenderOpScroll scroll;
-        uint8_t raw[28];        // For memset
+
+        Data() {
+            memset(raw, 0, sizeof(raw));
+        }
     } data;
+
+    RenderOp()
+        : type(RenderOpType::Nop)
+        , priority(RenderPriority::Normal)
+        , target(DisplayTarget::Internal)
+        , flags(0)
+        , data()
+    {}
 };
 
 // Release heap-owned payloads attached to RenderOp image commands.

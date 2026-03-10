@@ -214,6 +214,11 @@ public:
     const ThemeFonts& fonts() const { return currentTheme_->fonts; }
     const ThemeSpacing& spacing() const { return currentTheme_->spacing; }
 
+    // Backward-compatible shim for legacy call sites:
+    // ThemeManager::instance().theme().menuBackgroundColor()
+    ThemeManager& theme() { return *this; }
+    const ThemeManager& theme() const { return *this; }
+
     // Stock driver compatibility getters
     Color menuBackgroundColor() const { return effectiveColors().background; }
     Color menuSelectedBackgroundColor() const { return effectiveColors().highlight; }

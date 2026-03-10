@@ -207,35 +207,35 @@ inline bool sync() {
  * @brief Get background color from theme
  */
 inline Color backgroundColor() {
-    return ThemeManager::instance().theme().menuBackgroundColor();
+    return ThemeManager::instance().menuBackgroundColor();
 }
 
 /**
  * @brief Get foreground/text color from theme
  */
 inline Color foregroundColor() {
-    return ThemeManager::instance().theme().menuTextUnFocusedColor();
+    return ThemeManager::instance().menuTextUnFocusedColor();
 }
 
 /**
  * @brief Get focused text color from theme
  */
 inline Color focusedColor() {
-    return ThemeManager::instance().theme().menuTextFocusedColor();
+    return ThemeManager::instance().menuTextFocusedColor();
 }
 
 /**
  * @brief Get selection/highlight color from theme
  */
 inline Color selectionColor() {
-    return ThemeManager::instance().theme().menuSelectedBackgroundColor();
+    return ThemeManager::instance().menuSelectedBackgroundColor();
 }
 
 /**
  * @brief Get divider color from theme
  */
 inline Color dividerColor() {
-    return ThemeManager::instance().theme().taskbarDividerColor();
+    return ThemeManager::instance().taskbarDividerColor();
 }
 
 } // namespace WidgetDraw
