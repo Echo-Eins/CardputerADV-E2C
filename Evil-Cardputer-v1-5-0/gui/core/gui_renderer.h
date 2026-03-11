@@ -128,6 +128,9 @@ public:
     // Check if running
     bool isRunning() const { return m_state == RendererState::Running; }
 
+    // Last lifecycle error (init/start)
+    const char* getLastError() const { return m_lastError; }
+
     // ========================================================================
     // Configuration
     // ========================================================================
@@ -285,6 +288,9 @@ private:
 
     // Last observed DisplayUpdater fallback counter for delta accounting.
     uint32_t m_lastFallbackTransferCount;
+
+    // Diagnostic detail for init/start failures.
+    char m_lastError[128];
 };
 
 // ============================================================================
@@ -305,6 +311,9 @@ void guiShutdown();
 
 // Check if GUI is running
 bool guiIsRunning();
+
+// Last GUI lifecycle error (init/start) from Renderer singleton.
+const char* guiLastError();
 
 // Get renderer instance
 inline Renderer& renderer() { return Renderer::instance(); }

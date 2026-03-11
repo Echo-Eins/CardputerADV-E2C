@@ -830,6 +830,10 @@ static const char* const kCaptiveIPStr[2] = {
 void setup() {
   Serial.begin(115200);
   M5.begin();
+  Serial.printf("[Boot] heap=%u psram_free=%u psram_total=%u\n",
+                static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getFreePsram()),
+                static_cast<unsigned>(ESP.getPsramSize()));
   DisplayRuntime::init();
 
   // Initialize hardware abstraction layer
@@ -1277,7 +1281,9 @@ void setup() {
       GUI::LegacyBridge::init();
       Serial.println("[GUI] Framework initialized successfully");
     } else {
-      Serial.println("[GUI] Framework initialization failed - continuing with direct M5.Display");
+      const char* guiErr = GUI::guiLastError();
+      Serial.printf("[GUI] Framework initialization failed - continuing with direct mode (reason: %s)\n",
+                    (guiErr && guiErr[0]) ? guiErr : "unknown");
     }
   }
 
@@ -1579,21 +1585,27 @@ void firstScanWifiNetworks() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   unsigned long startTime = millis();
-  int n;
+  int n = WIFI_SCAN_FAILED;
   while (millis() - startTime < 2000) {
     n = WiFi.scanNetworks();
     if (n != WIFI_SCAN_RUNNING) break;
   }
 
-  if (n == 0) {
-    Serial.println(F("No network found ..."));
+  if (n <= 0) {
+    if (n == 0) {
+      Serial.println(F("No network found ..."));
+    } else {
+      Serial.printf("[WiFi] initial scan failed (code=%d)\n", n);
+    }
+    numSsid = 0;
+    ssidList.clear();
   } else {
     Serial.print(n);
     Serial.println(F(" Near Wifi Networks : "));
     Serial.println(F("-------------------"));
     numSsid = min(n, 30);
+    ssidList.resize(numSsid);
     for (int i = 0; i < numSsid; i++) {
-      if ((int)ssidList.size() <= i) ssidList.resize(i+1);
       ssidList[i] = WiFi.SSID(i);
       Serial.print(i);
       Serial.print(F(": "));
@@ -2578,7 +2590,7 @@ void scanWifiNetworks() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   unsigned long startTime = millis();
-  int n;
+  int n = WIFI_SCAN_FAILED;
   while (millis() - startTime < 5000) {
     LB::clear();
     LB::fillRect(0, LB::height() - 20, LB::width(), 20, TFT_BLACK);
@@ -2591,10 +2603,24 @@ void scanWifiNetworks() {
     if (n != WIFI_SCAN_RUNNING) break;
   }
   Serial.println(F("-------------------"));
+  if (n <= 0) {
+    if (n == 0) {
+      Serial.println(F("Near Wifi Network : 0"));
+      waitAndReturnToMenu("No networks found");
+    } else {
+      Serial.printf("[WiFi] scan failed (code=%d)\n", n);
+      waitAndReturnToMenu("WiFi scan failed");
+    }
+    numSsid = 0;
+    ssidList.clear();
+    Serial.println(F("-------------------"));
+    return;
+  }
+
   Serial.println(F("Near Wifi Network : "));
   numSsid = min(n, 30);
+  ssidList.resize(numSsid);
   for (int i = 0; i < numSsid; i++) {
-    if ((int)ssidList.size() <= i) ssidList.resize(i+1);
     ssidList[i] = WiFi.SSID(i);
     Serial.print(i);
     Serial.print(F(": "));
@@ -2614,6 +2640,22 @@ void showWifiList() {
   const int SCROLL_W = 4;
   const int LIST_WIDTH  = LB::width() - SCROLL_W;
   const int LIST_HEIGHT = LB::height();
+
+  if (numSsid <= 0 || ssidList.empty()) {
+    waitAndReturnToMenu("No WiFi networks");
+    return;
+  }
+
+  if (numSsid > static_cast<int>(ssidList.size())) {
+    numSsid = static_cast<int>(ssidList.size());
+  }
+  if (numSsid <= 0) {
+    waitAndReturnToMenu("No WiFi networks");
+    return;
+  }
+  if (currentListIndex < 0 || currentListIndex >= numSsid) {
+    currentListIndex = 0;
+  }
 
   auto clampi = [](int v, int lo, int hi){ return v < lo ? lo : (v > hi ? hi : v); };
 
@@ -2793,6 +2835,12 @@ void showWifiList() {
 
     // ENTER
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) && !keyHandledEnter) {
+      if (numSsid <= 0 || currentListIndex < 0 ||
+          currentListIndex >= numSsid ||
+          currentListIndex >= static_cast<int>(ssidList.size())) {
+        waitAndReturnToMenu("No WiFi networks");
+        break;
+      }
       inMenu = true;
       Serial.println(F("-------------------"));
       Serial.println("SSID " + ssidList[currentListIndex] + " selected");

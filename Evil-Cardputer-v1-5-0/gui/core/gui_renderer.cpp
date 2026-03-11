@@ -19,6 +19,7 @@
 #include <Arduino.h>
 #include <esp_timer.h>
 #include <cstdlib>
+#include <cstdio>
 
 namespace GUI {
 
@@ -57,6 +58,7 @@ Renderer::Renderer()
     , m_lastFallbackTransferCount(0)
 {
     m_stats.reset();
+    m_lastError[0] = '\0';
 }
 
 Renderer::~Renderer() {
@@ -69,11 +71,13 @@ Renderer::~Renderer() {
 
 bool Renderer::init() {
     if (m_state != RendererState::Uninitialized) {
+        m_lastError[0] = '\0';
         GUI_LOG("Renderer already initialized");
         return true;
     }
 
     if (!initDisplayLock()) {
+        snprintf(m_lastError, sizeof(m_lastError), "initDisplayLock failed");
         GUI_LOG_ERROR("Failed to initialize display lock");
         return false;
     }
@@ -91,6 +95,10 @@ bool Renderer::init() {
         }
     }
     if (m_displayWidth == 0 || m_displayHeight == 0) {
+        snprintf(m_lastError, sizeof(m_lastError),
+                 "runtime display not initialized (w=%u h=%u)",
+                 static_cast<unsigned>(m_displayWidth),
+                 static_cast<unsigned>(m_displayHeight));
         GUI_LOG_ERROR("Runtime display not initialized (width=%d, height=%d)",
                       m_displayWidth, m_displayHeight);
         return false;
@@ -101,21 +109,37 @@ bool Renderer::init() {
     m_clipEnabled = false;
 
 #if GUI_DOUBLE_BUFFER
+    const uint32_t freePsram = static_cast<uint32_t>(ESP.getFreePsram());
+    const uint32_t requiredDoubleBufferBytes =
+        static_cast<uint32_t>(m_displayWidth) * static_cast<uint32_t>(m_displayHeight) * 2u * 2u;
+    if (freePsram == 0) {
+        snprintf(m_lastError, sizeof(m_lastError),
+                 "PSRAM unavailable (free=0, need~%uB). Rebuild with PSRAM enabled",
+                 static_cast<unsigned>(requiredDoubleBufferBytes));
+        GUI_LOG_ERROR("Renderer requires PSRAM for double buffer (need~%lu, free=%lu)",
+                      static_cast<unsigned long>(requiredDoubleBufferBytes),
+                      static_cast<unsigned long>(freePsram));
+        return false;
+    }
+
     // Initialize framebuffer BEFORE queue so that the render buffer exists
     // before any commands can be enqueued and processed.
     if (!Framebuffer::instance().init()) {
+        snprintf(m_lastError, sizeof(m_lastError), "Framebuffer::init failed");
         GUI_LOG_ERROR("Failed to initialize Framebuffer");
         return false;
     }
 
     // Initialize DMA transfer (Phase 2)
     if (!DmaTransfer::instance().init()) {
+        snprintf(m_lastError, sizeof(m_lastError), "DmaTransfer::init failed");
         GUI_LOG_ERROR("Failed to initialize DmaTransfer");
         return false;
     }
 
     // Initialize DisplayUpdater (Phase 2)
     if (!DisplayUpdater::instance().init()) {
+        snprintf(m_lastError, sizeof(m_lastError), "DisplayUpdater::init failed");
         GUI_LOG_ERROR("Failed to initialize DisplayUpdater");
         return false;
     }
@@ -125,6 +149,7 @@ bool Renderer::init() {
 #if GUI_DIRTY_TRACKING
     // Initialize DirtyRegionTracker (Phase 3)
     if (!DirtyRegionTracker::instance().init()) {
+        snprintf(m_lastError, sizeof(m_lastError), "DirtyRegionTracker::init failed");
         GUI_LOG_ERROR("Failed to initialize DirtyRegionTracker");
         return false;
     }
@@ -151,16 +176,22 @@ bool Renderer::init() {
     // pushed and the render task will try to process them. All subsystems
     // (Framebuffer, DMA, DirtyTracker) must be ready before this point.
     if (!RenderQueue::instance().init()) {
+        snprintf(m_lastError, sizeof(m_lastError),
+                 "RenderQueue::init failed (heap=%u psram=%u)",
+                 static_cast<unsigned>(ESP.getFreeHeap()),
+                 static_cast<unsigned>(ESP.getFreePsram()));
         GUI_LOG_ERROR("Failed to initialize RenderQueue");
         return false;
     }
 
+    m_lastError[0] = '\0';
     m_state = RendererState::Stopped;
     return true;
 }
 
 bool Renderer::start() {
     if (m_state == RendererState::Running) {
+        m_lastError[0] = '\0';
         GUI_LOG("Renderer already running");
         return true;
     }
@@ -179,6 +210,16 @@ bool Renderer::start() {
     // all subsystems (Framebuffer, DMA, DirtyTracker) are fully ready
     // and m_state has been set to Running.
     m_startGate = xSemaphoreCreateBinary();
+    if (m_startGate == nullptr) {
+        m_running = false;
+        m_state = RendererState::Stopped;
+        snprintf(m_lastError, sizeof(m_lastError),
+                 "xSemaphoreCreateBinary failed (heap=%u psram=%u)",
+                 static_cast<unsigned>(ESP.getFreeHeap()),
+                 static_cast<unsigned>(ESP.getFreePsram()));
+        GUI_LOG_ERROR("Failed to create renderer start gate semaphore");
+        return false;
+    }
 
     // Create render task on Core 0
     BaseType_t result = xTaskCreatePinnedToCore(
@@ -195,6 +236,11 @@ bool Renderer::start() {
         m_running = false;
         m_state = RendererState::Stopped;
         if (m_startGate) { vSemaphoreDelete(m_startGate); m_startGate = nullptr; }
+        snprintf(m_lastError, sizeof(m_lastError),
+                 "xTaskCreatePinnedToCore failed (%d, heap=%u psram=%u)",
+                 static_cast<int>(result),
+                 static_cast<unsigned>(ESP.getFreeHeap()),
+                 static_cast<unsigned>(ESP.getFreePsram()));
         GUI_LOG_ERROR("Failed to create render task (error: %d)", result);
         return false;
     }
@@ -206,6 +252,7 @@ bool Renderer::start() {
 
     GUI_LOG("Renderer started on Core %d (priority: %d)",
             Config::RENDER_TASK_CORE, m_taskPriority);
+    m_lastError[0] = '\0';
     return true;
 }
 
@@ -1138,6 +1185,10 @@ void guiShutdown() {
 
 bool guiIsRunning() {
     return Renderer::instance().isRunning();
+}
+
+const char* guiLastError() {
+    return Renderer::instance().getLastError();
 }
 
 } // namespace GUI

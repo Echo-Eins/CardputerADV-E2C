@@ -55,24 +55,28 @@ public:
         _cfg.memory_height = _cfg.panel_height = 480;
     }
 
+    void setColorDepth_impl(lgfx::color_depth_t depth) override {
+        _write_depth = (((int)depth & lgfx::color_depth_t::bit_mask) > 16)
+                    ? lgfx::rgb888_3Byte
+                    : lgfx::rgb565_2Byte;
+        _read_depth = lgfx::rgb888_3Byte;
+    }
+
 protected:
     const uint8_t* getInitCommands(uint8_t listno) const override {
         static constexpr uint8_t list0[] = {
-            0xE0, 15, 0x00, 0x03, 0x09, 0x08, 0x16, 0x0A, 0x3F, 0x78, 0x4C, 0x09, 0x0A, 0x08, 0x16, 0x1A, 0x0F,
-            0xE1, 15, 0x00, 0x16, 0x19, 0x03, 0x0F, 0x05, 0x32, 0x45, 0x46, 0x04, 0x0E, 0x0D, 0x35, 0x37, 0x0F,
-            0xC0,  2, 0x17, 0x15,
-            0xC1,  1, 0x41,
-            0xC5,  3, 0x00, 0x12, 0x80,
-            0x36,  1, 0x48,
-            0x3A,  1, 0x55,
-            0xB0,  1, 0x00,
-            0xB1,  1, 0xA0,
-            0xB4,  1, 0x02,
-            0xB6,  2, 0x02, 0x22,
-            0xE9,  1, 0x00,
-            0xF7,  4, 0xA9, 0x51, 0x2C, 0x82,
+            0xC0, 2, 0x17, 0x15,
+            0xC1, 1, 0x41,
+            0xC5, 3, 0x00, 0x12, 0x80,
+            0xB1, 1, 0xA0,
+            0xB4, 1, 0x02,
+            0xB6, 3, 0x02, 0x22, 0x3B,
+            0xB7, 1, 0xC6,
+            0x3A, 1, 0x55,
+            0xF7, 4, 0xA9, 0x51, 0x2C, 0x82,
             CMD_SLPOUT, 0 + CMD_INIT_DELAY, 120,
-            CMD_DISPON, 0 + CMD_INIT_DELAY, 20,
+            CMD_IDMOFF, 0,
+            CMD_DISPON, 0 + CMD_INIT_DELAY, 100,
             0xFF, 0xFF,
         };
 
@@ -136,6 +140,9 @@ public:
         panelCfg.bus_shared = profile.busShared;
         panelCfg.invert = false;
         panelCfg.rgb_order = false;
+        panelCfg.dlen_16bit = false;
+        panelCfg.dummy_read_pixel = 8;
+        panelCfg.dummy_read_bits = 1;
         _panel.config(panelCfg);
 
         _panel.setBus(&_bus);
@@ -160,13 +167,25 @@ void configureBacklightPin(const DisplayProfile& profile) {
 }
 
 bool restartGuiForCurrentDisplay() {
+    Serial.printf("[DisplayRuntime] GUI restart begin (heap=%u psram=%u)\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getFreePsram()));
     if (!GUI::guiInit()) {
+        const char* reason = GUI::guiLastError();
+        Serial.printf("[DisplayRuntime] GUI restart failed at guiInit: %s\n",
+                      (reason && reason[0]) ? reason : "unknown");
         return false;
     }
     if (!GUI::guiStart()) {
+        const char* reason = GUI::guiLastError();
+        Serial.printf("[DisplayRuntime] GUI restart failed at guiStart: %s\n",
+                      (reason && reason[0]) ? reason : "unknown");
         return false;
     }
     GUI::LegacyBridge::init();
+    Serial.printf("[DisplayRuntime] GUI restart ok (heap=%u psram=%u)\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getFreePsram()));
     return true;
 }
 
@@ -201,6 +220,25 @@ bool configureAndInitExternal(const DisplayProfile& profile, DisplayDriver& appl
         return false;
     }
 
+    Serial.printf(
+        "[DisplayRuntime] External init request: driver=%s host=%s mode=%u wr=%lu rd=%lu 3wire=%u dma=%d shared=%u lock=%u pins(cs=%d dc=%d rst=%d mosi=%d sclk=%d miso=%d bl=%d)\n",
+        displayDriverToString(appliedDriver),
+        displaySpiHostToString(profile.spiHost),
+        static_cast<unsigned>(profile.spiMode),
+        static_cast<unsigned long>(profile.freqWrite),
+        static_cast<unsigned long>(profile.freqRead),
+        profile.spi3Wire ? 1u : 0u,
+        static_cast<int>(profile.dmaChannel),
+        profile.busShared ? 1u : 0u,
+        profile.useLock ? 1u : 0u,
+        static_cast<int>(profile.pins.cs),
+        static_cast<int>(profile.pins.dc),
+        static_cast<int>(profile.pins.rst),
+        static_cast<int>(profile.pins.mosi),
+        static_cast<int>(profile.pins.sclk),
+        static_cast<int>(profile.pins.miso),
+        static_cast<int>(profile.pins.bl));
+
     if (!s_externalLgfx.configure(profile)) {
         setError("external LGFX configure failed");
         return false;
@@ -215,6 +253,10 @@ bool configureAndInitExternal(const DisplayProfile& profile, DisplayDriver& appl
             ? lgfx::color_depth_t::rgb888_3Byte
             : lgfx::color_depth_t::rgb565_2Byte
     );
+    Serial.printf("[DisplayRuntime] External LGFX init ok: size=%dx%d depth=%u\n",
+                  static_cast<int>(s_externalLgfx.width()),
+                  static_cast<int>(s_externalLgfx.height()),
+                  static_cast<unsigned>(profile.colorDepth));
     return true;
 }
 
@@ -262,11 +304,41 @@ bool applyProfileInternal(const DisplayProfile& profile,
         delay(profile.initDelayMs);
     }
 
+    Serial.printf(
+        "[DisplayRuntime] Runtime target ready: name=%s driver=%s builtin=%u host=%s size=%dx%d depth=%u initOrder=%s initDelay=%u sdShare=%u releaseBeforeSd=%u\n",
+        profile.name,
+        displayDriverToString(appliedDriver),
+        profile.builtin ? 1u : 0u,
+        displaySpiHostToString(profile.spiHost),
+        static_cast<int>(targetDevice->width()),
+        static_cast<int>(targetDevice->height()),
+        static_cast<unsigned>(profile.colorDepth),
+        displayInitOrderToString(profile.initOrder),
+        static_cast<unsigned>(profile.initDelayMs),
+        profile.sharesBusWithSd ? 1u : 0u,
+        profile.releaseBeforeSd ? 1u : 0u);
+
     if (restartGuiPipeline) {
-        if (!restartGuiForCurrentDisplay()) {
-            setError("GUI restart failed");
-            fallbackToBuiltin(true);
-            return false;
+        bool restarted = restartGuiForCurrentDisplay();
+        if (!restarted) {
+            // One retry after a short delay helps when RTOS resources are still
+            // settling right after task teardown.
+            GUI::guiStop();
+            GUI::guiShutdown();
+            delay(20);
+            restarted = restartGuiForCurrentDisplay();
+        }
+
+        if (!restarted) {
+            // Do not fail display switch solely because async GUI task restart
+            // failed. LegacyBridge will continue in direct mode when GUI is not
+            // running, so the active display still changes deterministically.
+            GUI::guiStop();
+            GUI::guiShutdown();
+            GUI::LegacyBridge::init();
+            const char* reason = GUI::guiLastError();
+            Serial.printf("[DisplayRuntime] warning: GUI restart failed, continuing in direct mode (reason: %s)\n",
+                          (reason && reason[0]) ? reason : "unknown");
         }
     } else {
         GUI::LegacyBridge::init();
@@ -332,6 +404,16 @@ bool applyProfileIndex(uint8_t index, bool persistActive, bool restartGuiPipelin
     if (!profile) {
         setError(String("invalid profile index: ") + index);
         return false;
+    }
+
+    // Selecting the currently active/applied profile should be a no-op.
+    if (s_hasAppliedProfile && strcmp(s_appliedProfile.name, profile->name) == 0) {
+        if (!DisplayProfileManager::setActive(index, persistActive)) {
+            setError(String("profile already active but persist failed: ") + DisplayProfileManager::getLastError());
+            return false;
+        }
+        Serial.printf("[DisplayRuntime] Profile '%s' already active\n", profile->name);
+        return true;
     }
 
     return applyProfileInternal(*profile, static_cast<int8_t>(index), persistActive, restartGuiPipeline);
