@@ -5,8 +5,6 @@
  */
 
 #include "hardware.h"
-#include <driver/adc.h>
-#include <esp_adc_cal.h>
 #include <AudioOutput.h>
 #include <AudioFileSourceSD.h>
 #include <AudioFileSourceID3.h>
@@ -359,33 +357,23 @@ void HardwareAudio::setEnabled(bool enabled) {
 // ============================================================================
 
 int HardwarePower::getBatteryLevel() {
-    int percent = -1;
-
-    if (hwGetBoardType() == BoardType::CARDPUTER) {
-        // Normal Cardputer - use standard API
-        percent = M5.Power.getBatteryLevel();
+    // Use M5Unified power API only (ADC oneshot path) to avoid
+    // ESP-IDF v5 conflict with deprecated ADC legacy driver.
+    int percent = M5.Power.getBatteryLevel();
+    if (percent >= 0 && percent <= 100) {
+        return percent;
     }
-    else if (hwGetBoardType() == BoardType::CARDPUTER_ADV) {
-        // ADV - read via ADC
-        const int BASE_VOLTAGE = 3600;
-        static esp_adc_cal_characteristics_t* adc_chars = nullptr;
 
-        if (!adc_chars) {
-            adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-            adc1_config_width(ADC_WIDTH_BIT_12);
-            adc1_config_channel_atten(ADC1_CHANNEL_9, ADC_ATTEN_DB_11);
-            esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, BASE_VOLTAGE, adc_chars);
-        }
-
-        int raw = adc1_get_raw(ADC1_CHANNEL_9);
-        uint32_t mv = esp_adc_cal_raw_to_voltage(raw, adc_chars) * 2;
-
-        percent = (mv - 3300) * 100.0 / (4150 - 3350);
+    // Fallback: estimate from battery voltage if percentage is unavailable.
+    const int mv = M5.Power.getBatteryVoltage();
+    if (mv > 0) {
+        percent = static_cast<int>((mv - 3350) * 100.0f / (4150.0f - 3350.0f));
         if (percent < 0) percent = 0;
         if (percent > 100) percent = 100;
+        return percent;
     }
 
-    return percent;
+    return -1;
 }
 
 String HardwarePower::getBatteryLevelString() {

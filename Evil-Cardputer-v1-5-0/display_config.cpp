@@ -426,19 +426,23 @@ bool DisplayProfileManager::validateProfiles(String* reason) {
             pinConflict(p.pins.mosi, kDefaultSdMosi) ||
             pinConflict(p.pins.miso, kDefaultSdMiso);
         if (p.sharesBusWithSd) {
-            if (host != kDefaultSdHost) {
-                if (reason) *reason = String("profile '") + p.name + "': shares_bus_with_sd=true but host is " + hostLabel(p.spiHost);
+            // Shared with SD is valid either by host or by physical pin overlap.
+            // Cardputer-Adv external setups often use SPI3_HOST while reusing SD lines.
+            if (!touchesSdPins && host != kDefaultSdHost) {
+                if (reason) *reason = String("profile '") + p.name + "': shares_bus_with_sd=true but no shared host/pins with SD";
                 return false;
             }
             if (pinConflict(p.pins.cs, kDefaultSdCs)) {
                 if (reason) *reason = String("profile '") + p.name + "': CS conflicts with SD CS";
                 return false;
             }
-            if (pinSetMismatch(p.pins.sclk, kDefaultSdSclk) ||
-                pinSetMismatch(p.pins.mosi, kDefaultSdMosi) ||
-                (!p.spi3Wire && pinSetMismatch(p.pins.miso, kDefaultSdMiso))) {
-                if (reason) *reason = String("profile '") + p.name + "': SD shared-bus pins mismatch";
-                return false;
+            if (touchesSdPins) {
+                if (pinSetMismatch(p.pins.sclk, kDefaultSdSclk) ||
+                    pinSetMismatch(p.pins.mosi, kDefaultSdMosi) ||
+                    (!p.spi3Wire && pinSetMismatch(p.pins.miso, kDefaultSdMiso))) {
+                    if (reason) *reason = String("profile '") + p.name + "': SD shared-bus pins mismatch";
+                    return false;
+                }
             }
         } else {
             if (touchesSdPins) {
@@ -709,14 +713,14 @@ void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     p.freqRead = 16000000UL;
     p.spi3Wire = true;
     p.dmaChannel = 0;
-    p.busShared = false;
+    p.busShared = true;
     p.useLock = true;
 
     p.initOrder = DisplayInitOrder::EXTERNAL_FIRST;
     p.initDelayMs = 120;
 
-    p.sharesBusWithSd = false;
-    p.releaseBeforeSd = false;
+    p.sharesBusWithSd = true;
+    p.releaseBeforeSd = true;
 
     p.pins.cs = 5;
     p.pins.dc = 6;
