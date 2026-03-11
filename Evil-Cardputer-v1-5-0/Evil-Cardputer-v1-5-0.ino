@@ -841,14 +841,8 @@ void setup() {
   LB::setTextSize(1.5);
   LB::setTextColor(menuTextUnFocusedColor);
   LB::setTextFont(1);
-
-  // Initialize GUI Framework (async renderer on Core 0 + LegacyBridge)
-  if (GUI::begin()) {
-    GUI::LegacyBridge::init();
-    Serial.println("[GUI] Framework initialized successfully");
-  } else {
-    Serial.println("[GUI] Framework initialization failed - continuing with direct M5.Display");
-  }
+  // Safety default: keep panel visible even if persisted brightness is invalid.
+  LB::setBrightness(defaultBrightness);
 
   // Setup GPS pins based on detected board (legacy variables for compatibility)
   if (hwIsCardputerADV()) {
@@ -1274,6 +1268,16 @@ void setup() {
       } else {
         delay(2000);
       }
+    }
+  }
+
+  // Ensure GUI is started once, after display profile selection has been applied.
+  if (!GUI::guiIsRunning()) {
+    if (GUI::begin()) {
+      GUI::LegacyBridge::init();
+      Serial.println("[GUI] Framework initialized successfully");
+    } else {
+      Serial.println("[GUI] Framework initialization failed - continuing with direct M5.Display");
     }
   }
 
@@ -7103,6 +7107,10 @@ void restoreConfigParameter(String key) {
 
           if (key == "brightness") {
             intValue = stringValue.toInt();
+            if (intValue <= 0 || intValue > 255) {
+              intValue = defaultBrightness;
+              Serial.println("Brightness value invalid, fallback to default " + String(intValue));
+            }
             LB::setBrightness(intValue);
             Serial.println("Brightness restored to " + String(intValue));
           } else if (key == "volume") {
