@@ -1,3 +1,4 @@
+#line 1 "C:\\Coding\\CardputerADV-E2C\\Evil-Cardputer-v1-5-0\\llm_gateway.cpp"
 /*
  * llm_gateway.cpp - LLM Gateway Client for Evil-Cardputer
  *
