@@ -1277,7 +1277,10 @@ void setup() {
 
   // Ensure GUI is started once, after display profile selection has been applied.
   if (!GUI::guiIsRunning()) {
-    if (GUI::begin()) {
+    if (ESP.getFreePsram() == 0) {
+      GUI::LegacyBridge::init();
+      Serial.println("[GUI] PSRAM unavailable - async renderer disabled, using direct mode");
+    } else if (GUI::begin()) {
       GUI::LegacyBridge::init();
       Serial.println("[GUI] Framework initialized successfully");
     } else {

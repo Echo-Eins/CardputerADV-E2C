@@ -21,6 +21,7 @@ bool s_initialized = false;
 bool s_hasAppliedProfile = false;
 DisplayProfile s_appliedProfile;
 lgfx::LGFX_Device* s_activeDevice = &M5.Display;
+bool s_externalSelfTestDone = false;
 
 void setError(const String& msg) {
     strncpy(s_lastError, msg.c_str(), kErrorLen - 1);
@@ -166,7 +167,46 @@ void configureBacklightPin(const DisplayProfile& profile) {
     digitalWrite(profile.pins.bl, HIGH);
 }
 
+void runExternalSelfTestOnce() {
+    if (s_externalSelfTestDone) {
+        return;
+    }
+    s_externalSelfTestDone = true;
+
+    GUI::DisplayLockGuard lockGuard;
+    if (!lockGuard.locked()) {
+        Serial.println(F("[DisplayRuntime] External self-test skipped: display lock unavailable"));
+        return;
+    }
+
+    // One-shot diagnostic pattern to confirm panel/backlight are physically working.
+    s_externalLgfx.fillScreen(TFT_RED);
+    delay(60);
+    s_externalLgfx.fillScreen(TFT_GREEN);
+    delay(60);
+    s_externalLgfx.fillScreen(TFT_BLUE);
+    delay(60);
+    s_externalLgfx.fillScreen(TFT_BLACK);
+    s_externalLgfx.setTextColor(TFT_WHITE, TFT_BLACK);
+    s_externalLgfx.setTextSize(2);
+    s_externalLgfx.setCursor(12, 12);
+    s_externalLgfx.print("EXT ILI9488 OK");
+    s_externalLgfx.display();
+    Serial.println(F("[DisplayRuntime] External self-test pattern drawn"));
+}
+
 bool restartGuiForCurrentDisplay() {
+    if (ESP.getFreePsram() == 0) {
+        // Cardputer-ADV units without working PSRAM cannot reliably run the
+        // async renderer task + framebuffer path. Keep LegacyBridge in direct
+        // mode and report success so profile switch remains deterministic.
+        GUI::guiStop();
+        GUI::guiShutdown();
+        GUI::LegacyBridge::init();
+        Serial.println(F("[DisplayRuntime] PSRAM unavailable -> keeping GUI in direct mode (async task disabled)"));
+        return true;
+    }
+
     Serial.printf("[DisplayRuntime] GUI restart begin (heap=%u psram=%u)\n",
                   static_cast<unsigned>(ESP.getFreeHeap()),
                   static_cast<unsigned>(ESP.getFreePsram()));
@@ -253,6 +293,7 @@ bool configureAndInitExternal(const DisplayProfile& profile, DisplayDriver& appl
             ? lgfx::color_depth_t::rgb888_3Byte
             : lgfx::color_depth_t::rgb565_2Byte
     );
+    runExternalSelfTestOnce();
     Serial.printf("[DisplayRuntime] External LGFX init ok: size=%dx%d depth=%u\n",
                   static_cast<int>(s_externalLgfx.width()),
                   static_cast<int>(s_externalLgfx.height()),
