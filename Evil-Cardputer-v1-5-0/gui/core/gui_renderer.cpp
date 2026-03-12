@@ -112,23 +112,22 @@ bool Renderer::init() {
     const uint32_t freePsram = static_cast<uint32_t>(ESP.getFreePsram());
     const uint32_t requiredDoubleBufferBytes =
         static_cast<uint32_t>(m_displayWidth) * static_cast<uint32_t>(m_displayHeight) * 2u * 2u;
-    if (freePsram == 0) {
-        snprintf(m_lastError, sizeof(m_lastError),
-                 "PSRAM unavailable (free=0, need~%uB). Rebuild with PSRAM enabled",
-                 static_cast<unsigned>(requiredDoubleBufferBytes));
-        GUI_LOG_ERROR("Renderer requires PSRAM for double buffer (need~%lu, free=%lu)",
-                      static_cast<unsigned long>(requiredDoubleBufferBytes),
-                      static_cast<unsigned long>(freePsram));
-        return false;
+    if (m_renderMode == RenderMode::DoubleBuffered && freePsram == 0) {
+        // Keep GUI lifecycle functional on devices without PSRAM:
+        // switch to direct mode instead of aborting init().
+        m_renderMode = RenderMode::Direct;
+        Serial.printf("[GUI] PSRAM unavailable (need~%uB). Falling back to Direct render mode.\n",
+                      static_cast<unsigned>(requiredDoubleBufferBytes));
     }
 
-    // Initialize framebuffer BEFORE queue so that the render buffer exists
-    // before any commands can be enqueued and processed.
-    if (!Framebuffer::instance().init()) {
-        snprintf(m_lastError, sizeof(m_lastError), "Framebuffer::init failed");
-        GUI_LOG_ERROR("Failed to initialize Framebuffer");
-        return false;
-    }
+    if (m_renderMode == RenderMode::DoubleBuffered) {
+        // Initialize framebuffer BEFORE queue so that the render buffer exists
+        // before any commands can be enqueued and processed.
+        if (!Framebuffer::instance().init()) {
+            snprintf(m_lastError, sizeof(m_lastError), "Framebuffer::init failed");
+            GUI_LOG_ERROR("Failed to initialize Framebuffer");
+            return false;
+        }
 
     // Initialize DMA transfer (Phase 2)
     if (!DmaTransfer::instance().init()) {
@@ -159,14 +158,23 @@ bool Renderer::init() {
     DirtyRegionTracker::instance().markAllDirty();
 #endif
 
-    // Initialize M5Canvas sprite pointing to back buffer
-    // This routes ALL draw operations (text, circles, etc.) into our framebuffer
-    updateCanvasBuffer();
+        // Initialize M5Canvas sprite pointing to back buffer
+        // This routes ALL draw operations (text, circles, etc.) into our framebuffer
+        updateCanvasBuffer();
+    }
 
 #if GUI_DIRTY_TRACKING
-    GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA + DirtyTracking]", m_displayWidth, m_displayHeight);
+    if (m_renderMode == RenderMode::DoubleBuffered) {
+        GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA + DirtyTracking]", m_displayWidth, m_displayHeight);
+    } else {
+        GUI_LOG("Renderer initialized (%dx%d) [Direct fallback]", m_displayWidth, m_displayHeight);
+    }
 #else
-    GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA]", m_displayWidth, m_displayHeight);
+    if (m_renderMode == RenderMode::DoubleBuffered) {
+        GUI_LOG("Renderer initialized (%dx%d) [DoubleBuffered + DMA]", m_displayWidth, m_displayHeight);
+    } else {
+        GUI_LOG("Renderer initialized (%dx%d) [Direct fallback]", m_displayWidth, m_displayHeight);
+    }
 #endif
 #else
     GUI_LOG("Renderer initialized (%dx%d) [Direct]", m_displayWidth, m_displayHeight);
