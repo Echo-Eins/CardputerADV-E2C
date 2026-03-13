@@ -110,8 +110,9 @@ void DisplayAdapter::queryDisplayInfo() {
         }
     }
 
-    // Capabilities are compile-time for this target.
-    info.colorDepth = 16;
+    // Fix #5: Read actual color depth from runtime display target.
+    const uint8_t rtDepth = runtimeDisplayColorDepth();
+    info.colorDepth = (rtDepth > 0) ? rtDepth : 16;
     info.doubleBuffered = GUI_DOUBLE_BUFFER;
     info.dmaEnabled = GUI_USE_DMA;
 

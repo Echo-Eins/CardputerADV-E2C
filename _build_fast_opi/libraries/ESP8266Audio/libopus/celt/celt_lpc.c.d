@@ -1,0 +1,28 @@
+C:\Coding\CardputerADV-E2C\_build_fast_opi\libraries\ESP8266Audio\libopus\celt\celt_lpc.c.o: \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\celt_lpc.c \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\config.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/config.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\celt_lpc.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\arch.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\opus_types.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_types.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_defines.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_types.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\fixed_generic.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\cpu_support.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\stack_alloc.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\mathops.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\entcode.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\ecintrin.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\os_support.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\pitch.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\modes.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\celt.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\opus_custom.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_custom.h \
+ C:/Users/EchoEins/Documents/Arduino/libraries/ESP8266Audio/src/libopus/include/opus_defines.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\entenc.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\entdec.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\mdct.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src\libopus\celt\kiss_fft.h

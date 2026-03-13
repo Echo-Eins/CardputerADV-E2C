@@ -13350,7 +13350,7 @@ void badUSB() {
 const int MAX_DISPLAY_LINES = 7;  // Affiche 10 lignes à la fois dans GeneralInfo
 
 File myFile;
-char logFileName[24];
+char logFileName[64];
 int totalNetworks   = 0;
 unsigned long lastLog = 0;
 int currentScreen   = 1;  // 1=GeneralInfo, 2=ReceivedData
@@ -13411,6 +13411,7 @@ void OnDataRecv(const esp_now_recv_info_t* recvInfo, const uint8_t* incomingData
         logFile.print(myData.encryptionType);   logFile.print(",");
         logFile.printf("%04d-%02d-%02d-%02d-%02d-%02d,",
                        gps.date.year(), gps.date.month(),
+                       gps.date.day(),
                        gps.time.hour(), gps.time.minute(),
                        gps.time.second());
         logFile.print(myData.channel);           logFile.print(",");
@@ -13443,7 +13444,11 @@ void OnDataRecv(const esp_now_recv_info_t* recvInfo, const uint8_t* incomingData
 // Choix du nom de fichier pour le log CSV
 void updateFileName() {
     for (int i = 0; i < MAX_LOG_FILES; i++) {
-        sprintf(logFileName, "%s%d.%s", LOG_FILE_PREFIX, i, LOG_FILE_SUFFIX);
+        const int written = snprintf(logFileName, sizeof(logFileName), "%s%d.%s",
+                                     LOG_FILE_PREFIX, i, LOG_FILE_SUFFIX);
+        if (written < 0 || written >= static_cast<int>(sizeof(logFileName))) {
+            continue;
+        }
         if (!SD.exists(logFileName)) {
             Serial.println(F("New file name chosen:"));
             Serial.println(logFileName);
@@ -14015,7 +14020,9 @@ void wifiVisualizer() {
     for (int i = 1; i <= maxChannels; i++) {
         int xPosition = leftMargin + (i - 1) * (barWidth + spacing);
         LB::setCursor(xPosition + (barWidth / 2) - 4, screenHeight - 8);
-        LB::setTextColor(colors[i+1], menuBackgroundColor);
+        const int colorCount = static_cast<int>(sizeof(colors) / sizeof(colors[0]));
+        const int colorIndex = (i + 1 < colorCount) ? (i + 1) : (colorCount - 1);
+        LB::setTextColor(colors[colorIndex], menuBackgroundColor);
         LB::printf("%d", i);
     }
     LB::display();
@@ -16752,7 +16759,7 @@ void detectPrinter() {
     // Get the base network IP
     String baseIP = getNetworkBase();
     char base_ip[16];
-    sprintf(base_ip, "%s.", baseIP.c_str());
+    snprintf(base_ip, sizeof(base_ip), "%s.", baseIP.c_str());
 
     Serial.println("[INFO] Network base IP: " + String(base_ip));
     LB::clear();
@@ -16765,7 +16772,14 @@ void detectPrinter() {
     // Scan subnet IP addresses
     for (int i = 1; i <= 254; i++) {
         IPAddress currentIP;
-        sscanf(base_ip, "%d.%d.%d.", &currentIP[0], &currentIP[1], &currentIP[2]);
+        unsigned int o0 = 0, o1 = 0, o2 = 0;
+        if (sscanf(base_ip, "%u.%u.%u.", &o0, &o1, &o2) != 3 ||
+            o0 > 255 || o1 > 255 || o2 > 255) {
+            continue;
+        }
+        currentIP[0] = static_cast<uint8_t>(o0);
+        currentIP[1] = static_cast<uint8_t>(o1);
+        currentIP[2] = static_cast<uint8_t>(o2);
         currentIP[3] = i;
 
         Serial.printf("[DEBUG] Checking IP: %s\n", currentIP.toString().c_str());
@@ -22549,7 +22563,7 @@ AFTER_RTSP_PORT_SCAN:
     uiReportOnly("RTSP protected (auth required):");
     for (const String& u : rtspProtected) uiReportOnly("  - " + u);
   }
-  httpOk == 0;
+  httpOk = 0;
   delay(2000);
 }
 

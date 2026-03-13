@@ -287,6 +287,8 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\display_runtime.cpp.o: \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/SD.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\FS\src/FS.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/sd_defines.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/core/gui_display_lock.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/core/gui_display_target.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui_config.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui_types.h \
@@ -339,6 +341,4 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\display_runtime.cpp.o: \
  C:/Coding/CardputerADV-E2C/_build_fast_disabled/sketch/gui/core/gui_renderer.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/tests/gui_production_tests.h \
  C:/Coding/CardputerADV-E2C/_build_fast_disabled/sketch/gui/gui_config.h \
- C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/core/gui_display_target.h \
- C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/core/gui_display_lock.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5GFX\src/lgfx/v1/panel/Panel_LCD.hpp
