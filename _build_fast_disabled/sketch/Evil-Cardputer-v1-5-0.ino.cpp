@@ -1905,7 +1905,7 @@ void webCrawling(const IPAddress &ip);
 
 
 //taskbar
-M5Canvas taskBarCanvas(&M5.Display); // Framebuffer pour la barre de tâches
+M5Canvas taskBarCanvas; // Framebuffer for task bar (target selected at push time)
 static bool taskBarSpriteReady = false;
 //taskbar end
 
@@ -2913,7 +2913,7 @@ void drawTaskBar() {
   }
 
   // Afficher le framebuffer de la barre de tâches
-  taskBarCanvas.pushSprite(0, 0);
+  taskBarCanvas.pushSprite(&GUI::runtimeDisplay(), 0, 0);
   //taskBarCanvas.deleteSprite();
 }
 
@@ -23944,7 +23944,7 @@ static int  g_sel_res_idx = 1; // 0:160x120, 1:320x240
 static int  g_sel_comp    = 70;
 
 // ---- sprite pour décoder puis étirer ----
-static LGFX_Sprite g_spr(&M5.Display);
+static LGFX_Sprite g_spr;
 static bool   g_spr_ready = false;
 static int    g_spr_w = 0, g_spr_h = 0;
 
@@ -24145,7 +24145,7 @@ void drawScaledJpg(fs::FS& fs, const char* filepath) {
   const int   cy = viewY + viewH / 2;
 
   LB::setClipRect(viewX, viewY, viewW, viewH);
-  g_spr.pushRotateZoom(&M5.Display, cx, cy, 0.0f, zx, zy);
+  g_spr.pushRotateZoom(&GUI::runtimeDisplay(), cx, cy, 0.0f, zx, zy);
   LB::clearClipRect();
 
   g_spr.deleteSprite();
@@ -28758,8 +28758,8 @@ unsigned long ow_lastSToggle = 0;
 #define OW_S_TOGGLE_DEBOUNCE 220UL
 
 /* ================== UI sprites (reduce flicker) ================== */
-static M5Canvas ow_listSpr(&M5.Display);
-static M5Canvas ow_panelSpr(&M5.Display);
+static M5Canvas ow_listSpr;
+static M5Canvas ow_panelSpr;
 static bool ow_sprReady = false;
 
 /* ================== HELPER: clip SSID to pixel width (no allocations) ================== */
@@ -29157,7 +29157,7 @@ void ow_drawStatsPanel() {
   ow_panelSpr.setTextColor(ow_beepEnabled ? TFT_GREEN : TFT_RED, menuBackgroundColor);
   ow_panelSpr.print(ow_beepEnabled ? "ON" : "OFF");
 
-  ow_panelSpr.pushSprite(OW_PANEL_X, 0);
+  ow_panelSpr.pushSprite(&GUI::runtimeDisplay(), OW_PANEL_X, 0);
 }
 
 
@@ -29253,7 +29253,7 @@ void ow_drawWifiList() {
     y += OW_LINE_H;
   }
 
-  ow_listSpr.pushSprite(0, OW_LIST_Y);
+  ow_listSpr.pushSprite(&GUI::runtimeDisplay(), 0, OW_LIST_Y);
 }
 
 
