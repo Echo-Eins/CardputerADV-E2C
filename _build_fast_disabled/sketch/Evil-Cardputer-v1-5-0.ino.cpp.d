@@ -158,70 +158,13 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/freertos_stats.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/io_pin_remap.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Arduino.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFi.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Print.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiType.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types_generic.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_hw_support/include/esp_interface.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/local/esp_wifi_types_native.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types_generic.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiSTA.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiGeneric.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_smartconfig.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_types.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_ip_addr.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_driver.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_com.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/eth_types.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_spec.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_mac_spi.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_mac.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/driver/spi_master.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/spi_types.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/driver/spi_common.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_system/include/esp_ipc.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_phy.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/espressif__network_provisioning/include/network_provisioning/manager.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/protocomm/include/common/protocomm.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/protocomm/include/security/protocomm_security.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/espressif__network_provisioning/include/network_provisioning/network_config.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/Network.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkInterface.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Printable.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkEvents.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkManager.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/WString.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkClient.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Client.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkServer.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Server.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkUdp.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Udp.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/cbuf.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_ringbuf/include/freertos/ringbuf.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiAP.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiScan.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiClient.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiServer.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiUdp.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkUdp.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/WebServer.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\FS\src/FS.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/HTTP_Method.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/http_parser/http_parser.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/Uri.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/middleware/Middleware.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/detail/RequestHandler.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\DNSServer\src/DNSServer.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\AsyncUDP\src/AsyncUDP.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Print.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_ip_addr.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_types.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_defaults.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/SD.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SPI\src/SPI.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/esp32-hal-spi.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/sd_defines.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Unified\src/M5Unified.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Unified\src/M5Unified.hpp \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Unified\src/utility/m5unified_common.h \
@@ -234,6 +177,9 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_rom/esp32s3/include/esp32s3/rom/lldesc.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_rom/include/esp_rom_lldesc.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/esp_private/spi_common_internal.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/driver/spi_common.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_system/include/esp_ipc.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/spi_types.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/dma_types.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/soc/esp32s3/include/soc/ext_mem_defs.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/esp_private/spi_dma.h \
@@ -261,6 +207,8 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:/Users/EchoEins/Documents/Arduino/libraries/M5GFX/src/lgfx/utility/result.hpp \
  C:/Users/EchoEins/Documents/Arduino/libraries/M5GFX/src/lgfx/internal/memory.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/soc/esp32s3/register/soc/i2s_reg.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SPI\src/SPI.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/esp32-hal-spi.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Wire\src/Wire.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/esp32-hal.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/esp32-hal-log.h \
@@ -279,6 +227,7 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/i2c_types.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/hal_utils.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_lcd/include/esp_lcd_io_spi.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_driver_spi/include/driver/spi_master.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5GFX\src/lgfx/v1/platforms/esp32s3/Bus_Parallel16.hpp \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5GFX\src/lgfx/v1/lgfx_filesystem_support.hpp \
  C:/Users/EchoEins/Documents/Arduino/libraries/M5GFX/src/lgfx/internal/alloca.h \
@@ -336,8 +285,59 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Unified\src/utility/imu/IMU_Base.hpp \
  C:/Users/EchoEins/Documents/Arduino/libraries/M5Unified/src/utility/I2C_Class.hpp \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Unified\src/utility/IOExpander_Base.hpp \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/SD.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\FS\src/FS.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/sd_defines.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\TinyGPSPlus\src/TinyGPSPlus.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\TinyGPSPlus\src/TinyGPS++.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/WebServer.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/Network.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkInterface.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_types.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Printable.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkEvents.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_driver.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_com.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/hal/include/hal/eth_types.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_spec.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_mac_spi.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_mac.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_eth/include/esp_eth_phy.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types_generic.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_hw_support/include/esp_interface.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/local/esp_wifi_types_native.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_wifi_types_generic.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_wifi/include/esp_smartconfig.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/espressif__network_provisioning/include/network_provisioning/network_config.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkManager.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/WString.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkClient.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Client.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkServer.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Server.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkUdp.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/Udp.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/cbuf.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_ringbuf/include/freertos/ringbuf.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/HTTP_Method.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/http_parser/http_parser.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/Uri.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/middleware/Middleware.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WebServer\src/detail/RequestHandler.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFi.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiType.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiSTA.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiGeneric.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/espressif__network_provisioning/include/network_provisioning/manager.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/protocomm/include/common/protocomm.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/protocomm/include/security/protocomm_security.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiAP.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiScan.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiClient.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiServer.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\WiFi\src/WiFiUdp.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\Network\src/NetworkUdp.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/M5Cardputer.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/Keyboard.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/KeyboardReader/KeyboardReader.h \
@@ -370,9 +370,9 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEAdvertisedDevice.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEScan.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEUtils.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEUtils.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEScan.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEAdvertisedDevice.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEScan.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\BLE\src/BLEUtils.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\ble_attacks.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\Adafruit_NeoPixel/Adafruit_NeoPixel.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\sip_attacks.h \
@@ -491,10 +491,12 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioOutput.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/libmad/config.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/libmad/mad.h \
- C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\i2c_manager.h \
- C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\scroll_input.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\display_config.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\display_runtime.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\i2c_diag.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\i2c_manager.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\scroll_input.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\sd_logger.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui_config.h \
  C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\gui/gui_types.h \
@@ -552,6 +554,9 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/nvs_flash/include/nvs_flash.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/nvs_flash/include/nvs.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\IniFile\src/IniFile.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESPping\src/ESPping.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESPping\src/ping32.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_net_stack.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/etharp.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/pbuf.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/err.h \
@@ -567,9 +572,6 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/prot/ethernet.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/prot/ieee.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/prot/etharp.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/esp_netif/include/esp_netif_net_stack.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\ESPping\src/ESPping.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\ESPping\src/ping32.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\LibSSH-ESP32\src/libssh_esp32.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\LibSSH-ESP32\src/libssh_esp32_info.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\LibSSH-ESP32\src/libssh/libssh.h \
@@ -602,7 +604,6 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\USB\src/USBHIDMouse.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/USB.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/mbedtls/mbedtls/include/mbedtls/base64.h \
- C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/USBMSC.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/tusb.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/common/tusb_common.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/osal/osal.h \
@@ -626,6 +627,7 @@ C:\Coding\CardputerADV-E2C\_build_fast_disabled\sketch\Evil-Cardputer-v1-5-0.ino
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/class/dfu/dfu_device.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/class/net/net_device.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/arduino_tinyusb/tinyusb/src/class/cdc/cdc.h \
+ C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\cores\esp32/USBMSC.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SPIFFS\src/SPIFFS.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\tools\esp32-arduino-libs\idf-release_v5.4-858a988d-v1\esp32s3/include/lwip/lwip/src/include/lwip/igmp.h \
  C:\Users\EchoEins\Documents\Arduino\libraries\Async_TCP\src/AsyncTCP.h \

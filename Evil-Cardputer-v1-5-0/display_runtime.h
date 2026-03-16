@@ -25,6 +25,10 @@ DisplayDriver getAppliedDriver();
 lgfx::LGFX_Device* getActiveDevice();
 bool usingExternalDisplay();
 
+// Prepare shared SPI lines before the very first SD.begin() at boot.
+// This is safe to call before any profile is loaded/applied.
+void prepareBusForSdBoot();
+
 void beginSdTransaction();
 void endSdTransaction();
 

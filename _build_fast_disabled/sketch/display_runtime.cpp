@@ -23,11 +23,82 @@ bool s_hasAppliedProfile = false;
 DisplayProfile s_appliedProfile;
 lgfx::LGFX_Device *s_activeDevice = &M5.Display;
 bool s_externalSelfTestDone = false;
+constexpr int8_t kSdCsPin = 12;
+constexpr int8_t kFallbackExternalCsPin = 5;
+uint16_t s_sdTxnDepth = 0;
+constexpr bool kSpiTraceEnabled = true;
 
 void setError(const String &msg) {
   strncpy(s_lastError, msg.c_str(), kErrorLen - 1);
   s_lastError[kErrorLen - 1] = '\0';
   Serial.printf("[DisplayRuntime] %s\n", s_lastError);
+}
+
+void drivePinHigh(int8_t pin) {
+  if (pin < 0) {
+    return;
+  }
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, HIGH);
+}
+
+int readPinLevel(int8_t pin) {
+  if (pin < 0) {
+    return -1;
+  }
+  return digitalRead(pin);
+}
+
+void logSpiState(const char *tag, const DisplayProfile *profile = nullptr) {
+  if (!kSpiTraceEnabled) {
+    return;
+  }
+
+  int8_t extCsPin = -1;
+  int8_t extMisoPin = -1;
+  bool hasApplied = s_hasAppliedProfile;
+  bool sharesSd = false;
+  bool releaseSd = false;
+
+  if (profile) {
+    extCsPin = profile->pins.cs;
+    extMisoPin = profile->pins.miso;
+    sharesSd = profile->sharesBusWithSd;
+    releaseSd = profile->releaseBeforeSd;
+    hasApplied = true;
+  } else if (s_hasAppliedProfile) {
+    extCsPin = s_appliedProfile.pins.cs;
+    extMisoPin = s_appliedProfile.pins.miso;
+    sharesSd = s_appliedProfile.sharesBusWithSd;
+    releaseSd = s_appliedProfile.releaseBeforeSd;
+  }
+
+  Serial.printf(
+      "[DisplayRuntime][SPI] %s | sd_cs(pin=%d lvl=%d) ext_cs(pin=%d lvl=%d) "
+      "fallback_cs(pin=%d lvl=%d) sd_miso(pin=%d lvl=%d) ext_miso(pin=%d "
+      "lvl=%d) depth=%u applied=%u share=%u release=%u\n",
+      tag, static_cast<int>(kSdCsPin), readPinLevel(kSdCsPin),
+      static_cast<int>(extCsPin), readPinLevel(extCsPin),
+      static_cast<int>(kFallbackExternalCsPin),
+      readPinLevel(kFallbackExternalCsPin), static_cast<int>(MISO),
+      readPinLevel(MISO), static_cast<int>(extMisoPin),
+      readPinLevel(extMisoPin), static_cast<unsigned>(s_sdTxnDepth),
+      hasApplied ? 1u : 0u, sharesSd ? 1u : 0u, releaseSd ? 1u : 0u);
+}
+
+void deselectSdAndDisplayCsPins() {
+  // Keep SD deselected unless an SD transaction explicitly owns the bus.
+  drivePinHigh(kSdCsPin);
+
+  // IMPORTANT:
+  // Do not reconfigure/toggle external display CS by GPIO after LGFX has
+  // attached the pin to the SPI peripheral, otherwise hardware CS ownership
+  // can be broken and the panel stays black.
+  // Only drive fallback CS before profile apply (boot) or when builtin display
+  // is active.
+  if (!s_hasAppliedProfile || s_appliedProfile.builtin) {
+    drivePinHigh(kFallbackExternalCsPin);
+  }
 }
 
 spi_host_device_t resolveHost(DisplaySpiHost host) {
@@ -59,12 +130,14 @@ public:
   // configure() sets memory_width/height from the active profile.
   PanelILI9488_Custom() = default;
 
-  // Fix #6: ILI9488 does NOT support native RGB565 over SPI.
-  // Always use rgb888_3Byte write depth — LovyanGFX will convert
-  // RGB565 pixel data into 3-byte RGB888 for the SPI transfer.
+  // Match reference implementation: on SPI bus, ILI9488 needs rgb888_3Byte
+  // because the chip only supports 18/24-bit pixels over SPI.
+  // On parallel bus (if ever used), allow rgb565 when depth <= 16.
   void setColorDepth_impl(lgfx::color_depth_t depth) override {
-    (void)depth;
-    _write_depth = lgfx::rgb888_3Byte;
+    _write_depth = (((int)depth & lgfx::color_depth_t::bit_mask) > 16 ||
+                    (_bus && _bus->busType() == lgfx::bus_spi))
+                       ? lgfx::rgb888_3Byte
+                       : lgfx::rgb565_2Byte;
     _read_depth = lgfx::rgb888_3Byte;
   }
 
@@ -97,12 +170,9 @@ protected:
         0xB7,
         1,
         0xC6, // Entry Mode Set
-        // Fix #6: 0x66 = 18-bit RGB666 pixel format.
-        // ILI9488 does NOT natively support 16-bit RGB565 over SPI.
-        // LovyanGFX converts pixel data to 3-byte RGB888 for transport.
-        0x3A,
-        1,
-        0x66,
+        // NOTE: Do NOT send 0x3A (Pixel Format) here!
+        // LovyanGFX handles this internally via setColorDepth().
+        // Sending it twice (once here, once by LGFX) can cause conflicts.
         0xF7,
         4,
         0xA9,
@@ -161,13 +231,21 @@ public:
     busCfg.freq_read = profile.freqRead;
     busCfg.spi_3wire = profile.spi3Wire;
     // Fix #7: Use SPI_DMA_CH_AUTO for reliable auto-selection.
-    const int dmaChannel =
-        (profile.dmaChannel > 0) ? profile.dmaChannel : static_cast<int>(SPI_DMA_CH_AUTO);
+    const int dmaChannel = (profile.dmaChannel > 0)
+                               ? profile.dmaChannel
+                               : static_cast<int>(SPI_DMA_CH_AUTO);
     busCfg.dma_channel = static_cast<uint8_t>(dmaChannel);
     busCfg.use_lock = profile.useLock;
     busCfg.pin_sclk = profile.pins.sclk;
     busCfg.pin_mosi = profile.pins.mosi;
-    busCfg.pin_miso = profile.spi3Wire ? -1 : profile.pins.miso;
+    // Shared bus with SD must be write-only from display side to avoid MISO
+    // contention. Readback is allowed only on dedicated (non-shared) bus.
+    const bool allowReadback = (!profile.sharesBusWithSd && !profile.spi3Wire &&
+                                profile.pins.miso >= 0);
+    busCfg.pin_miso = allowReadback ? profile.pins.miso : -1;
+    if (!allowReadback) {
+      busCfg.freq_read = 0;
+    }
     busCfg.pin_dc = profile.pins.dc;
     _bus.config(busCfg);
 
@@ -189,22 +267,25 @@ public:
     panelCfg.offset_x = 0;
     panelCfg.offset_y = 0;
     panelCfg.offset_rotation = 0;
-    panelCfg.readable = (!profile.spi3Wire && profile.pins.miso >= 0);
+    panelCfg.readable = allowReadback;
     panelCfg.bus_shared = profile.busShared;
     panelCfg.invert = false;
     panelCfg.rgb_order = false;
     panelCfg.dlen_16bit = false;
-    panelCfg.dummy_read_pixel = 8;
-    panelCfg.dummy_read_bits = 1;
+    panelCfg.dummy_read_pixel = allowReadback ? 8 : 0;
+    panelCfg.dummy_read_bits = allowReadback ? 1 : 0;
     _panel.config(panelCfg);
 
     _panel.setBus(&_bus);
     setPanel(&_panel);
 
     // Fix #9: Log 3-wire SPI diagnostic info
-    if (profile.spi3Wire) {
-      Serial.printf(
-          "[LgfxIli9488] 3-wire SPI mode: MISO forced to -1, readable=false\n");
+    Serial.printf("[LgfxIli9488] SPI cfg: 3wire=%u miso=%d readable=%u\n",
+                  profile.spi3Wire ? 1u : 0u, static_cast<int>(busCfg.pin_miso),
+                  allowReadback ? 1u : 0u);
+    if (profile.sharesBusWithSd && !allowReadback) {
+      Serial.println(
+          F("[LgfxIli9488] readback disabled by policy (shared bus with SD)"));
     }
 
     _configured = true;
@@ -232,7 +313,8 @@ void runExternalSelfTestOnce() {
   if (s_externalSelfTestDone) {
     return;
   }
-  s_externalSelfTestDone = true;
+
+  Serial.println(F("[DisplayRuntime] Starting external self-test..."));
 
   GUI::DisplayLockGuard lockGuard;
   if (!lockGuard.locked()) {
@@ -241,21 +323,33 @@ void runExternalSelfTestOnce() {
     return;
   }
 
-  // One-shot diagnostic pattern to confirm panel/backlight are physically
-  // working.
+  // Wrap all drawing in a single SPI transaction for correct bus handling.
+  s_externalLgfx.startWrite();
+  Serial.println(F("[DisplayRuntime] self-test: startWrite ok"));
+
   s_externalLgfx.fillScreen(TFT_RED);
-  delay(60);
+  Serial.println(F("[DisplayRuntime] self-test: RED"));
+  delay(120);
+
   s_externalLgfx.fillScreen(TFT_GREEN);
-  delay(60);
+  Serial.println(F("[DisplayRuntime] self-test: GREEN"));
+  delay(120);
+
   s_externalLgfx.fillScreen(TFT_BLUE);
-  delay(60);
+  Serial.println(F("[DisplayRuntime] self-test: BLUE"));
+  delay(120);
+
   s_externalLgfx.fillScreen(TFT_BLACK);
   s_externalLgfx.setTextColor(TFT_WHITE, TFT_BLACK);
   s_externalLgfx.setTextSize(2);
   s_externalLgfx.setCursor(12, 12);
   s_externalLgfx.print("EXT ILI9488 OK");
+  Serial.println(F("[DisplayRuntime] self-test: text drawn"));
+
+  s_externalLgfx.endWrite();
   s_externalLgfx.display();
-  Serial.println(F("[DisplayRuntime] External self-test pattern drawn"));
+  s_externalSelfTestDone = true;
+  Serial.println(F("[DisplayRuntime] External self-test COMPLETE"));
 }
 
 bool restartGuiForCurrentDisplay() {
@@ -343,20 +437,44 @@ bool configureAndInitExternal(const DisplayProfile &profile,
       static_cast<int>(profile.pins.dc), static_cast<int>(profile.pins.rst),
       static_cast<int>(profile.pins.mosi), static_cast<int>(profile.pins.sclk),
       static_cast<int>(profile.pins.miso), static_cast<int>(profile.pins.bl));
+  logSpiState("external-init:request", &profile);
+
+  // Ensure SD is deselected before claiming shared SPI lines for display init.
+  deselectSdAndDisplayCsPins();
+  if (profile.pins.cs >= 0) {
+    drivePinHigh(profile.pins.cs);
+  }
+  logSpiState("external-init:after-deselect", &profile);
 
   if (!s_externalLgfx.configure(profile)) {
     setError("external LGFX configure failed");
     return false;
   }
+  Serial.printf("[DisplayRuntime] LGFX configure ok, calling init()...\n");
+
   if (!s_externalLgfx.init()) {
     setError("external LGFX init failed");
+    logSpiState("external-init:lgfx-init-fail", &profile);
     return false;
   }
+  Serial.printf("[DisplayRuntime] LGFX init() returned true (w=%d h=%d)\n",
+                static_cast<int>(s_externalLgfx.width()),
+                static_cast<int>(s_externalLgfx.height()));
+
   s_externalLgfx.setRotation(profile.rotation & 0x07);
-  s_externalLgfx.setColorDepth(profile.colorDepth == 24
-                                   ? lgfx::color_depth_t::rgb888_3Byte
-                                   : lgfx::color_depth_t::rgb565_2Byte);
+  Serial.printf("[DisplayRuntime] setRotation(%u) -> w=%d h=%d\n",
+                profile.rotation & 0x07u,
+                static_cast<int>(s_externalLgfx.width()),
+                static_cast<int>(s_externalLgfx.height()));
+
+  // ILI9488 over SPI always needs 24-bit color depth.
+  // setColorDepth triggers setColorDepth_impl which forces rgb888_3Byte
+  // when bus type is SPI.
+  s_externalLgfx.setColorDepth(24);
+  Serial.printf("[DisplayRuntime] setColorDepth(24) done\n");
+
   runExternalSelfTestOnce();
+  logSpiState("external-init:success", &profile);
   Serial.printf("[DisplayRuntime] External LGFX init ok: size=%dx%d depth=%u\n",
                 static_cast<int>(s_externalLgfx.width()),
                 static_cast<int>(s_externalLgfx.height()),
@@ -456,9 +574,12 @@ bool applyProfileInternal(const DisplayProfile &profile, int8_t indexForPersist,
   if (indexForPersist >= 0) {
     if (!DisplayProfileManager::setActive(static_cast<uint8_t>(indexForPersist),
                                           persistActive)) {
-      setError(String("profile applied but persist failed: ") +
-               DisplayProfileManager::getLastError());
-      return false;
+      // Persist failure is non-fatal — display is already visually active.
+      // SD write may fail if SPI bus is held by external display (MISO
+      // conflict).
+      Serial.printf("[DisplayRuntime] WARNING: persist failed: %s "
+                    "(display is active, config may not survive reboot)\n",
+                    DisplayProfileManager::getLastError());
     }
   }
 
@@ -552,11 +673,28 @@ bool usingExternalDisplay() {
   return !s_appliedProfile.builtin;
 }
 
+void prepareBusForSdBoot() {
+  deselectSdAndDisplayCsPins();
+  logSpiState("boot-prepare");
+}
+
 void beginSdTransaction() {
-  if (!s_hasAppliedProfile)
+  if (s_sdTxnDepth < 0xFFFFu) {
+    ++s_sdTxnDepth;
+  }
+  if (s_sdTxnDepth > 1u) {
+    logSpiState("sd-begin:nested");
     return;
-  if (!s_appliedProfile.sharesBusWithSd || !s_appliedProfile.releaseBeforeSd)
+  }
+
+  deselectSdAndDisplayCsPins();
+  logSpiState("sd-begin:pre-policy");
+
+  if (!s_hasAppliedProfile || s_appliedProfile.builtin ||
+      !s_appliedProfile.sharesBusWithSd || !s_appliedProfile.releaseBeforeSd) {
+    logSpiState("sd-begin:policy-skip");
     return;
+  }
 
   GUI::LegacyBridge::sync();
   GUI::DisplayLockGuard lockGuard;
@@ -565,14 +703,25 @@ void beginSdTransaction() {
     GUI::runtimeDisplay().endWrite();
   }
 
-  if (s_appliedProfile.pins.cs >= 0) {
-    pinMode(s_appliedProfile.pins.cs, OUTPUT);
-    digitalWrite(s_appliedProfile.pins.cs, HIGH);
-  }
+  deselectSdAndDisplayCsPins();
+  logSpiState("sd-begin:policy-release");
 }
 
 void endSdTransaction() {
-  // Policy is one-way release-before-SD. No explicit post-op action required.
+  if (s_sdTxnDepth == 0u) {
+    logSpiState("sd-end:underflow");
+    return;
+  }
+  --s_sdTxnDepth;
+  if (s_sdTxnDepth > 0u) {
+    logSpiState("sd-end:nested");
+    return;
+  }
+
+  // Keep SD deselected after transaction. Display CS remains under display
+  // driver control and will be asserted during startWrite().
+  deselectSdAndDisplayCsPins();
+  logSpiState("sd-end:released");
 }
 
 } // namespace DisplayRuntime

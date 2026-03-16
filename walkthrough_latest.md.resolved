@@ -1,0 +1,162 @@
+# Диагностический отчёт: GPS пины, масштабирование, производительность, логирование
+
+## Карта пинов Cardputer ADV (ESP32-S3FN8)
+
+| Подсистема | Пины |
+|---|---|
+| **I2C (BMI270 IMU, TCA8418 keyboard)** | SDA=**GPIO8**, SCL=**GPIO9** |
+| **Built-in LCD (ST7789)** | MOSI=G35, SCK=G36, CS=G37, DC=G34, RST=G33, BL=G38 |
+| **SD Card** | MISO=**G39**, SCK=**G40**, CS=**G12**, MOSI=**G14** |
+| **EXT port (external display)** | SCK=G40, MOSI=G14, MISO=G39(?), CS=G5, DC=G6, RST=G3 |
+| **EXT port UART** | G13=UART_RX, G15=UART_TX |
+| **GPS power (ADV)** | **GPIO5** |
+
+> [!CAUTION]
+> SD и внешний дисплей делят **одну SPI шину**: SCK=G40, MOSI=G14. MISO=G39 принадлежит SD, но ILI9488 может его не отпускать (нет tri-state).
+
+---
+
+## Проблема 1: GPS pin toggle — почему помогает «перещёлкивание»
+
+### Что происходит в коде
+
+[toggleGpsPinsMode()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/Evil-Cardputer-v1-5-0.ino#L7125-L7168):
+```
+applyGpsPinsForMode(newMode)  → меняет gpsRxPin/gpsTxPin
+saveConfigParameter(...)       → пишет на SD
+cardgps.end()                  → UART2.end() = освобождает GPIO из UART matrix
+delay(2)
+cardgps.begin(baud, cfg, rx, tx) → переинициализирует UART2 на новых пинах
+```
+
+### Корневая причина
+
+`cardgps.end()` вызывает `uart_driver_delete()` в ESP-IDF, что **отключает GPIO matrix routing** для пинов, на которых был UART2. Если среди этих пинов есть **GPIO, который конфликтовал с SPI** (например, G40=SCK для внешнего дисплея И для SD), то `uart_driver_delete()` «освобождает» матрицу GPIO и позволяет SPI потом правильно переиспользовать этот пин.
+
+**Почему неважно 1/2 или 15/13** — потому что `cardgps.end()` всегда вызывается первым. Именно [end()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/gui.h#134-142), а не [begin()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/gui.h#121-133), создаёт полезный побочный эффект.
+
+**Почему после «правок» нужно 15/13**: [applyGpsPinsForMode(1)](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/Evil-Cardputer-v1-5-0.ino#7115-7124) ставит `gpsRxPin=15, gpsTxPin=13`. Далее `cardgps.begin(baud, cfg, 15, 13)` привязывает UART2 к G15/G13. Это снимает любое скрытое UART-назначение с G40/G14/G39 (SPI пинов), позволяя SPI работать чисто.
+
+### Вывод
+
+Реальная проблема — **при boot UART2 инициализируется на пинах, которые конфликтуют с SPI шиной для внешнего дисплея**. `cardgps.end()` — побочное решение. Нужно: при boot, если active display = external, **не инициализировать UART2 на конфликтующих пинах** до тех пор, пока дисплей не поднят.
+
+---
+
+## Проблема 2: I2C отваливается при 15/13
+
+### Анализ
+
+I2C шина на Cardputer ADV = **GPIO8 (SDA), GPIO9 (SCL)**. GPS пины 13/15 = UART RX/TX на EXT порту. Это **разные пины**, прямого конфликта нет.
+
+**Возможные причины I2C отвала:**
+1. **Питание через GPIO5**: GPS power включается на GPIO5 (HIGH). Если GPIO5 одновременно используется как CS для внешнего дисплея — `pinMode(5, INPUT)` может повлиять на power rail, к которому подключены I2C устройства через EXT порт
+2. **`cardgps.begin(baud, cfg, 15, 13)`** может задевать GPIO matrix для соседних пинов — ESP32-S3 IO MUX переназначение может иметь collateral effects
+3. **SD операция во время `saveConfigParameter()`** может заблокировать SPI шину, которая делится с I2C через EXT порт bus expander (если есть)
+
+> [!IMPORTANT]
+> Нужна дополнительная диагностика: добавить логирование I2C scan (`Wire.begin(8,9); Wire.beginTransmission()...`) до и после переключения GPS пинов, чтобы точно определить момент отвала.
+
+---
+
+## Проблема 3: Дисплей не перезаписывается как активный
+
+### Анализ кода
+
+[DisplayProfileManager::setActive()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#L550-L564) вызывает [save()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#631-672), которая пишет на SD.
+
+[applyProfileInternal()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_runtime.cpp#L574) вызывает [setActive(indexForPersist, persistActive)](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#550-565).
+
+**Проблема**: [save()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#631-672) делает `SD.open(DISPLAY_CONFIG_PATH, FILE_WRITE)`. Но если в этот момент **SPI шина заблокирована внешним дисплеем** (который только что поднялся), SD операция **молча проваливается**. Дисплей уже active в RAM, но JSON не записан.
+
+**Маркер**: [setActive](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#550-565) возвращает `false`, и в [applyProfileInternal](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_runtime.cpp#484-590) (line 574-576) логируется ошибка `"profile applied but persist failed"` — но эта ошибка **возвращает false**, хотя дисплей уже визуально работает. Пользователь видит «не смог изменить конфиг».
+
+### Решение
+
+[save()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#631-672) должен использовать [ScopedSdDisplayRelease](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_runtime.h#35-40) (CS arbitration) для переключения SPI шины на SD, записи, и обратно. В текущем коде [load()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#579-630) использует [ScopedSdDisplayRelease](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_runtime.h#35-40), но [save()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/display_config.cpp#631-672) — нужно проверить.
+
+---
+
+## Проблема 4: GUI занимает 1/4 экрана (масштабирование)
+
+### Анализ
+
+[LegacyBridge::init()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#L63-L88) корректно читает [runtimeDisplay().width()/height()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_display_target.h#25-26) → `s_state.displayWidth = 480, displayHeight = 320`. `LB::width()/height()` возвращают правильные значения.
+
+**Но** весь legacy .ino код рисует с хардкоженными координатами для 240×135:
+
+```cpp
+LB::fillRect(0, 0, 240, 135, menuBackgroundColor);       // ← hardcoded!
+LB::setCursor((240 - textWidth) / 2, 40);                 // ← hardcoded!
+LB::drawRect(10, 20, 220, 95, TFT_RED);                   // ← hardcoded!
+```
+
+**Результат**: на 480×320 экране весь контент рисуется в области 240×135 (верхний левый угол) = ровно **1/4** экрана.
+
+### Решение
+
+Нужно заменить **все** хардкоженные `240` → `LB::width()` и `135` → `LB::height()` в .ino файле. Это сотни мест. Альтернативно — добавить в [LegacyBridge](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.h#103-366) автоматическое масштабирование координат:
+```cpp
+// В LegacyBridge::fillRect:
+float scaleX = displayWidth / 240.0f;
+float scaleY = displayHeight / 135.0f;
+x *= scaleX; y *= scaleY; w *= scaleX; h *= scaleY;
+```
+
+---
+
+## Проблема 5: Медленный refresh rate
+
+### Математика
+
+ILI9488 через SPI с RGB888 (3 байта/пиксель):
+- 480 × 320 × 3 = **460 800 байт** на полный кадр
+- SPI на 20 MHz = 2.5 MB/s
+- **Время полного кадра = 184 мс = ~5.4 FPS**
+
+Для сравнения, встроенный ST7789 (240×135, RGB565, 2 байта/пиксель):
+- 240 × 135 × 2 = 64 800 байт
+- SPI на 40 MHz = 5 MB/s
+- **Время = 13 мс = ~77 FPS**
+
+**Разница: 14x.** Полное перерисовывание экрана на ILI9488 = ~184 мс, и по коду видно, что [fillScreen()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#236-248) вызывается при каждом нажатии клавиши.
+
+### Ещё хуже
+
+Каждый вызов через [LegacyBridge](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.h#103-366) → [withDisplayLock()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#40-50) → mutex → [runtimeDisplay().fillScreen()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_display_target.h#25-26) — это **отдельная SPI-транзакция** с overhead. В [print()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#394-397) каждые 11 символов — отдельная операция.
+
+### Решения
+
+1. **Partial updates** (не [fillScreen](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#236-248), а [fillRect](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_framebuffer.cpp#304-327) по dirty area)
+2. **Увеличить SPI до 40 MHz** (reference использовал 20 MHz, но можно попробовать)
+3. **Использовать DMA** — [startWrite()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#862-875) перед серией draw, [endWrite()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/legacy/gui_legacy_bridge.cpp#876-890) после
+4. **Двойная буферизация** в PSRAM (если доступно)
+5. **Группировать** draw-вызовы в одну `startWrite/endWrite` транзакцию
+
+---
+
+## Проблема 6: Система логирования на SD
+
+### Осуществимость
+
+Полностью осуществимо. Архитектурно:
+
+```
+SdLogger (singleton)
+├── init(SD, "/evil/logs/")  → удаляет old, создаёт boot_YYYYMMDD_HHMMSS.log
+├── log(level, fmt, ...)     → пишет строку в файл + Serial
+├── flush()                  → fsync
+├── setEnabled(bool)         → on/off через настройки
+├── setScreenLog(bool)       → выводить на экран при boot
+```
+
+**Ключевые аспекты:**
+- **Не хранить в RAM**: писать через `file.print()` построчно, [flush()](file:///c:/Users/EchoEins/Documents/Arduino/libraries/M5GFX/src/lgfx/v1/Bus.hpp#135-136) каждые N строк
+- **Перехват Serial.printf**: невозможно перехватить нативный `Serial.printf`. Нужно заменить на `SdLogger::log()` или макрос `LOG(fmt, ...)`
+- **Boot экран**: до [guiInit()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_renderer.cpp#1178-1181) — рисовать прямо на дисплей через [runtimeDisplay()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_display_target.h#25-26)
+- **Удаление предыдущего**: при [init()](file:///c:/Coding/CardputerADV-E2C/Evil-Cardputer-v1-5-0/gui/core/gui_dma.cpp#66-91) — `SD.remove()` старых файлов в папке
+
+### Ограничения
+- SD пишет 1-4 мс на строку — при интенсивном логировании это замедлит boot
+- Нельзя логировать ДО `SD.begin()` — ранние логи только в Serial
+- Размер лога: ~50KB за типичную сессию — приемлемо

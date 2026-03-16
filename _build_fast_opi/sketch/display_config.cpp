@@ -45,8 +45,24 @@ spi_host_device_t resolveSpiHost(DisplaySpiHost host) {
     }
 }
 
-const char* hostLabel(DisplaySpiHost host) {
-    return displaySpiHostToString(host);
+bool hasJsonKey(JsonObjectConst obj, const char* key) {
+    JsonVariantConst v = obj[key];
+    return !v.isNull();
+}
+
+bool profileTouchesSdPins(const DisplayProfile& p) {
+    return pinConflict(p.pins.cs, kDefaultSdCs) ||
+           pinConflict(p.pins.sclk, kDefaultSdSclk) ||
+           pinConflict(p.pins.mosi, kDefaultSdMosi) ||
+           pinConflict(p.pins.miso, kDefaultSdMiso);
+}
+
+bool inferSharesBusWithSd(const DisplayProfile& p) {
+    if (p.builtin) {
+        return false;
+    }
+    const spi_host_device_t host = resolveSpiHost(p.spiHost);
+    return host == kDefaultSdHost || profileTouchesSdPins(p);
 }
 
 }  // namespace
@@ -209,11 +225,11 @@ bool DisplayProfileManager::loadProfileFromJson(DisplayProfile& p,
     p.initOrder = displayInitOrderFromString(d["init_order"] | "active_first");
     p.initDelayMs = d["init_delay_ms"] | 120;
 
-    p.sharesBusWithSd = d["shares_bus_with_sd"] | false;
-    p.releaseBeforeSd = d["release_before_sd"] | false;
+    const bool hasSharesBusKey = hasJsonKey(d, "shares_bus_with_sd");
+    const bool hasReleaseBeforeSdKey = hasJsonKey(d, "release_before_sd");
 
-    if (d.containsKey("pins")) {
-        JsonObjectConst pins = d["pins"].as<JsonObjectConst>();
+    JsonObjectConst pins = d["pins"].as<JsonObjectConst>();
+    if (!pins.isNull()) {
         p.pins.cs = pins["cs"] | -1;
         p.pins.dc = pins["dc"] | -1;
         p.pins.rst = pins["rst"] | -1;
@@ -222,6 +238,13 @@ bool DisplayProfileManager::loadProfileFromJson(DisplayProfile& p,
         p.pins.miso = pins["miso"] | -1;
         p.pins.bl = pins["bl"] | -1;
     }
+
+    const bool inferredSharesBus = inferSharesBusWithSd(p);
+    p.sharesBusWithSd = hasSharesBusKey ? static_cast<bool>(d["shares_bus_with_sd"] | false)
+                                        : inferredSharesBus;
+    p.releaseBeforeSd = hasReleaseBeforeSdKey
+                            ? static_cast<bool>(d["release_before_sd"] | false)
+                            : p.sharesBusWithSd;
 
     if (!validateProfile(p, reason)) {
         return false;
