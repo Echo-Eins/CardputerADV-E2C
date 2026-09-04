@@ -349,6 +349,11 @@ public:
     // Check if queue is empty
     bool isEmpty() const;
 
+    // True when a newer complete frame is already queued before the next
+    // synchronization barrier. Used to suppress stale physical presents
+    // without dropping incremental drawing commands.
+    bool hasPendingFrameBoundary() const;
+
     // Get queue capacity
     size_t capacity() const { return Config::QUEUE_SIZE; }
 
@@ -406,8 +411,10 @@ private:
     RenderQueue(const RenderQueue&) = delete;
     RenderQueue& operator=(const RenderQueue&) = delete;
 
-    // Ring buffer storage
-    RenderOp m_buffer[Config::QUEUE_SIZE];
+    // Ring storage exists only while the asynchronous renderer is active.
+    // Cardputer ADV runs the direct renderer without PSRAM, so retaining the
+    // full queue in BSS would waste 16 KB for the entire firmware lifetime.
+    RenderOp* m_buffer{nullptr};
 
     // Atomic indices for lock-free operation
     std::atomic<size_t> m_head{0};

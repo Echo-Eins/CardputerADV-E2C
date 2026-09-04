@@ -5,6 +5,7 @@
 
 #include "scroll_input.h"
 #include "i2c_manager.h"
+#include "environment_monitor.h"
 #include <Wire.h>
 
 // ============================================================================
@@ -19,6 +20,9 @@ bool ScrollInput::_buttonClickPending = false;
 uint8_t ScrollInput::_paHubAddr = 0;
 uint8_t ScrollInput::_paHubChannel = 0;
 bool ScrollInput::_hasPaHubRoute = false;
+bool ScrollInput::_routeLocked = false;
+bool ScrollInput::_previousMaskValid = false;
+uint8_t ScrollInput::_previousPaHubMask = 0;
 
 // ============================================================================
 // Lifecycle
@@ -33,7 +37,7 @@ bool ScrollInput::init(uint8_t address) {
     _buttonClickPending = false;
 
     // Activate PaHub route if needed, then probe
-    activatePaHubRoute();
+    if (!activatePaHubRoute()) return false;
 
     // Check if device responds
     Wire.beginTransmission(_address);
@@ -80,7 +84,7 @@ bool ScrollInput::isConnected() { return _initialized && _state.connected; }
 bool ScrollInput::poll() {
     if (!_initialized || !I2CManager::isEnabled()) return false;
 
-    activatePaHubRoute();
+    if (!activatePaHubRoute()) return false;
 
     // Check device is still responsive
     Wire.beginTransmission(_address);
@@ -101,6 +105,10 @@ bool ScrollInput::poll() {
     bool prevButton = _state.buttonPressed;
     _state.buttonPressed = (readByte(SCROLL_REG_BUTTON) == 0);
     _state.buttonChanged = (prevButton != _state.buttonPressed);
+
+    if (_state.encoderDelta != 0 || _state.buttonChanged) {
+        EnvironmentMonitor::notifyUserActivity();
+    }
 
     // Detect click (press then release)
     if (_state.buttonChanged && !_state.buttonPressed && prevButton) {
@@ -181,7 +189,7 @@ int8_t ScrollInput::getScrollDelta() {
 
 bool ScrollInput::resetEncoder() {
     if (!_initialized) return false;
-    activatePaHubRoute();
+    if (!activatePaHubRoute()) return false;
     bool ok = writeByte(SCROLL_REG_RESET, 1);
     deactivatePaHubRoute();
     return ok;
@@ -189,7 +197,7 @@ bool ScrollInput::resetEncoder() {
 
 bool ScrollInput::setEncoderValue(int32_t value) {
     if (!_initialized) return false;
-    activatePaHubRoute();
+    if (!activatePaHubRoute()) return false;
 
     uint8_t data[4] = {
         (uint8_t)(value & 0xFF),
@@ -208,7 +216,7 @@ bool ScrollInput::setEncoderValue(int32_t value) {
 
 bool ScrollInput::setLED(uint8_t r, uint8_t g, uint8_t b) {
     if (!_initialized) return false;
-    activatePaHubRoute();
+    if (!activatePaHubRoute()) return false;
     uint8_t data[4] = {0, r, g, b};  // LED index 0
     bool ok = writeBytes(SCROLL_REG_RGB_LED, data, 4);
     deactivatePaHubRoute();
@@ -241,13 +249,30 @@ void ScrollInput::clearPaHubRoute() {
 // ============================================================================
 
 bool ScrollInput::activatePaHubRoute() {
+    if (_routeLocked) return true;
+    if (!I2CManager::lockBus(100)) return false;
+    _routeLocked = true;
+    _previousMaskValid = false;
     if (!_hasPaHubRoute) return true;
-    return I2CManager::selectPaHubChannel(_paHubAddr, _paHubChannel);
+    if (!I2CManager::readPaHubChannelMask(_paHubAddr, _previousPaHubMask) ||
+        !I2CManager::setPaHubChannelMask(
+            _paHubAddr, static_cast<uint8_t>(1U << _paHubChannel))) {
+        I2CManager::unlockBus();
+        _routeLocked = false;
+        return false;
+    }
+    _previousMaskValid = true;
+    return true;
 }
 
 void ScrollInput::deactivatePaHubRoute() {
-    if (!_hasPaHubRoute) return;
-    I2CManager::deselectAllPaHubChannels(_paHubAddr);
+    if (!_routeLocked) return;
+    if (_hasPaHubRoute && _previousMaskValid) {
+        I2CManager::setPaHubChannelMask(_paHubAddr, _previousPaHubMask);
+    }
+    _previousMaskValid = false;
+    _routeLocked = false;
+    I2CManager::unlockBus();
 }
 
 // ============================================================================

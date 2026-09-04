@@ -113,6 +113,9 @@ private:
     static uint8_t _paHubAddr;
     static uint8_t _paHubChannel;
     static bool _hasPaHubRoute;
+    static bool _routeLocked;
+    static bool _previousMaskValid;
+    static uint8_t _previousPaHubMask;
 
     // Internal I2C helpers
     static bool activatePaHubRoute();

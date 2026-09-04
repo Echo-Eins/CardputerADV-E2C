@@ -9,6 +9,7 @@
  */
 
 #include "ble_attacks.h"
+#include "input_compat.h"
 #include <M5Unified.h>
 #include "M5Cardputer.h"
 #include <SD.h>
@@ -373,7 +374,7 @@ static void wofHandleKeys(bool& shouldExit) {
   M5Cardputer.update();
   M5.update();
 
-  if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+  if (InputCompat::isBackPressed() ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
     shouldExit = true;
     return;
@@ -620,7 +621,7 @@ void bleNameFloodUI() {
 
   String currentName;
 
-  while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  while (!InputCompat::isBackPressed()) {
     M5Cardputer.update();
     unsigned long now = millis();
 
@@ -938,7 +939,7 @@ static void atHandleKeys(bool& shouldExit) {
   M5Cardputer.update();
   M5.update();
 
-  if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+  if (InputCompat::isBackPressed() ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
     shouldExit = true;
     return;
@@ -1285,7 +1286,7 @@ void FindMyEvilTx() {
     M5Cardputer.update();
     M5.update();
 
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+    if (InputCompat::isBackPressed() ||
         M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
       exitRequested = true;
       continue;

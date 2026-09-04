@@ -5,6 +5,7 @@
  */
 
 #include "llm_chat.h"
+#include "input_compat.h"
 #include <M5Cardputer.h>
 #include <ArduinoJson.h>
 #include <vector>
@@ -151,7 +152,7 @@ void evilLLMChatStream() {
 
     client.print(request);
 
-    while (client.connected() && !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    while (client.connected() && !InputCompat::isBackPressed()) {
       String line = client.readStringUntil('\n');
       if (line == "\r") break;
     }
@@ -169,7 +170,7 @@ void evilLLMChatStream() {
       M5Cardputer.update();
 
       // User interruption
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         client.stop();
         waitAndReturnToMenu("Stream interrupted by user");
         return;
@@ -263,7 +264,7 @@ void evilLLMChatStream() {
       M5.update();
       M5Cardputer.update();
 
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         waitAndReturnToMenu("evilChatStream Stopped");
         return;
       } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {

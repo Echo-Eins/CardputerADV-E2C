@@ -6,6 +6,7 @@
  */
 
 #include "terminals.h"
+#include "input_compat.h"
 #include <M5Cardputer.h>
 #include <SD.h>
 #include <WiFi.h>
@@ -766,7 +767,7 @@ void terminalsMenu() {
         while (true) {
             M5Cardputer.update();
 
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            if (InputCompat::isBackPressed()) {
                 inMenu = true;
                 delay(150);
                 return;

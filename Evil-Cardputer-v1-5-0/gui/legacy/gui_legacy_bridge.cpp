@@ -11,6 +11,7 @@
 
 #include "../core/gui_display_lock.h"
 #include "../core/gui_display_target.h"
+#include "../core/gui_low_memory_compositor.h"
 #include <Arduino.h>
 #include <atomic>
 #include <cstdio>
@@ -115,14 +116,18 @@ std::atomic<int> LegacyBridge::s_mode{GUI_LEGACY_BRIDGE_MODE};
 // ============================================================================
 
 bool LegacyBridge::init() {
-  if (s_initialized) {
-    return true;
+  const bool wasInitialized = s_initialized;
+  const uint16_t previousWidth = s_state.displayWidth;
+  const uint16_t previousHeight = s_state.displayHeight;
+
+  if (!wasInitialized) {
+    // Reset state only on the first initialization.  Display switches keep
+    // the bridge alive, but still need fresh runtime geometry below.
+    s_state.reset();
   }
 
-  // Reset state
-  s_state.reset();
-
-  // Cache display dimensions
+  // Always refresh dimensions.  The renderer can be restarted for another
+  // runtime target without shutting down the compatibility bridge first.
   withDisplayLock([&]() {
     s_state.displayWidth = runtimeDisplay().width();
     s_state.displayHeight = runtimeDisplay().height();
@@ -131,16 +136,23 @@ bool LegacyBridge::init() {
   // Compute auto-scaling factors for legacy 240x135 code on larger displays
   updateScaling(s_state.displayWidth, s_state.displayHeight);
 
-  // Set default clip to full screen
-  s_state.clipRect =
-      Rect::make(0, 0, s_state.displayWidth, s_state.displayHeight);
-  s_state.clipEnabled = false;
+  const bool geometryChanged = previousWidth != s_state.displayWidth ||
+                               previousHeight != s_state.displayHeight;
+  if (!wasInitialized || geometryChanged) {
+    // A clip from the previous target is expressed in its physical pixels.
+    // Reset it whenever the target geometry changes.
+    s_state.clipRect =
+        Rect::make(0, 0, s_state.displayWidth, s_state.displayHeight);
+    s_state.clipEnabled = false;
+  }
 
   s_initialized = true;
 
-  GUI_LOG("LegacyBridge initialized (mode=%d, display=%dx%d)",
+  GUI_LOG("LegacyBridge %s (mode=%d, display=%dx%d, scale=%.3fx%.3f)",
+          wasInitialized ? "refreshed" : "initialized",
           s_mode.load(std::memory_order_relaxed), s_state.displayWidth,
-          s_state.displayHeight);
+          s_state.displayHeight, static_cast<double>(s_scaleX),
+          static_cast<double>(s_scaleY));
 
   return true;
 }
@@ -306,13 +318,23 @@ void LegacyBridge::display() {
     pushToQueue(RenderOps::endFrame());
   } else {
     s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
-    withDisplayLock([&]() { runtimeDisplay().display(); });
+    if (lowMemoryCompositor().active()) {
+      lowMemoryCompositor().requestPresent();
+    } else {
+      withDisplayLock([&]() { runtimeDisplay().display(); });
+    }
   }
 }
 
-uint16_t LegacyBridge::width() { return s_state.displayWidth; }
+uint16_t LegacyBridge::width() {
+  return s_scalingActive ? static_cast<uint16_t>(kBaseW)
+                         : s_state.displayWidth;
+}
 
-uint16_t LegacyBridge::height() { return s_state.displayHeight; }
+uint16_t LegacyBridge::height() {
+  return s_scalingActive ? static_cast<uint16_t>(kBaseH)
+                         : s_state.displayHeight;
+}
 
 // ============================================================================
 // Text Operations
@@ -909,6 +931,7 @@ void LegacyBridge::setRotation(uint8_t rotation) {
     s_state.displayWidth = runtimeDisplay().width();
     s_state.displayHeight = runtimeDisplay().height();
   });
+  updateScaling(s_state.displayWidth, s_state.displayHeight);
 }
 
 uint8_t LegacyBridge::getRotation() {
@@ -923,19 +946,21 @@ uint8_t LegacyBridge::getRotation() {
 void LegacyBridge::setClipRect(int16_t x, int16_t y, uint16_t w, uint16_t h) {
   s_state.clipRect = Rect::make(x, y, w, h);
   s_state.clipEnabled = true;
+  const int16_t rx = sx(x), ry = sy(y);
+  const uint16_t rw = static_cast<uint16_t>(sw(w));
+  const uint16_t rh = static_cast<uint16_t>(sh(h));
 
   if (shouldQueueCall()) {
-    pushToQueue(RenderOps::setClip(x, y, w, h));
+    pushToQueue(RenderOps::setClip(rx, ry, rw, rh));
   } else {
     s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
-    withDisplayLock([&]() { runtimeDisplay().setClipRect(x, y, w, h); });
+    withDisplayLock([&]() { runtimeDisplay().setClipRect(rx, ry, rw, rh); });
   }
 }
 
 void LegacyBridge::clearClipRect() {
   s_state.clipEnabled = false;
-  s_state.clipRect =
-      Rect::make(0, 0, s_state.displayWidth, s_state.displayHeight);
+  s_state.clipRect = Rect::make(0, 0, width(), height());
 
   if (shouldQueueCall()) {
     pushToQueue(RenderOps::clearClip());
@@ -976,14 +1001,18 @@ void LegacyBridge::endWrite() {
     s_writeLockDepth.fetch_sub(1, std::memory_order_relaxed);
     unlockDisplay();
   }
+  if (depth == 1 && lowMemoryCompositor().active()) {
+    lowMemoryCompositor().requestPresent();
+  }
 }
 
 void LegacyBridge::scroll(int16_t dx, int16_t dy) {
+  const int16_t rdx = sx(dx), rdy = sy(dy);
   if (shouldQueueCall()) {
-    pushToQueue(RenderOps::scroll(dx, dy));
+    pushToQueue(RenderOps::scroll(rdx, rdy));
   } else {
     s_state.directCalls.fetch_add(1, std::memory_order_relaxed);
-    withDisplayLock([&]() { runtimeDisplay().scroll(dx, dy); });
+    withDisplayLock([&]() { runtimeDisplay().scroll(rdx, rdy); });
   }
 }
 

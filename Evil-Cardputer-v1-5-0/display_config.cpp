@@ -121,6 +121,26 @@ DisplayInitOrder displayInitOrderFromString(const char* value) {
     return DisplayInitOrder::ACTIVE_FIRST;
 }
 
+const char* displayCompositorModeToString(DisplayCompositorMode mode) {
+    switch (mode) {
+        case DisplayCompositorMode::DIRECT: return "direct";
+        case DisplayCompositorMode::SCALED_FULL: return "scaled_full";
+        case DisplayCompositorMode::SCALED_TILES: return "scaled_tiles";
+        case DisplayCompositorMode::AUTO: return "auto";
+        default: return "direct";
+    }
+}
+
+DisplayCompositorMode displayCompositorModeFromString(const char* value) {
+    if (!value) return DisplayCompositorMode::DIRECT;
+    if (strEq(value, "scaled_full"))
+        return DisplayCompositorMode::SCALED_FULL;
+    if (strEq(value, "scaled_tiles"))
+        return DisplayCompositorMode::SCALED_TILES;
+    if (strEq(value, "auto")) return DisplayCompositorMode::AUTO;
+    return DisplayCompositorMode::DIRECT;
+}
+
 // ============================================================================
 // DisplayProfile
 // ============================================================================
@@ -132,6 +152,11 @@ DisplayProfile::DisplayProfile()
     , rotation(1)
     , colorDepth(16)
     , builtin(true)
+    , compositorMode(DisplayCompositorMode::DIRECT)
+    , logicalWidth(240)
+    , logicalHeight(135)
+    , tileSize(16)
+    , fullFlushThreshold(38)
     , spiHost(DisplaySpiHost::SPI2)
     , spiMode(0)
     , freqWrite(40000000UL)
@@ -159,6 +184,8 @@ String DisplayProfile::toString() const {
     s += String(width) + "x" + String(height);
     s += ", ";
     s += displaySpiHostToString(spiHost);
+    s += ", renderer=";
+    s += displayCompositorModeToString(compositorMode);
     s += "]";
     return s;
 }
@@ -172,6 +199,7 @@ DisplayProfile DisplayProfileManager::_profiles[DISPLAY_MAX_PROFILES];
 uint8_t DisplayProfileManager::_profileCount = 0;
 int8_t DisplayProfileManager::_activeIndex = 0;
 char DisplayProfileManager::_activeName[DISPLAY_NAME_MAX_LEN] = "internal_st7789";
+bool DisplayProfileManager::_rememberActive = false;
 char DisplayProfileManager::_lastError[DISPLAY_ERROR_MAX_LEN] = "";
 
 // ============================================================================
@@ -212,9 +240,16 @@ bool DisplayProfileManager::loadProfileFromJson(DisplayProfile& p,
     p.colorDepth = d["color_depth"] | 16;
     p.builtin = d["builtin"] | (p.driver == DisplayDriver::M5_BUILTIN);
 
+    p.compositorMode = displayCompositorModeFromString(
+        d["renderer_mode"] | (p.builtin ? "direct" : "auto"));
+    p.logicalWidth = d["logical_width"] | 240;
+    p.logicalHeight = d["logical_height"] | (p.builtin ? p.height : 160);
+    p.tileSize = d["tile_size"] | 16;
+    p.fullFlushThreshold = d["full_flush_threshold"] | 38;
+
     p.spiHost = displaySpiHostFromString(d["spi_host"] | (p.builtin ? "SPI2_HOST" : "SPI3_HOST"));
     p.spiMode = d["spi_mode"] | 0;
-    p.freqWrite = d["freq_write"] | (p.builtin ? 40000000UL : 20000000UL);
+    p.freqWrite = d["freq_write"] | 40000000UL;
     p.freqRead = d["freq_read"] | 16000000UL;
     p.spi3Wire = d["spi_3wire"] | (!p.builtin);
     p.dmaChannel = d["dma_channel"] | 0;
@@ -259,6 +294,11 @@ void DisplayProfileManager::saveProfileToJson(const DisplayProfile& p, JsonObjec
     d["rotation"] = p.rotation;
     d["color_depth"] = p.colorDepth;
     d["builtin"] = p.builtin;
+    d["renderer_mode"] = displayCompositorModeToString(p.compositorMode);
+    d["logical_width"] = p.logicalWidth;
+    d["logical_height"] = p.logicalHeight;
+    d["tile_size"] = p.tileSize;
+    d["full_flush_threshold"] = p.fullFlushThreshold;
 
     d["spi_host"] = displaySpiHostToString(p.spiHost);
     d["spi_mode"] = p.spiMode;
@@ -303,6 +343,20 @@ bool DisplayProfileManager::validateProfile(const DisplayProfile& p, String* rea
 
     if (p.rotation > 7) {
         if (reason) *reason = "rotation must be 0..7";
+        return false;
+    }
+
+    if (p.logicalWidth < 64 || p.logicalWidth > 480 ||
+        p.logicalHeight < 64 || p.logicalHeight > 320) {
+        if (reason) *reason = "logical display size is out of range";
+        return false;
+    }
+    if (p.tileSize != 8 && p.tileSize != 16 && p.tileSize != 32) {
+        if (reason) *reason = "tile_size must be 8, 16 or 32";
+        return false;
+    }
+    if (p.fullFlushThreshold < 1 || p.fullFlushThreshold > 100) {
+        if (reason) *reason = "full_flush_threshold must be 1..100";
         return false;
     }
 
@@ -495,6 +549,20 @@ bool DisplayProfileManager::init() {
         save();
     }
 
+    // Safe default remains the built-in display. A user must explicitly
+    // enable remember_active before an external profile may become a boot
+    // target.
+    if (!_rememberActive) {
+        for (uint8_t i = 0; i < _profileCount; ++i) {
+            if (_profiles[i].builtin) {
+                _activeIndex = static_cast<int8_t>(i);
+                strncpy(_activeName, _profiles[i].name, DISPLAY_NAME_MAX_LEN - 1);
+                _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
+                break;
+            }
+        }
+    }
+
     _initialized = true;
     Serial.printf("[DisplayProfileManager] Loaded %u profile(s), active=%s\n",
                   static_cast<unsigned>(_profileCount), _activeName);
@@ -543,6 +611,10 @@ const char* DisplayProfileManager::getLastError() {
     return _lastError;
 }
 
+bool DisplayProfileManager::isRememberActiveEnabled() {
+    return _rememberActive;
+}
+
 // ============================================================================
 // Selection
 // ============================================================================
@@ -572,6 +644,80 @@ bool DisplayProfileManager::setActiveByName(const char* name, bool persist) {
     return setActive(static_cast<uint8_t>(idx), persist);
 }
 
+bool DisplayProfileManager::setRememberActiveEnabled(bool enabled, bool persist) {
+    const bool previous = _rememberActive;
+    _rememberActive = enabled;
+    if (persist && !save()) {
+        _rememberActive = previous;
+        return false;
+    }
+    return true;
+}
+
+bool DisplayProfileManager::setProfileWriteFrequency(uint8_t index,
+                                                     uint32_t frequencyHz,
+                                                     bool persist) {
+    if (index >= _profileCount) {
+        setError(String("set frequency: invalid profile ") + index);
+        return false;
+    }
+    if (frequencyHz < 1000000UL || frequencyHz > 80000000UL) {
+        setError("display frequency must be between 1 and 80 MHz");
+        return false;
+    }
+
+    const uint32_t previous = _profiles[index].freqWrite;
+    _profiles[index].freqWrite = frequencyHz;
+    String reason;
+    if (!validateProfiles(&reason)) {
+        _profiles[index].freqWrite = previous;
+        setError(String("frequency rejected: ") + reason);
+        return false;
+    }
+    if (persist && !save()) {
+        _profiles[index].freqWrite = previous;
+        return false;
+    }
+    return true;
+}
+
+bool DisplayProfileManager::setProfileCompositorMode(
+    uint8_t index, DisplayCompositorMode mode, bool persist) {
+    if (index >= _profileCount) {
+        setError(String("set renderer: invalid profile ") + index);
+        return false;
+    }
+    const DisplayCompositorMode previous = _profiles[index].compositorMode;
+    _profiles[index].compositorMode = mode;
+    String reason;
+    if (!validateProfiles(&reason)) {
+        _profiles[index].compositorMode = previous;
+        setError(String("renderer rejected: ") + reason);
+        return false;
+    }
+    if (persist && !save()) {
+        _profiles[index].compositorMode = previous;
+        return false;
+    }
+    return true;
+}
+
+bool DisplayProfileManager::setProfileFullFlushThreshold(
+    uint8_t index, uint8_t thresholdPercent, bool persist) {
+    if (index >= _profileCount || thresholdPercent < 1 ||
+        thresholdPercent > 100) {
+        setError("invalid full-flush threshold");
+        return false;
+    }
+    const uint8_t previous = _profiles[index].fullFlushThreshold;
+    _profiles[index].fullFlushThreshold = thresholdPercent;
+    if (persist && !save()) {
+        _profiles[index].fullFlushThreshold = previous;
+        return false;
+    }
+    return true;
+}
+
 // ============================================================================
 // Persistence
 // ============================================================================
@@ -598,6 +744,7 @@ bool DisplayProfileManager::load() {
         return false;
     }
 
+    _rememberActive = doc["remember_active"] | false;
     const char* active = doc["active"] | "";
     strncpy(_activeName, active, DISPLAY_NAME_MAX_LEN - 1);
     _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
@@ -628,6 +775,38 @@ bool DisplayProfileManager::load() {
     return true;
 }
 
+bool DisplayProfileManager::reload() {
+    DisplayProfile previousProfiles[DISPLAY_MAX_PROFILES];
+    for (uint8_t i = 0; i < DISPLAY_MAX_PROFILES; ++i) {
+        previousProfiles[i] = _profiles[i];
+    }
+    const uint8_t previousCount = _profileCount;
+    const int8_t previousActiveIndex = _activeIndex;
+    char previousActiveName[DISPLAY_NAME_MAX_LEN];
+    strncpy(previousActiveName, _activeName, DISPLAY_NAME_MAX_LEN);
+    previousActiveName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
+    const bool previousRemember = _rememberActive;
+
+    if (load()) {
+        _initialized = true;
+        Serial.printf("[DisplayProfileManager] Reloaded %u profile(s), active=%s\n",
+                      static_cast<unsigned>(_profileCount), _activeName);
+        return true;
+    }
+
+    const String reloadError = _lastError;
+    for (uint8_t i = 0; i < DISPLAY_MAX_PROFILES; ++i) {
+        _profiles[i] = previousProfiles[i];
+    }
+    _profileCount = previousCount;
+    _activeIndex = previousActiveIndex;
+    strncpy(_activeName, previousActiveName, DISPLAY_NAME_MAX_LEN);
+    _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
+    _rememberActive = previousRemember;
+    setError(reloadError);
+    return false;
+}
+
 bool DisplayProfileManager::save() {
     DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     _lastError[0] = '\0';
@@ -642,7 +821,20 @@ bool DisplayProfileManager::save() {
     if (!SD.exists("/evil/config")) SD.mkdir("/evil/config");
 
     JsonDocument doc;
-    doc["active"] = _activeName;
+    doc["remember_active"] = _rememberActive;
+
+    // With remembering disabled, persist the built-in recovery profile. With
+    // it enabled, persist the profile currently active in this session.
+    const char* persistedActive = _activeName;
+    if (!_rememberActive) {
+        for (uint8_t i = 0; i < _profileCount; ++i) {
+            if (_profiles[i].builtin) {
+                persistedActive = _profiles[i].name;
+                break;
+            }
+        }
+    }
+    doc["active"] = persistedActive;
 
     JsonArray displays = doc["displays"].to<JsonArray>();
     for (uint8_t i = 0; i < _profileCount; i++) {
@@ -650,23 +842,51 @@ bool DisplayProfileManager::save() {
         saveProfileToJson(_profiles[i], d);
     }
 
-    if (SD.exists(DISPLAY_CONFIG_PATH) && !SD.remove(DISPLAY_CONFIG_PATH)) {
-        setError("failed to replace displays.json");
+    const String tempPath = String(DISPLAY_CONFIG_PATH) + ".tmp";
+    const String backupPath = String(DISPLAY_CONFIG_PATH) + ".bak";
+    if (SD.exists(tempPath.c_str()) && !SD.remove(tempPath.c_str())) {
+        setError("failed to remove stale displays.json.tmp");
         return false;
     }
 
-    File f = SD.open(DISPLAY_CONFIG_PATH, FILE_WRITE);
+    File f = SD.open(tempPath.c_str(), FILE_WRITE);
     if (!f) {
-        setError("failed to open displays.json for write");
+        setError("failed to open displays.json.tmp for write");
         return false;
     }
 
     if (serializeJsonPretty(doc, f) == 0) {
         f.close();
-        setError("failed to write displays.json");
+        SD.remove(tempPath.c_str());
+        setError("failed to write displays.json.tmp");
         return false;
     }
+    f.flush();
     f.close();
+
+    const bool hadOriginal = SD.exists(DISPLAY_CONFIG_PATH);
+    if (hadOriginal) {
+        if (SD.exists(backupPath.c_str()) &&
+            !SD.remove(backupPath.c_str())) {
+            SD.remove(tempPath.c_str());
+            setError("failed to rotate displays.json backup");
+            return false;
+        }
+        if (!SD.rename(DISPLAY_CONFIG_PATH, backupPath.c_str())) {
+            SD.remove(tempPath.c_str());
+            setError("failed to back up displays.json");
+            return false;
+        }
+    }
+
+    if (!SD.rename(tempPath.c_str(), DISPLAY_CONFIG_PATH)) {
+        if (hadOriginal) {
+            SD.rename(backupPath.c_str(), DISPLAY_CONFIG_PATH);
+        }
+        SD.remove(tempPath.c_str());
+        setError("failed to install displays.json");
+        return false;
+    }
     return true;
 }
 
@@ -675,6 +895,7 @@ bool DisplayProfileManager::createDefault() {
     populateInternalProfile(_profiles[_profileCount++]);
     populateExternalDefault(_profiles[_profileCount++]);
 
+    _rememberActive = false;
     _activeIndex = 0;
     strncpy(_activeName, _profiles[0].name, DISPLAY_NAME_MAX_LEN - 1);
     _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
@@ -704,8 +925,13 @@ void DisplayProfileManager::populateInternalProfile(DisplayProfile& p) {
     p.rotation = 1;
     p.colorDepth = 16;
     p.builtin = true;
+    p.compositorMode = DisplayCompositorMode::DIRECT;
+    p.logicalWidth = 240;
+    p.logicalHeight = 135;
+    p.tileSize = 16;
+    p.fullFlushThreshold = 38;
 
-    p.spiHost = DisplaySpiHost::SPI2;
+    p.spiHost = DisplaySpiHost::SPI3;
     p.spiMode = 0;
     p.freqWrite = 40000000UL;
     p.freqRead = 16000000UL;
@@ -729,12 +955,20 @@ void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     p.rotation = 3;
     p.colorDepth = 16;
     p.builtin = false;
+    p.compositorMode = DisplayCompositorMode::AUTO;
+    p.logicalWidth = 240;
+    p.logicalHeight = 160;
+    p.tileSize = 16;
+    p.fullFlushThreshold = 38;
 
-    p.spiHost = DisplaySpiHost::SPI3;
+    // Cardputer ADV exposes the SD bus on the EXT connector. The external
+    // panel must therefore be a device on SPI2, while the built-in ST7789
+    // remains on SPI3.
+    p.spiHost = DisplaySpiHost::SPI2;
     p.spiMode = 0;
-    p.freqWrite = 20000000UL;
-    p.freqRead = 16000000UL;
-    p.spi3Wire = true;
+    p.freqWrite = 40000000UL;
+    p.freqRead = 0;
+    p.spi3Wire = false;
     p.dmaChannel = 0;
     p.busShared = true;
     p.useLock = true;
@@ -750,7 +984,9 @@ void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     p.pins.rst = 3;
     p.pins.mosi = 14;
     p.pins.sclk = 40;
-    p.pins.miso = -1;
+    // This is the bus MISO pin used by SD. ILI9488 SDO stays physically
+    // disconnected and the panel remains write-only.
+    p.pins.miso = 39;
     p.pins.bl = -1;
 }
 

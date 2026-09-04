@@ -131,6 +131,10 @@ public:
     // Call this after rendering is complete and before starting DMA
     void swap();
 
+    // Copy the displayed front-buffer region into the next render buffer.
+    // This preserves unchanged pixels across incremental double-buffered frames.
+    void syncBackFromFront(const Rect& region);
+
     // Clear back buffer with specified color
     void clear(Color color = Colors::Black);
 

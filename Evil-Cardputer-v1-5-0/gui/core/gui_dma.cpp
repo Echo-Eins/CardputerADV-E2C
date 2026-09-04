@@ -354,6 +354,50 @@ void DmaTransfer::blockingPartialTransfer(const uint16_t* buffer,
     portEXIT_CRITICAL(&s_statsLock);
 }
 
+void DmaTransfer::blockingStridedPartialTransfer(const uint16_t* framebuffer,
+                                                  uint16_t stride,
+                                                  int16_t x, int16_t y,
+                                                  uint16_t width,
+                                                  uint16_t height) {
+    if (!framebuffer || stride == 0 || width == 0 || height == 0) return;
+
+    const uint32_t startUs = esp_timer_get_time();
+    {
+        DisplayLockGuard displayLock;
+        if (!displayLock.locked()) {
+            GUI_LOG_ERROR("DMA strided partial transfer failed: display lock not acquired");
+            portENTER_CRITICAL(&s_statsLock);
+            m_stats.errorCount++;
+            portEXIT_CRITICAL(&s_statsLock);
+            return;
+        }
+
+        const uint16_t* src = framebuffer + static_cast<uint32_t>(y) * stride + x;
+        runtimeDisplay().startWrite();
+        runtimeDisplay().setAddrWindow(x, y, width, height);
+        if (x == 0 && width == stride) {
+            runtimeDisplay().pushPixels(src, static_cast<uint32_t>(width) * height);
+        } else {
+            for (uint16_t row = 0; row < height; ++row) {
+                runtimeDisplay().pushPixels(src, width);
+                src += stride;
+            }
+        }
+        runtimeDisplay().endWrite();
+    }
+
+    const uint32_t elapsedUs = esp_timer_get_time() - startUs;
+    const uint32_t size = static_cast<uint32_t>(width) * height * sizeof(uint16_t);
+    portENTER_CRITICAL(&s_statsLock);
+    m_stats.transferCount++;
+    m_stats.bytesTransferred += size;
+    m_stats.totalTransferTimeUs += elapsedUs;
+    if (elapsedUs > m_stats.maxTransferTimeUs) {
+        m_stats.maxTransferTimeUs = elapsedUs;
+    }
+    portEXIT_CRITICAL(&s_statsLock);
+}
+
 // ============================================================================
 // DisplayUpdater Singleton
 // ============================================================================
@@ -471,50 +515,8 @@ void DisplayUpdater::pushRegion(const Rect& region) {
         return;
     }
 
-    // Extract sub-rectangle into contiguous DMA-capable memory.
-    const uint32_t regionBytes = regionPixels * sizeof(uint16_t);
-    uint16_t* tempBuffer = static_cast<uint16_t*>(
-        heap_caps_malloc(regionBytes, MALLOC_CAP_DMA | MALLOC_CAP_32BIT)
-    );
-    if (!tempBuffer) {
-        m_partialAllocFailures.fetch_add(1, std::memory_order_relaxed);
-        m_fallbackTransfers.fetch_add(1, std::memory_order_relaxed);
-        GUI_LOG_ERROR("DisplayUpdater: partial buffer alloc failed (%lu bytes), fallback full transfer",
-                      static_cast<unsigned long>(regionBytes));
-        pushFramebuffer();
-        return;
-    }
-
     const uint16_t* srcBuffer = m_useDoubleBuffer ? fb.getFrontBuffer() : fb.getBackBuffer();
-    const uint16_t* srcRow = srcBuffer + y * displayW + x;
-    for (uint16_t row = 0; row < h; ++row) {
-        memcpy(tempBuffer + row * w, srcRow, w * sizeof(uint16_t));
-        srcRow += displayW;
-    }
-
-    // Transfer contiguous region to display.
-    if (m_useDma && dma.isAvailable()) {
-        if (!dma.startPartialTransfer(tempBuffer, x, y, w, h)) {
-            dma.waitComplete(50);
-            if (!dma.startPartialTransfer(tempBuffer, x, y, w, h)) {
-                m_dmaStartFailures.fetch_add(1, std::memory_order_relaxed);
-                m_fallbackTransfers.fetch_add(1, std::memory_order_relaxed);
-                GUI_LOG_ERROR("DisplayUpdater: partial DMA start failed (%d,%d %ux%u), fallback to blocking transfer",
-                              x, y, static_cast<unsigned>(w), static_cast<unsigned>(h));
-                dma.blockingPartialTransfer(tempBuffer, x, y, w, h);
-            } else {
-                // Keep tempBuffer alive until transfer completion.
-                dma.waitComplete();
-            }
-        } else {
-            // Keep tempBuffer alive until transfer completion.
-            dma.waitComplete();
-        }
-    } else {
-        dma.blockingPartialTransfer(tempBuffer, x, y, w, h);
-    }
-
-    heap_caps_free(tempBuffer);
+    dma.blockingStridedPartialTransfer(srcBuffer, displayW, x, y, w, h);
 }
 
 } // namespace GUI

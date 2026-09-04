@@ -14,6 +14,8 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 // ============================================================================
 // Constants
@@ -50,6 +52,8 @@ enum class I2CDeviceType : uint8_t {
     ExtDisplay,     // External I2C display (SSD1306 etc.)
     IMU,            // Internal IMU
     Power,          // Internal power management
+    DLight,         // M5 DLight / BH1750 (0x23)
+    SCD4x,          // Sensirion SCD40/SCD41 (0x62)
     Other
 };
 
@@ -102,10 +106,17 @@ public:
     static bool begin();    // Start Wire with stored pins/freq
     static void end();      // Release Wire
 
+    // Recursive cross-task serialization. Drivers may hold this lock while
+    // calling other I2CManager methods without deadlocking.
+    static bool lockBus(uint32_t timeoutMs = UINT32_MAX);
+    static void unlockBus();
+
     // PaHub channel management
     static bool selectPaHubChannel(uint8_t hubAddr, uint8_t channel);
     static bool deselectAllPaHubChannels(uint8_t hubAddr);
     static uint8_t getActivePaHubChannel(uint8_t hubAddr);
+    static bool readPaHubChannelMask(uint8_t hubAddr, uint8_t& mask);
+    static bool setPaHubChannelMask(uint8_t hubAddr, uint8_t mask);
 
     // Device scanning
     static uint8_t scanBus(I2CDeviceInfo* results, uint8_t maxResults);
@@ -137,6 +148,7 @@ private:
     static int _sdaPin;
     static int _sclPin;
     static uint32_t _freq;
+    static SemaphoreHandle_t _busMutex;
 
     // Device registry
     static I2CDeviceInfo _devices[32];
@@ -152,6 +164,37 @@ private:
     static uint8_t readByteFromDevice(uint8_t addr, uint8_t reg);
     static void loadConfig();
     static void saveConfig();
+};
+
+class I2CBusGuard {
+public:
+    explicit I2CBusGuard(uint32_t timeoutMs = UINT32_MAX)
+        : _locked(I2CManager::lockBus(timeoutMs)) {}
+    ~I2CBusGuard() { if (_locked) I2CManager::unlockBus(); }
+    I2CBusGuard(const I2CBusGuard&) = delete;
+    I2CBusGuard& operator=(const I2CBusGuard&) = delete;
+    bool locked() const { return _locked; }
+private:
+    bool _locked;
+};
+
+// Selects one PaHub channel for the lifetime of the guard and restores the
+// exact previous channel mask afterwards. hubAddr=0 or channel=0xFF means a
+// direct device and still locks the shared bus.
+class I2CPaHubRouteGuard {
+public:
+    I2CPaHubRouteGuard(uint8_t hubAddr, uint8_t channel,
+                       uint32_t timeoutMs = UINT32_MAX);
+    ~I2CPaHubRouteGuard();
+    I2CPaHubRouteGuard(const I2CPaHubRouteGuard&) = delete;
+    I2CPaHubRouteGuard& operator=(const I2CPaHubRouteGuard&) = delete;
+    bool ready() const { return _ready; }
+private:
+    uint8_t _hubAddr;
+    uint8_t _previousMask;
+    bool _locked;
+    bool _routed;
+    bool _ready;
 };
 
 #endif // I2C_MANAGER_H

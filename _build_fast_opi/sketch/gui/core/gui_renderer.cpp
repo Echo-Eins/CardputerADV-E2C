@@ -686,8 +686,7 @@ void Renderer::handleSync(const RenderOp& op) {
     // Flush display immediately
     flushDisplay();
     m_stats.syncCommands++;
-
-    // Signal sync completion is handled in RenderQueue::pop()
+    RenderQueue::instance().signalProcessed();
 }
 
 void Renderer::handleEndFrame(const RenderOp& op) {

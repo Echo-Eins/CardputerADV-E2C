@@ -10,6 +10,7 @@
  */
 
 #include "sip_attacks.h"
+#include "input_compat.h"
 #include <M5Cardputer.h>
 #include "gui/gui.h"
 
@@ -169,7 +170,7 @@ void sipScan() {
   uint16_t ok = 0, ko = 0;
 
   for (uint32_t h = first; h <= last; ++h) {
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) break;
+    if (InputCompat::isBackPressed()) break;
     IPAddress dst = ipFrom32(h);
 
     String pkt = "OPTIONS sip:" + dst.toString() + " SIP/2.0\r\n"
@@ -358,7 +359,7 @@ void sipFlood() {
       sendSIPRaw(dst, pkt); tot++;
       delayMicroseconds(delayUS);
       M5Cardputer.update();
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) sipFloodStop = true;
+      if (InputCompat::isBackPressed()) sipFloodStop = true;
     }
     LB::fillRect(0, 90, 240, 12, menuBackgroundColor);
     LB::setCursor(5, 90);
@@ -420,7 +421,7 @@ void sipRingAll() {
 
   /* ---------- temporisation ---------- */
   unsigned long stopAt = millis() + ringSec * 1000UL;
-  while (millis() < stopAt && !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) delay(100);
+  while (millis() < stopAt && !InputCompat::isBackPressed()) delay(100);
 
   /* ---------- CANCEL ---------- */
   for (auto &d : dlg) {

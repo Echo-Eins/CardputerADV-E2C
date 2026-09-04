@@ -8,13 +8,18 @@ namespace GUI {
 namespace {
 
 lgfx::LGFX_Device* s_activeDisplay = nullptr;
+lgfx::LGFX_Device* s_physicalDisplay = nullptr;
 uint16_t s_width = 0;
 uint16_t s_height = 0;
 uint8_t s_colorDepth = 16;
+bool s_canvasActive = false;
 
 inline void ensureDisplay() {
     if (s_activeDisplay == nullptr) {
         s_activeDisplay = &M5.Display;
+    }
+    if (s_physicalDisplay == nullptr) {
+        s_physicalDisplay = s_activeDisplay;
     }
 }
 
@@ -25,13 +30,35 @@ bool setRuntimeDisplay(lgfx::LGFX_Device* device, uint8_t colorDepth) {
         return false;
     }
     s_activeDisplay = device;
+    s_physicalDisplay = device;
+    s_canvasActive = false;
     s_colorDepth = colorDepth;
     refreshRuntimeDisplayMetrics();
     return true;
 }
 
+bool setRuntimeCanvasDisplay(lgfx::LGFX_Device* canvas, uint8_t colorDepth) {
+    if (!canvas) return false;
+    ensureDisplay();
+    s_activeDisplay = canvas;
+    s_canvasActive = true;
+    s_colorDepth = colorDepth;
+    refreshRuntimeDisplayMetrics();
+    return true;
+}
+
+void restoreRuntimePhysicalDisplay() {
+    ensureDisplay();
+    s_activeDisplay = s_physicalDisplay ? s_physicalDisplay : &M5.Display;
+    s_canvasActive = false;
+    s_colorDepth = 16;
+    refreshRuntimeDisplayMetrics();
+}
+
 void resetRuntimeDisplayToBuiltin() {
     s_activeDisplay = &M5.Display;
+    s_physicalDisplay = &M5.Display;
+    s_canvasActive = false;
     s_colorDepth = 16;
     refreshRuntimeDisplayMetrics();
 }
@@ -45,6 +72,18 @@ lgfx::LGFX_Device* runtimeDisplayPtr() {
     ensureDisplay();
     return s_activeDisplay;
 }
+
+lgfx::LGFX_Device& physicalDisplay() {
+    ensureDisplay();
+    return *s_physicalDisplay;
+}
+
+lgfx::LGFX_Device* physicalDisplayPtr() {
+    ensureDisplay();
+    return s_physicalDisplay;
+}
+
+bool runtimeDisplayIsCanvas() { return s_canvasActive; }
 
 void refreshRuntimeDisplayMetrics() {
     ensureDisplay();

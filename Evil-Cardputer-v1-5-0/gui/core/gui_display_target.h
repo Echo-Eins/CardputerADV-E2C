@@ -17,12 +17,21 @@ namespace GUI {
 // Returns false if device is null.
 bool setRuntimeDisplay(lgfx::LGFX_Device* device, uint8_t colorDepth = 16);
 
+// Install a logical canvas while retaining the physical panel as the transfer
+// target. Used by the low-memory compositor.
+bool setRuntimeCanvasDisplay(lgfx::LGFX_Device* canvas,
+                             uint8_t colorDepth = 4);
+void restoreRuntimePhysicalDisplay();
+
 // Reset active display to built-in M5.Display.
 void resetRuntimeDisplayToBuiltin();
 
 // Get active display reference/pointer.
 lgfx::LGFX_Device& runtimeDisplay();
 lgfx::LGFX_Device* runtimeDisplayPtr();
+lgfx::LGFX_Device& physicalDisplay();
+lgfx::LGFX_Device* physicalDisplayPtr();
+bool runtimeDisplayIsCanvas();
 
 // Refresh cached width/height from active display.
 void refreshRuntimeDisplayMetrics();

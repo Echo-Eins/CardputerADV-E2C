@@ -25,6 +25,198 @@ namespace GUI {
 
 portMUX_TYPE Renderer::s_statsLock = portMUX_INITIALIZER_UNLOCKED;
 
+#if GUI_DOUBLE_BUFFER && GUI_DIRTY_TRACKING && GUI_PARTIAL_UPDATE
+namespace {
+
+constexpr uint16_t kDiffTileWidth = 16;
+constexpr uint16_t kDiffTileHeight = 8;
+constexpr uint16_t kDiffMaxWidth = 480;
+constexpr uint16_t kDiffMaxHeight = 320;
+constexpr uint16_t kDiffMaxColumns =
+    (kDiffMaxWidth + kDiffTileWidth - 1) / kDiffTileWidth;
+constexpr uint16_t kDiffMaxRows =
+    (kDiffMaxHeight + kDiffTileHeight - 1) / kDiffTileHeight;
+constexpr uint16_t kDiffMaxTiles = kDiffMaxColumns * kDiffMaxRows;
+constexpr uint16_t kDiffMaxRects = 64;
+
+struct TileDiffScratch {
+    uint8_t changedTiles[kDiffMaxTiles];
+    Rect rects[kDiffMaxRects];
+};
+
+TileDiffScratch* s_tileDiffScratch = nullptr;
+
+uint16_t buildTileDiff(const Framebuffer& fb, Rect*& output,
+                       uint32_t& transferPixels) {
+    transferPixels = 0;
+    output = nullptr;
+    if (!fb.getFrontBuffer() ||
+        !fb.getBackBuffer() || fb.width() == 0 || fb.height() == 0) {
+        return 0;
+    }
+
+    if (!s_tileDiffScratch) {
+        s_tileDiffScratch = static_cast<TileDiffScratch*>(
+            ps_malloc(sizeof(TileDiffScratch)));
+    }
+    if (!s_tileDiffScratch) {
+        return 0;
+    }
+
+    output = s_tileDiffScratch->rects;
+    uint8_t* changedTiles = s_tileDiffScratch->changedTiles;
+    constexpr uint16_t outputCapacity = kDiffMaxRects;
+
+    const uint16_t width = fb.width();
+    const uint16_t height = fb.height();
+    const uint16_t columns =
+        (width + kDiffTileWidth - 1) / kDiffTileWidth;
+    const uint16_t rows =
+        (height + kDiffTileHeight - 1) / kDiffTileHeight;
+    const uint32_t tileCount = static_cast<uint32_t>(columns) * rows;
+    const uint32_t totalPixels = static_cast<uint32_t>(width) * height;
+
+    if (tileCount > kDiffMaxTiles) {
+        output[0] = Rect::make(0, 0, width, height);
+        transferPixels = totalPixels;
+        return 1;
+    }
+
+    const uint16_t* front = fb.getFrontBuffer();
+    const uint16_t* back = fb.getBackBuffer();
+    uint16_t minColumn = columns;
+    uint16_t minRow = rows;
+    uint16_t maxColumn = 0;
+    uint16_t maxRow = 0;
+    uint32_t changedTilePixels = 0;
+    bool anyChanged = false;
+
+    for (uint16_t tileY = 0; tileY < rows; ++tileY) {
+        const uint16_t pixelY = tileY * kDiffTileHeight;
+        const uint16_t tileHeight =
+            (pixelY + kDiffTileHeight <= height)
+                ? kDiffTileHeight
+                : static_cast<uint16_t>(height - pixelY);
+
+        for (uint16_t tileX = 0; tileX < columns; ++tileX) {
+            const uint16_t pixelX = tileX * kDiffTileWidth;
+            const uint16_t tileWidth =
+                (pixelX + kDiffTileWidth <= width)
+                    ? kDiffTileWidth
+                    : static_cast<uint16_t>(width - pixelX);
+            bool changed = false;
+
+            for (uint16_t row = 0; row < tileHeight && !changed; ++row) {
+                const uint32_t offset =
+                    static_cast<uint32_t>(pixelY + row) * width + pixelX;
+                for (uint16_t column = 0; column < tileWidth; ++column) {
+                    if (front[offset + column] != back[offset + column]) {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            const uint16_t tileIndex = tileY * columns + tileX;
+            changedTiles[tileIndex] = changed ? 1 : 0;
+            if (!changed) {
+                continue;
+            }
+
+            anyChanged = true;
+            changedTilePixels +=
+                static_cast<uint32_t>(tileWidth) * tileHeight;
+            if (tileX < minColumn) minColumn = tileX;
+            if (tileY < minRow) minRow = tileY;
+            if (tileX > maxColumn) maxColumn = tileX;
+            if (tileY > maxRow) maxRow = tileY;
+        }
+    }
+
+    if (!anyChanged) {
+        return 0;
+    }
+
+    // Above this threshold command/address overhead no longer compensates for
+    // partial transfers. Emit one full-screen transaction instead.
+    if (changedTilePixels * 4u > totalPixels * 3u) {
+        output[0] = Rect::make(0, 0, width, height);
+        transferPixels = totalPixels;
+        return 1;
+    }
+
+    uint16_t rectCount = 0;
+    for (uint16_t tileY = 0; tileY < rows; ++tileY) {
+        uint16_t tileX = 0;
+        while (tileX < columns) {
+            if (!changedTiles[tileY * columns + tileX]) {
+                ++tileX;
+                continue;
+            }
+
+            const uint16_t runStart = tileX;
+            while (tileX < columns &&
+                   changedTiles[tileY * columns + tileX]) {
+                ++tileX;
+            }
+            const uint16_t runEnd = tileX;
+
+            uint16_t rowEnd = tileY + 1;
+            while (rowEnd < rows) {
+                bool completeRun = true;
+                for (uint16_t x = runStart; x < runEnd; ++x) {
+                    if (!changedTiles[rowEnd * columns + x]) {
+                        completeRun = false;
+                        break;
+                    }
+                }
+                if (!completeRun) break;
+                ++rowEnd;
+            }
+
+            for (uint16_t y = tileY; y < rowEnd; ++y) {
+                for (uint16_t x = runStart; x < runEnd; ++x) {
+                    changedTiles[y * columns + x] = 0;
+                }
+            }
+
+            if (rectCount >= outputCapacity) {
+                const uint16_t x = minColumn * kDiffTileWidth;
+                const uint16_t y = minRow * kDiffTileHeight;
+                const uint16_t right =
+                    ((maxColumn + 1) * kDiffTileWidth < width)
+                        ? (maxColumn + 1) * kDiffTileWidth
+                        : width;
+                const uint16_t bottom =
+                    ((maxRow + 1) * kDiffTileHeight < height)
+                        ? (maxRow + 1) * kDiffTileHeight
+                        : height;
+                output[0] = Rect::make(x, y, right - x, bottom - y);
+                transferPixels = output[0].area();
+                return 1;
+            }
+
+            const uint16_t x = runStart * kDiffTileWidth;
+            const uint16_t y = tileY * kDiffTileHeight;
+            const uint16_t right =
+                (runEnd * kDiffTileWidth < width)
+                    ? runEnd * kDiffTileWidth
+                    : width;
+            const uint16_t bottom =
+                (rowEnd * kDiffTileHeight < height)
+                    ? rowEnd * kDiffTileHeight
+                    : height;
+            output[rectCount++] = Rect::make(x, y, right - x, bottom - y);
+        }
+    }
+
+    transferPixels = changedTilePixels;
+    return rectCount;
+}
+
+} // namespace
+#endif
+
 // ============================================================================
 // Singleton Instance
 // ============================================================================
@@ -348,17 +540,11 @@ void Renderer::renderLoop() {
     RenderQueue& queue = RenderQueue::instance();
     RenderOp op;
     uint32_t batchCount = 0;
-    uint32_t lastFlushTime = millis();
 
     while (m_running) {
         // Wait for command from queue (blocking)
         uint32_t waitStart = millis();
         if (!queue.pop(op, Config::QUEUE_TIMEOUT_MS)) {
-            // Timeout - flush if we have pending commands
-            if (batchCount > 0 && m_autoFlush) {
-                flushDisplay();
-                batchCount = 0;
-            }
             m_stats.idleTimeMs += millis() - waitStart;
             continue;
         }
@@ -393,8 +579,14 @@ void Renderer::renderLoop() {
         m_stats.commandsProcessed++;
         portEXIT_CRITICAL(&s_statsLock);
 
-        // Increment batch counter
-        batchCount++;
+        const bool isFrameBoundary = op.type == RenderOpType::EndFrame;
+        const bool isSyncBarrier = op.type == RenderOpType::Sync;
+
+        // Only drawing/control commands contribute to the pending frame.
+        // Boundaries themselves must never create an empty second transfer.
+        if (!isFrameBoundary && !isSyncBarrier) {
+            batchCount++;
+        }
 
         // Track max batch size
         portENTER_CRITICAL(&s_statsLock);
@@ -403,39 +595,33 @@ void Renderer::renderLoop() {
         }
         portEXIT_CRITICAL(&s_statsLock);
 
-        // Check if we should flush the display
-        bool shouldFlush = false;
+        if (isFrameBoundary) {
+            if (queue.hasPendingFrameBoundary()) {
+                // Execute the newer frame too, but do not put this stale
+                // intermediate state on the physical display.
+                portENTER_CRITICAL(&s_statsLock);
+                m_stats.framesSuperseded++;
+                portEXIT_CRITICAL(&s_statsLock);
+                continue;
+            }
 
-        // Flush conditions:
-        // 1. Batch size reached
-        // 2. EndFrame command
-        // 3. Sync command
-        // 4. Queue is empty and we have pending commands
-        // 5. Time since last flush exceeds threshold (16ms = ~60fps)
-
-        if (batchCount >= m_batchSize) {
-            shouldFlush = true;
-        } else if (op.type == RenderOpType::EndFrame) {
-            shouldFlush = true;
-        } else if (op.type == RenderOpType::Sync) {
-            shouldFlush = true;
-        } else if (queue.isEmpty() && batchCount > 0) {
-            shouldFlush = true;
-        } else if ((millis() - lastFlushTime) >= 16) {
-            shouldFlush = true;
-        }
-
-        if (shouldFlush && m_autoFlush) {
-            flushDisplay();
-            batchCount = 0;
-            lastFlushTime = millis();
+            if (batchCount > 0 && m_autoFlush) {
+                flushDisplay();
+                batchCount = 0;
+            }
+        } else if (isSyncBarrier) {
+            // Sync is an explicit barrier. Flush pending work once, then wake
+            // the waiter only after the transfer has completed.
+            if (batchCount > 0) {
+                flushDisplay();
+                batchCount = 0;
+            }
+            queue.signalProcessed();
         }
     }
 
-    // Final flush before exit
-    if (batchCount > 0) {
-        flushDisplay();
-    }
+    // An unterminated frame is intentionally discarded on shutdown. Sending
+    // it would violate the Begin/EndFrame atomicity contract.
 
     GUI_LOG("Render loop exited (processed: %lu commands)", m_stats.commandsProcessed);
 }
@@ -682,11 +868,7 @@ void Renderer::handleSetBrightness(const RenderOp& op) {
 }
 
 void Renderer::handleSync(const RenderOp& op) {
-    // Flush display immediately
-    flushDisplay();
     m_stats.syncCommands++;
-
-    // Signal sync completion is handled in RenderQueue::pop()
 }
 
 void Renderer::handleEndFrame(const RenderOp& op) {
@@ -759,45 +941,79 @@ void Renderer::flushDisplay() {
         Framebuffer& fb = Framebuffer::instance();
 
 #if GUI_DIRTY_TRACKING && GUI_PARTIAL_UPDATE
-        // Phase 3: Use dirty region tracking for partial updates
+        // Compare the final frame against what is currently on the panel.
+        // Command-level dirtiness is deliberately ignored: clear() followed
+        // by a redraw must not force a full-screen transfer when the final
+        // pixels changed only in a few tiles.
         DirtyRegionTracker& dirty = DirtyRegionTracker::instance();
+        const uint32_t diffStartUs = esp_timer_get_time();
+        uint32_t transferPixels = 0;
+        Rect* diffRects = nullptr;
+        uint16_t rectCount = buildTileDiff(fb, diffRects, transferPixels);
+        Rect fallbackRect;
+        if (!diffRects) {
+            fallbackRect = Rect::make(0, 0, fb.width(), fb.height());
+            diffRects = &fallbackRect;
+            rectCount = 1;
+            transferPixels =
+                static_cast<uint32_t>(fb.width()) * fb.height();
+        }
+        const uint32_t diffTimeUs = esp_timer_get_time() - diffStartUs;
 
-        if (!dirty.isDirty()) {
-            // Nothing changed, skip update
+        portENTER_CRITICAL(&s_statsLock);
+        m_stats.lastTileDiffTimeUs = diffTimeUs;
+        m_stats.lastDirtyPixels = transferPixels;
+        m_stats.lastDirtyRectCount = rectCount;
+        portEXIT_CRITICAL(&s_statsLock);
+
+        if (rectCount == 0) {
+            dirty.markAllClean();
             return;
         }
 
-        // Swap front/back buffers and re-point canvas to new back buffer
         fb.swap();
         updateCanvasBuffer();
 
-        if (dirty.shouldFullRefresh()) {
-            // Too much changed - do full refresh
-            DisplayUpdater::instance().pushFramebuffer();
+        const uint32_t fullArea =
+            static_cast<uint32_t>(fb.width()) * fb.height();
+        const bool fullRefresh =
+            rectCount == 1 && diffRects[0].x == 0 &&
+            diffRects[0].y == 0 && diffRects[0].width == fb.width() &&
+            diffRects[0].height == fb.height();
+        const uint32_t transferStartUs = esp_timer_get_time();
+
+        if (fullRefresh) {
+            DisplayUpdater::instance().pushFramebufferSync();
+            fb.syncBackFromFront(diffRects[0]);
             dirty.incrementFullRefresh();
         } else {
-            // Partial update: only transfer dirty region
-            Rect dirtyRect = dirty.getOptimalDirtyRect();
-            if (!dirtyRect.isEmpty()) {
-                DisplayUpdater::instance().pushRegion(dirtyRect);
-                dirty.incrementPartialRefresh();
-
-                // Calculate saved pixels
-                uint32_t fullArea = static_cast<uint32_t>(fb.width()) * fb.height();
-                uint32_t partialArea = dirtyRect.area();
-                if (partialArea < fullArea) {
-                    dirty.addSavedPixels(fullArea - partialArea);
-                }
+            uint32_t transferredArea = 0;
+            for (uint16_t i = 0; i < rectCount; ++i) {
+                const Rect& rect = diffRects[i];
+                DisplayUpdater::instance().pushRegion(rect);
+                fb.syncBackFromFront(rect);
+                transferredArea += rect.area();
+            }
+            dirty.incrementPartialRefresh();
+            if (transferredArea < fullArea) {
+                dirty.addSavedPixels(fullArea - transferredArea);
             }
         }
 
-        // Clear dirty state after transfer
+        const uint32_t transferTimeUs =
+            esp_timer_get_time() - transferStartUs;
+        portENTER_CRITICAL(&s_statsLock);
+        m_stats.lastDisplayTransferUs = transferTimeUs;
+        m_stats.totalDirtyPixels += transferPixels;
+        portEXIT_CRITICAL(&s_statsLock);
+
         dirty.markAllClean();
 #else
         // Phase 2: Full buffer transfer
         fb.swap();
         updateCanvasBuffer();
         DisplayUpdater::instance().pushFramebuffer();
+        fb.syncBackFromFront(Rect::make(0, 0, fb.width(), fb.height()));
 #endif
 
         const uint32_t fallbackCount = DisplayUpdater::instance().getFallbackTransferCount();

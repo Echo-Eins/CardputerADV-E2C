@@ -15,6 +15,7 @@
 
 #include "gui_render_queue.h"
 #include <Arduino.h>
+#include <new>
 
 namespace GUI {
 
@@ -32,7 +33,8 @@ RenderQueue& RenderQueue::instance() {
 // ============================================================================
 
 RenderQueue::RenderQueue()
-    : m_head(0)
+    : m_buffer(nullptr)
+    , m_head(0)
     , m_tail(0)
     , m_dataAvailable(nullptr)
     , m_syncComplete(nullptr)
@@ -40,10 +42,7 @@ RenderQueue::RenderQueue()
     , m_overflowCount(0)
     , m_highWaterMark(0)
     // m_initialized is already initialized to false via in-class initializer
-{
-    // Clear buffer
-    memset(m_buffer, 0, sizeof(m_buffer));
-}
+{}
 
 RenderQueue::~RenderQueue() {
     shutdown();
@@ -58,10 +57,20 @@ bool RenderQueue::init() {
         return true;  // Already initialized
     }
 
+    m_buffer = new (std::nothrow) RenderOp[Config::QUEUE_SIZE];
+    if (!m_buffer) {
+        GUI_LOG_ERROR("Failed to allocate RenderQueue storage (%u bytes)",
+                      static_cast<unsigned>(sizeof(RenderOp) *
+                                            Config::QUEUE_SIZE));
+        return false;
+    }
+
     // Create semaphore for blocking consumer
     // Binary semaphore, initially empty (0)
     m_dataAvailable = xSemaphoreCreateCounting(Config::QUEUE_SIZE, 0);
     if (!m_dataAvailable) {
+        delete[] m_buffer;
+        m_buffer = nullptr;
         GUI_LOG_ERROR("Failed to create dataAvailable semaphore");
         return false;
     }
@@ -71,6 +80,8 @@ bool RenderQueue::init() {
     if (!m_syncComplete) {
         vSemaphoreDelete(m_dataAvailable);
         m_dataAvailable = nullptr;
+        delete[] m_buffer;
+        m_buffer = nullptr;
         GUI_LOG_ERROR("Failed to create syncComplete semaphore");
         return false;
     }
@@ -107,6 +118,9 @@ void RenderQueue::shutdown() {
         vSemaphoreDelete(m_syncComplete);
         m_syncComplete = nullptr;
     }
+
+    delete[] m_buffer;
+    m_buffer = nullptr;
 
     m_initialized.store(false, std::memory_order_release);
     GUI_LOG("RenderQueue shutdown");
@@ -265,13 +279,6 @@ bool RenderQueue::pop(RenderOp& op, uint32_t timeoutMs) {
     // Update tail with release semantics
     m_tail.store(nextTail, std::memory_order_release);
 
-    // Check if this was a sync command
-    if (op.type == RenderOpType::Sync && m_syncPending.load(std::memory_order_acquire)) {
-        // Signal sync completion
-        m_syncPending.store(false, std::memory_order_release);
-        xSemaphoreGive(m_syncComplete);
-    }
-
     return true;
 }
 
@@ -322,6 +329,28 @@ bool RenderQueue::isEmpty() const {
     const size_t head = m_head.load(std::memory_order_acquire);
     const size_t tail = m_tail.load(std::memory_order_acquire);
     return head == tail;
+}
+
+bool RenderQueue::hasPendingFrameBoundary() const {
+    if (!m_initialized.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    size_t index = m_tail.load(std::memory_order_acquire);
+    const size_t head = m_head.load(std::memory_order_acquire);
+    while (index != head) {
+        const RenderOpType type = m_buffer[index].type;
+        if (type == RenderOpType::Sync) {
+            // A Sync command is an explicit ordering barrier. Never coalesce
+            // a frame across it.
+            return false;
+        }
+        if (type == RenderOpType::EndFrame) {
+            return true;
+        }
+        index = (index + 1) & Config::QUEUE_MASK;
+    }
+    return false;
 }
 
 // ============================================================================
@@ -409,9 +438,12 @@ bool RenderQueue::sync(uint32_t timeoutMs) {
 }
 
 void RenderQueue::signalProcessed() {
-    // This method can be called by renderer after processing each command
-    // Currently used for sync operation detection in pop()
-    // Reserved for future use (e.g., back-pressure signaling)
+    // A Sync barrier completes only after the renderer has executed the Sync
+    // command and flushed/waited for the display, never when it is merely
+    // removed from the queue.
+    if (m_syncPending.exchange(false, std::memory_order_acq_rel)) {
+        xSemaphoreGive(m_syncComplete);
+    }
 }
 
 } // namespace GUI

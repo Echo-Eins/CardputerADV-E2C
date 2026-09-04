@@ -8,6 +8,7 @@
 #include <SD.h>
 #include <cstdarg>
 #include <cstdio>
+#include <new>
 
 
 // Forward-declare runtimeDisplay for boot screen drawing
@@ -50,8 +51,9 @@ static int16_t s_screenMaxY = 135;
 struct PreLine {
   char text[kLineBufSize];
 };
-static PreLine s_preBuf[kPreInitBufSize];
+static PreLine *s_preBuf = nullptr;
 static int s_preCount = 0;
+static bool s_preAllocAttempted = false;
 
 // ============================================================================
 // Helpers
@@ -95,6 +97,12 @@ static void drawToScreen(const char *line) {
 
 static unsigned long getUptimeMs() { return millis(); }
 
+static void releasePreInitBuffer() {
+  delete[] s_preBuf;
+  s_preBuf = nullptr;
+  s_preCount = 0;
+}
+
 } // anonymous namespace
 
 // ============================================================================
@@ -136,6 +144,7 @@ void init() {
   if (!s_logFile) {
     Serial.printf("[SdLogger] FAILED to create %s\n", s_logPath);
     s_initialized = true;
+    releasePreInitBuffer();
     return;
   }
 
@@ -143,10 +152,12 @@ void init() {
   Serial.printf("[SdLogger] Logging to %s\n", s_logPath);
 
   // Flush pre-init buffer to file
-  for (int i = 0; i < s_preCount; i++) {
-    writeToFile(s_preBuf[i].text);
+  if (s_preBuf) {
+    for (int i = 0; i < s_preCount; i++) {
+      writeToFile(s_preBuf[i].text);
+    }
   }
-  s_preCount = 0;
+  releasePreInitBuffer();
 
   if (s_logFile) {
     s_logFile.flush();
@@ -177,9 +188,15 @@ void log(char level, const char *fmt, ...) {
     if (s_initialized && s_logFile) {
       writeToFile(line);
     } else if (s_preCount < kPreInitBufSize) {
-      strncpy(s_preBuf[s_preCount].text, line, kLineBufSize - 1);
-      s_preBuf[s_preCount].text[kLineBufSize - 1] = '\0';
-      s_preCount++;
+      if (!s_preAllocAttempted) {
+        s_preAllocAttempted = true;
+        s_preBuf = new (std::nothrow) PreLine[kPreInitBufSize];
+      }
+      if (s_preBuf) {
+        strncpy(s_preBuf[s_preCount].text, line, kLineBufSize - 1);
+        s_preBuf[s_preCount].text[kLineBufSize - 1] = '\0';
+        s_preCount++;
+      }
     }
   }
 

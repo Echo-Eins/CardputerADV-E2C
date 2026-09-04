@@ -273,6 +273,30 @@ void Framebuffer::swap() {
     portEXIT_CRITICAL(&s_statsLock);
 }
 
+void Framebuffer::syncBackFromFront(const Rect& region) {
+    if (!m_initialized || !m_config.useDoubleBuffer ||
+        !m_frontBuffer || !m_backBuffer || region.isEmpty()) {
+        return;
+    }
+
+    const Rect bounds = Rect::make(0, 0, m_config.width, m_config.height);
+    const Rect clipped = region.intersection(bounds);
+    if (clipped.isEmpty()) {
+        return;
+    }
+
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    const uint16_t* src = m_frontBuffer + clipped.y * m_config.width + clipped.x;
+    uint16_t* dst = m_backBuffer + clipped.y * m_config.width + clipped.x;
+    const size_t rowBytes = static_cast<size_t>(clipped.width) * sizeof(uint16_t);
+    for (uint16_t row = 0; row < clipped.height; ++row) {
+        memcpy(dst, src, rowBytes);
+        src += m_config.width;
+        dst += m_config.width;
+    }
+    xSemaphoreGive(m_mutex);
+}
+
 // ============================================================================
 // Drawing Operations
 // ============================================================================

@@ -287,6 +287,20 @@ C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\display_runtime.cpp.o: \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/SD.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\FS\src/FS.h \
  C:\Users\EchoEins\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\3.2.6\libraries\SD\src/sd_defines.h \
+ C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\hardware.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/M5Cardputer.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/Keyboard.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/KeyboardReader/KeyboardReader.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/Keyboard_def.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\Adafruit_NeoPixel/Adafruit_NeoPixel.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioGeneratorMP3.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioGenerator.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioStatus.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioLogger.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioFileSource.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/AudioOutput.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/libmad/config.h \
+ C:\Users\EchoEins\Documents\Arduino\libraries\ESP8266Audio\src/libmad/mad.h \
  C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\gui/core/gui_display_lock.h \
  C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\gui/core/gui_display_target.h \
  C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\gui/gui.h \
@@ -328,10 +342,6 @@ C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\display_runtime.cpp.o: \
  C:/Coding/CardputerADV-E2C/_build_fast_opi/sketch/gui/widgets/gui_signal.h \
  C:/Coding/CardputerADV-E2C/_build_fast_opi/sketch/gui/gui_theme.h \
  C:/Coding/CardputerADV-E2C/_build_fast_opi/sketch/menu_engine.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/M5Cardputer.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/Keyboard.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/KeyboardReader/KeyboardReader.h \
- C:\Users\EchoEins\Documents\Arduino\libraries\M5Cardputer\src/utility/Keyboard/Keyboard_def.h \
  C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\gui/screens/gui_settings_screen.h \
  C:\Coding\CardputerADV-E2C\_build_fast_opi\sketch\gui/legacy/gui_legacy_bridge.h \
  C:/Coding/CardputerADV-E2C/_build_fast_opi/sketch/gui/gui_config.h \

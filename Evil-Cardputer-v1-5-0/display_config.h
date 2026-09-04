@@ -45,6 +45,13 @@ enum class DisplayInitOrder : uint8_t {
     EXTERNAL_FIRST = 2,
 };
 
+enum class DisplayCompositorMode : uint8_t {
+    DIRECT = 0,
+    SCALED_FULL = 1,
+    SCALED_TILES = 2,
+    AUTO = 3,
+};
+
 const char* displayDriverToString(DisplayDriver driver);
 DisplayDriver displayDriverFromString(const char* value);
 
@@ -53,6 +60,8 @@ DisplaySpiHost displaySpiHostFromString(const char* value);
 
 const char* displayInitOrderToString(DisplayInitOrder order);
 DisplayInitOrder displayInitOrderFromString(const char* value);
+const char* displayCompositorModeToString(DisplayCompositorMode mode);
+DisplayCompositorMode displayCompositorModeFromString(const char* value);
 
 // ============================================================================
 // Display Profile
@@ -86,6 +95,14 @@ struct DisplayProfile {
     uint8_t rotation;
     uint8_t colorDepth;  // 16 or 24
     bool builtin;
+
+    // Low-memory renderer. External defaults use a 240x160 4-bpp logical
+    // canvas and scale exactly 2x to the 480x320 ILI9488.
+    DisplayCompositorMode compositorMode;
+    uint16_t logicalWidth;
+    uint16_t logicalHeight;
+    uint8_t tileSize;
+    uint8_t fullFlushThreshold;
 
     // SPI bus profile
     DisplaySpiHost spiHost;
@@ -129,12 +146,23 @@ public:
     static int8_t getActiveIndex();
     static const char* getActiveName();
     static const char* getLastError();
+    static bool isRememberActiveEnabled();
 
     static bool setActive(uint8_t index, bool persist = true);
     static bool setActiveByName(const char* name, bool persist = true);
+    static bool setRememberActiveEnabled(bool enabled, bool persist = true);
+    static bool setProfileWriteFrequency(uint8_t index, uint32_t frequencyHz,
+                                         bool persist = true);
+    static bool setProfileCompositorMode(uint8_t index,
+                                         DisplayCompositorMode mode,
+                                         bool persist = true);
+    static bool setProfileFullFlushThreshold(uint8_t index,
+                                             uint8_t thresholdPercent,
+                                             bool persist = true);
 
     static bool save();
     static bool load();
+    static bool reload();
     static bool createDefault();
     static bool validate(String* reason = nullptr);
 
@@ -146,6 +174,7 @@ private:
     static uint8_t _profileCount;
     static int8_t _activeIndex;
     static char _activeName[DISPLAY_NAME_MAX_LEN];
+    static bool _rememberActive;
     static char _lastError[DISPLAY_ERROR_MAX_LEN];
 
     static void setError(const String& reason);

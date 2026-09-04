@@ -60,6 +60,7 @@ enum class RenderMode : uint8_t {
 struct RendererStats {
     uint32_t commandsProcessed;     // Total commands executed
     uint32_t framesRendered;        // EndFrame commands seen
+    uint32_t framesSuperseded;      // Frame presents skipped by latest-frame-wins
     uint32_t syncCommands;          // Sync commands processed
     uint32_t maxBatchSize;          // Largest batch processed
 
@@ -69,11 +70,17 @@ struct RendererStats {
 
     uint32_t displayFlushCount;     // Times display() was called
     uint32_t displayTransferFallbacks; // DMA path failures that required fallback
+    uint32_t lastTileDiffTimeUs;    // Most recent full front/back comparison
+    uint32_t lastDisplayTransferUs; // Most recent physical display transfer
+    uint32_t lastDirtyPixels;       // Pixels covered by the emitted tile rects
+    uint16_t lastDirtyRectCount;    // Rectangles emitted by the tile diff
+    uint64_t totalDirtyPixels;      // Cumulative transferred dirty pixels
     uint64_t idleTimeMs;            // Time spent waiting for commands
 
     void reset() {
         commandsProcessed = 0;
         framesRendered = 0;
+        framesSuperseded = 0;
         syncCommands = 0;
         maxBatchSize = 0;
         totalRenderTimeUs = 0;
@@ -81,6 +88,11 @@ struct RendererStats {
         lastRenderTimeUs = 0;
         displayFlushCount = 0;
         displayTransferFallbacks = 0;
+        lastTileDiffTimeUs = 0;
+        lastDisplayTransferUs = 0;
+        lastDirtyPixels = 0;
+        lastDirtyRectCount = 0;
+        totalDirtyPixels = 0;
         idleTimeMs = 0;
     }
 

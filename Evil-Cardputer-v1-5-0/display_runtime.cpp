@@ -4,6 +4,7 @@
  */
 
 #include "display_runtime.h"
+#include "hardware.h"
 #include "gui/core/gui_display_lock.h"
 #include "gui/core/gui_display_target.h"
 #include "gui/gui.h"
@@ -24,8 +25,63 @@ lgfx::LGFX_Device *s_activeDevice = &M5.Display;
 bool s_externalSelfTestDone = false;
 constexpr int8_t kSdCsPin = 12;
 constexpr int8_t kFallbackExternalCsPin = 5;
+constexpr int8_t kSdSclkPin = 40;
+constexpr int8_t kSdMosiPin = 14;
+constexpr int8_t kSdMisoPin = 39;
+constexpr int8_t kAdvExternalDcPin = 6;
+constexpr int8_t kAdvExternalRstPin = 3;
+constexpr uint32_t kDefaultExternalWriteHz = 40000000UL;
+constexpr uint32_t kMaximumExternalWriteHz = 80000000UL;
 uint16_t s_sdTxnDepth = 0;
+bool s_sdDisplayLockHeld = false;
 constexpr bool kSpiTraceEnabled = true;
+
+DisplayProfile normalizeProfileForHardware(const DisplayProfile &source) {
+  DisplayProfile profile = source;
+  if (profile.builtin || !hwIsCardputerADV()) {
+    return profile;
+  }
+
+  // Verified Cardputer ADV + ILI9488 wiring. SDO is physically disconnected;
+  // G39 remains configured only as the bus MISO required by the onboard SD.
+  profile.spiHost = DisplaySpiHost::SPI2;
+  profile.spiMode = 0;
+  // Keep the profile frequency selectable. Only repair an invalid value and
+  // clamp values beyond the supported tuning range; never silently replace a
+  // deliberate 10/20/26.7/40/80 MHz choice from displays.json.
+  if (profile.freqWrite == 0) {
+    profile.freqWrite = kDefaultExternalWriteHz;
+  } else if (profile.freqWrite > kMaximumExternalWriteHz) {
+    profile.freqWrite = kMaximumExternalWriteHz;
+  }
+  profile.freqRead = 0;
+  profile.spi3Wire = false;
+  profile.busShared = true;
+  profile.useLock = true;
+  profile.sharesBusWithSd = true;
+  profile.releaseBeforeSd = true;
+  profile.pins.cs = kFallbackExternalCsPin;
+  profile.pins.dc = kAdvExternalDcPin;
+  profile.pins.rst = kAdvExternalRstPin;
+  profile.pins.mosi = kSdMosiPin;
+  profile.pins.sclk = kSdSclkPin;
+  profile.pins.miso = kSdMisoPin;
+  profile.pins.bl = -1;
+  return profile;
+}
+
+DisplayProfile makeVerifiedExternalBootProfile() {
+  DisplayProfile profile;
+  strncpy(profile.name, "external_ili9488", DISPLAY_NAME_MAX_LEN - 1);
+  profile.name[DISPLAY_NAME_MAX_LEN - 1] = '\0';
+  profile.driver = DisplayDriver::LGFX_ILI9488;
+  profile.width = 480;
+  profile.height = 320;
+  profile.rotation = 3;
+  profile.colorDepth = 16;
+  profile.builtin = false;
+  return normalizeProfileForHardware(profile);
+}
 
 void setError(const String &msg) {
   strncpy(s_lastError, msg.c_str(), kErrorLen - 1);
@@ -213,22 +269,57 @@ protected:
   }
 };
 
+class PersistentSharedSpiBus : public lgfx::Bus_SPI {
+public:
+  void setPersistent(bool persistent) { _persistent = persistent; }
+
+  bool init(void) override {
+    if (_persistent && _initializedOnce) {
+      return true;
+    }
+    const bool ok = lgfx::Bus_SPI::init();
+    if (ok) {
+      _initializedOnce = true;
+    }
+    return ok;
+  }
+
+  void release(void) override {
+    if (_persistent) {
+      return;
+    }
+    lgfx::Bus_SPI::release();
+    _initializedOnce = false;
+  }
+
+private:
+  bool _persistent = false;
+  bool _initializedOnce = false;
+};
+
 class LgfxIli9488Device : public lgfx::LGFX_Device {
 public:
   bool configure(const DisplayProfile &profile) {
     // Release SPI resources before reconfiguring; this is the
     // cross-version-safe API available in M5GFX/LovyanGFX.
     if (_configured) {
+      if (profile.sharesBusWithSd) {
+        Serial.println(F("[LgfxIli9488] reusing persistent shared SPI2 bus"));
+        return true;
+      }
       Serial.println(F("[LgfxIli9488] releaseBus() before reconfigure"));
+      _bus.setPersistent(false);
       releaseBus();
     }
+
+    _bus.setPersistent(profile.sharesBusWithSd);
 
     auto busCfg = _bus.config();
     busCfg.spi_host = resolveHost(profile.spiHost);
     busCfg.spi_mode = profile.spiMode;
     busCfg.freq_write = profile.freqWrite;
     busCfg.freq_read = profile.freqRead;
-    busCfg.spi_3wire = profile.spi3Wire;
+    busCfg.spi_3wire = profile.sharesBusWithSd ? false : profile.spi3Wire;
     // Fix #7: Use SPI_DMA_CH_AUTO for reliable auto-selection.
     const int dmaChannel = (profile.dmaChannel > 0)
                                ? profile.dmaChannel
@@ -241,7 +332,8 @@ public:
     // contention. Readback is allowed only on dedicated (non-shared) bus.
     const bool allowReadback = (!profile.sharesBusWithSd && !profile.spi3Wire &&
                                 profile.pins.miso >= 0);
-    busCfg.pin_miso = allowReadback ? profile.pins.miso : -1;
+    // Keep the physical bus MISO for SD even though the TFT is write-only.
+    busCfg.pin_miso = profile.pins.miso;
     if (!allowReadback) {
       busCfg.freq_read = 0;
     }
@@ -291,8 +383,15 @@ public:
     return true;
   }
 
+  bool prepareSharedBus(const DisplayProfile &profile) {
+    if (!configure(profile)) {
+      return false;
+    }
+    return _bus.init();
+  }
+
 private:
-  lgfx::Bus_SPI _bus;
+  PersistentSharedSpiBus _bus;
   PanelILI9488_Custom _panel;
   bool _configured = false;
 };
@@ -351,7 +450,47 @@ void runExternalSelfTestOnce() {
   Serial.println(F("[DisplayRuntime] External self-test COMPLETE"));
 }
 
-bool restartGuiForCurrentDisplay() {
+GUI::LowMemoryRenderMode toGuiRenderMode(DisplayCompositorMode mode) {
+  switch (mode) {
+  case DisplayCompositorMode::SCALED_FULL:
+    return GUI::LowMemoryRenderMode::ScaledFull;
+  case DisplayCompositorMode::SCALED_TILES:
+    return GUI::LowMemoryRenderMode::ScaledTiles;
+  case DisplayCompositorMode::AUTO:
+    return GUI::LowMemoryRenderMode::Auto;
+  case DisplayCompositorMode::DIRECT:
+  default:
+    return GUI::LowMemoryRenderMode::Direct;
+  }
+}
+
+bool restartGuiForCurrentDisplay(const DisplayProfile &profile,
+                                 lgfx::LGFX_Device *physicalDevice) {
+  GUI::lowMemoryCompositor().end();
+  if (!profile.builtin &&
+      profile.compositorMode != DisplayCompositorMode::DIRECT) {
+    GUI::guiStop();
+    GUI::guiShutdown();
+    GUI::LowMemoryCompositorConfig config;
+    config.mode = toGuiRenderMode(profile.compositorMode);
+    config.logicalWidth = profile.logicalWidth;
+    config.logicalHeight = profile.logicalHeight;
+    config.tileSize = profile.tileSize;
+    config.fullFlushThreshold = profile.fullFlushThreshold;
+    if (GUI::lowMemoryCompositor().begin(physicalDevice, config)) {
+      GUI::LegacyBridge::init();
+      Serial.printf("[DisplayRuntime] low-memory renderer active: %s "
+                    "%ux%u tile=%u threshold=%u%%\n",
+                    displayCompositorModeToString(profile.compositorMode),
+                    profile.logicalWidth, profile.logicalHeight,
+                    profile.tileSize, profile.fullFlushThreshold);
+      return true;
+    }
+    Serial.println(F("[DisplayRuntime] WARNING: low-memory renderer failed; "
+                     "falling back to direct output"));
+    GUI::restoreRuntimePhysicalDisplay();
+  }
+
   if (ESP.getFreePsram() == 0) {
     // Cardputer-ADV units without working PSRAM cannot reliably run the
     // async renderer task + framebuffer path. Keep LegacyBridge in direct
@@ -387,6 +526,7 @@ bool restartGuiForCurrentDisplay() {
 }
 
 void fallbackToBuiltin(bool restartGuiPipeline) {
+  GUI::lowMemoryCompositor().end();
   GUI::resetRuntimeDisplayToBuiltin();
   M5.Display.setRotation(1);
   s_activeDevice = &M5.Display;
@@ -397,7 +537,9 @@ void fallbackToBuiltin(bool restartGuiPipeline) {
   if (restartGuiPipeline) {
     GUI::guiStop();
     GUI::guiShutdown();
-    if (GUI::guiInit()) {
+    if (ESP.getFreePsram() == 0) {
+      GUI::LegacyBridge::init();
+    } else if (GUI::guiInit()) {
       GUI::guiStart();
       GUI::LegacyBridge::init();
     }
@@ -485,68 +627,73 @@ bool applyProfileInternal(const DisplayProfile &profile, int8_t indexForPersist,
                           bool persistActive, bool restartGuiPipeline) {
   s_lastError[0] = '\0';
 
+  DisplayProfile appliedProfile = normalizeProfileForHardware(profile);
+
   if (restartGuiPipeline) {
     GUI::guiStop();
     GUI::guiShutdown();
   }
+  GUI::lowMemoryCompositor().end();
 
-  DisplayDriver appliedDriver = profile.driver;
+  DisplayDriver appliedDriver = appliedProfile.driver;
   lgfx::LGFX_Device *targetDevice = &M5.Display;
-  DisplayProfile appliedProfile = profile;
 
-  if (profile.builtin || profile.driver == DisplayDriver::M5_BUILTIN) {
-    M5.Display.setRotation(profile.rotation & 0x07);
+  if (appliedProfile.builtin ||
+      appliedProfile.driver == DisplayDriver::M5_BUILTIN) {
+    M5.Display.setRotation(appliedProfile.rotation & 0x07);
     targetDevice = &M5.Display;
     appliedDriver = DisplayDriver::M5_BUILTIN;
     // Fix #2: Reset self-test flag so it fires when external is re-activated.
     s_externalSelfTestDone = false;
   } else {
-    if (shouldInitBuiltinFirst(profile)) {
+    if (shouldInitBuiltinFirst(appliedProfile)) {
       GUI::setRuntimeDisplay(&M5.Display, 16);
       GUI::refreshRuntimeDisplayMetrics();
     }
 
-    if (!configureAndInitExternal(profile, appliedDriver)) {
+    if (!configureAndInitExternal(appliedProfile, appliedDriver)) {
       fallbackToBuiltin(restartGuiPipeline);
       return false;
     }
-    configureBacklightPin(profile);
+    configureBacklightPin(appliedProfile);
     targetDevice = &s_externalLgfx;
   }
 
-  if (!GUI::setRuntimeDisplay(targetDevice, profile.colorDepth)) {
+  if (!GUI::setRuntimeDisplay(targetDevice, appliedProfile.colorDepth)) {
     setError("setRuntimeDisplay failed");
     fallbackToBuiltin(restartGuiPipeline);
     return false;
   }
 
   GUI::refreshRuntimeDisplayMetrics();
-  if (profile.initDelayMs > 0) {
-    delay(profile.initDelayMs);
+  if (appliedProfile.initDelayMs > 0) {
+    delay(appliedProfile.initDelayMs);
   }
 
   Serial.printf(
       "[DisplayRuntime] Runtime target ready: name=%s driver=%s builtin=%u "
       "host=%s size=%dx%d depth=%u initOrder=%s initDelay=%u sdShare=%u "
       "releaseBeforeSd=%u\n",
-      profile.name, displayDriverToString(appliedDriver),
-      profile.builtin ? 1u : 0u, displaySpiHostToString(profile.spiHost),
+      appliedProfile.name, displayDriverToString(appliedDriver),
+      appliedProfile.builtin ? 1u : 0u,
+      displaySpiHostToString(appliedProfile.spiHost),
       static_cast<int>(targetDevice->width()),
       static_cast<int>(targetDevice->height()),
-      static_cast<unsigned>(profile.colorDepth),
-      displayInitOrderToString(profile.initOrder),
-      static_cast<unsigned>(profile.initDelayMs),
-      profile.sharesBusWithSd ? 1u : 0u, profile.releaseBeforeSd ? 1u : 0u);
+      static_cast<unsigned>(appliedProfile.colorDepth),
+      displayInitOrderToString(appliedProfile.initOrder),
+      static_cast<unsigned>(appliedProfile.initDelayMs),
+      appliedProfile.sharesBusWithSd ? 1u : 0u,
+      appliedProfile.releaseBeforeSd ? 1u : 0u);
 
   if (restartGuiPipeline) {
-    bool restarted = restartGuiForCurrentDisplay();
+    bool restarted = restartGuiForCurrentDisplay(appliedProfile, targetDevice);
     if (!restarted) {
       // One retry after a short delay helps when RTOS resources are still
       // settling right after task teardown.
       GUI::guiStop();
       GUI::guiShutdown();
       delay(20);
-      restarted = restartGuiForCurrentDisplay();
+      restarted = restartGuiForCurrentDisplay(appliedProfile, targetDevice);
     }
 
     if (!restarted) {
@@ -562,7 +709,7 @@ bool applyProfileInternal(const DisplayProfile &profile, int8_t indexForPersist,
                     (reason && reason[0]) ? reason : "unknown");
     }
   } else {
-    GUI::LegacyBridge::init();
+    restartGuiForCurrentDisplay(appliedProfile, targetDevice);
   }
 
   appliedProfile.driver = appliedDriver;
@@ -587,7 +734,7 @@ bool applyProfileInternal(const DisplayProfile &profile, int8_t indexForPersist,
                 displayDriverToString(s_appliedProfile.driver),
                 static_cast<int>(targetDevice->width()),
                 static_cast<int>(targetDevice->height()),
-                static_cast<unsigned>(profile.rotation));
+                static_cast<unsigned>(appliedProfile.rotation));
   return true;
 }
 
@@ -674,6 +821,16 @@ bool usingExternalDisplay() {
 
 void prepareBusForSdBoot() {
   deselectSdAndDisplayCsPins();
+  if (hwIsCardputerADV()) {
+    const DisplayProfile sharedProfile = makeVerifiedExternalBootProfile();
+    if (s_externalLgfx.prepareSharedBus(sharedProfile)) {
+      Serial.println(F("[DisplayRuntime] persistent shared SPI2 prepared "
+                       "(SCK=40 MOSI=14 MISO=39 SD_CS=12 TFT_CS=5)"));
+    } else {
+      Serial.println(F("[DisplayRuntime] ERROR: shared SPI2 prepare failed"));
+    }
+    deselectSdAndDisplayCsPins();
+  }
   logSpiState("boot-prepare");
 }
 
@@ -686,9 +843,6 @@ void beginSdTransaction() {
     return;
   }
 
-  deselectSdAndDisplayCsPins();
-  logSpiState("sd-begin:pre-policy");
-
   if (!s_hasAppliedProfile || s_appliedProfile.builtin ||
       !s_appliedProfile.sharesBusWithSd || !s_appliedProfile.releaseBeforeSd) {
     logSpiState("sd-begin:policy-skip");
@@ -696,10 +850,13 @@ void beginSdTransaction() {
   }
 
   GUI::LegacyBridge::sync();
-  GUI::DisplayLockGuard lockGuard;
-  if (lockGuard.locked()) {
-    GUI::runtimeDisplay().waitDisplay();
-    GUI::runtimeDisplay().endWrite();
+  GUI::lowMemoryCompositor().suspend();
+  s_sdDisplayLockHeld = GUI::lockDisplay();
+  if (s_sdDisplayLockHeld) {
+    GUI::physicalDisplay().waitDisplay();
+    GUI::physicalDisplay().endWrite();
+  } else {
+    Serial.println(F("[DisplayRuntime] WARNING: SD display lock failed"));
   }
 
   deselectSdAndDisplayCsPins();
@@ -721,6 +878,11 @@ void endSdTransaction() {
   // driver control and will be asserted during startWrite().
   deselectSdAndDisplayCsPins();
   logSpiState("sd-end:released");
+  if (s_sdDisplayLockHeld) {
+    s_sdDisplayLockHeld = false;
+    GUI::unlockDisplay();
+  }
+  GUI::lowMemoryCompositor().resume();
 }
 
 } // namespace DisplayRuntime

@@ -20,8 +20,10 @@
  */
 
 #include "remote_desktop.h"
+#include "input_compat.h"
 #include "scroll_input.h"
 #include "i2c_manager.h"
+#include "runtime_memory.h"
 #include <M5Cardputer.h>
 #include "gui/gui.h"
 
@@ -909,7 +911,7 @@ static RDError rdReceivePacketEx(RDPacketType* type, uint8_t* payload, uint16_t*
         // Allow user to cancel with backspace during handshake
         if (rdSession.state == RD_STATE_HANDSHAKE) {
             M5Cardputer.update();
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            if (InputCompat::isBackPressed()) {
                 Serial.println("[RD] User cancelled during handshake");
                 return RD_ERR_USER_CANCEL;
             }
@@ -1014,7 +1016,7 @@ static bool rdConfirmConnection(const char* serverName, const char* serverIP) {
             return true;
         }
 
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
             Serial.println("[RD] Connection rejected by user");
             delay(200);  // Debounce
             return false;
@@ -1140,7 +1142,7 @@ static RDError rdNetworkScan() {
     for (int host = startHost; host <= endHost; host++) {
         // Check for user cancel
         M5Cardputer.update();
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
             return RD_ERR_USER_CANCEL;
         }
 
@@ -1319,7 +1321,7 @@ static RDError rdDiscover() {
 
         // Check for user cancel
         M5Cardputer.update();
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
             MDNS.end();
             return RD_ERR_USER_CANCEL;
         }
@@ -1880,9 +1882,27 @@ static void rdShowDisconnectReason(const char* reason) {
 static char rdServerErrorMsg[128];  // Static buffer for server error message
 
 static void rdLoop() {
-    static uint8_t rxBuffer[32768];   // 32KB for receiving encrypted frames
-    static uint8_t decBuffer[32768];  // 32KB for decrypted data
-    static uint8_t tag[RD_AES_GCM_TAG_SIZE];
+    // These buffers used to be function-static, permanently consuming 64 KB
+    // even when Remote Desktop had never been opened. Keep them session-local
+    // so the rest of the firmware can use that RAM for WiFi scans, TLS, packet
+    // capture and the flash pager.
+    constexpr size_t kSessionBufferBytes = 32768;
+    uint8_t* rxBuffer = static_cast<uint8_t*>(RuntimeMemory::allocateInternal(
+        kSessionBufferBytes, false, 0));
+    uint8_t* decBuffer = static_cast<uint8_t*>(RuntimeMemory::allocateInternal(
+        kSessionBufferBytes, false, 0));
+    if (!rxBuffer || !decBuffer) {
+        RuntimeMemory::release(decBuffer);
+        RuntimeMemory::release(rxBuffer);
+        Serial.printf("[RD] Session buffer allocation failed; %s\n",
+                      RuntimeMemory::describe().c_str());
+        rdSession.state = RD_STATE_ERROR;
+        rdDrawStatus("Remote Desktop", "Not enough session RAM");
+        delay(2000);
+        return;
+    }
+
+    uint8_t tag[RD_AES_GCM_TAG_SIZE] = {};
     uint32_t lastHeartbeat = millis();  // Initialize to now, not 0
     const char* disconnectReason = NULL;
 
@@ -1891,7 +1911,7 @@ static void rdLoop() {
         M5.update();
 
         // Check for exit (FN + Backspace)
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+        if (InputCompat::isBackPressed() &&
             M5Cardputer.Keyboard.isKeyPressed(KEY_FN)) {
             Serial.println("[RD] User requested disconnect");
             disconnectReason = "User disconnect";
@@ -2038,6 +2058,9 @@ static void rdLoop() {
         rdShowDisconnectReason(disconnectReason);
         delay(2000);
     }
+
+    RuntimeMemory::release(decBuffer);
+    RuntimeMemory::release(rxBuffer);
 }
 
 // ============================================================================
@@ -2243,7 +2266,7 @@ void remoteDesktop() {
         M5.update();
 
         // Exit
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
             delay(200);  // Debounce
             break;
         }

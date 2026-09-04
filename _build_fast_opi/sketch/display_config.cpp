@@ -496,6 +496,16 @@ bool DisplayProfileManager::init() {
         save();
     }
 
+    // Boot is always recoverable: external selection is session-only.
+    for (uint8_t i = 0; i < _profileCount; ++i) {
+        if (_profiles[i].builtin) {
+            _activeIndex = static_cast<int8_t>(i);
+            strncpy(_activeName, _profiles[i].name, DISPLAY_NAME_MAX_LEN - 1);
+            _activeName[DISPLAY_NAME_MAX_LEN - 1] = '\0';
+            break;
+        }
+    }
+
     _initialized = true;
     Serial.printf("[DisplayProfileManager] Loaded %u profile(s), active=%s\n",
                   static_cast<unsigned>(_profileCount), _activeName);
@@ -643,7 +653,17 @@ bool DisplayProfileManager::save() {
     if (!SD.exists("/evil/config")) SD.mkdir("/evil/config");
 
     JsonDocument doc;
-    doc["active"] = _activeName;
+    // Display selection is intentionally session-only while the external
+    // display bus is being stabilized. Always persist the built-in profile so
+    // a failed external switch cannot make the next boot unrecoverable.
+    const char* persistedActive = _activeName;
+    for (uint8_t i = 0; i < _profileCount; ++i) {
+        if (_profiles[i].builtin) {
+            persistedActive = _profiles[i].name;
+            break;
+        }
+    }
+    doc["active"] = persistedActive;
 
     JsonArray displays = doc["displays"].to<JsonArray>();
     for (uint8_t i = 0; i < _profileCount; i++) {
@@ -706,7 +726,7 @@ void DisplayProfileManager::populateInternalProfile(DisplayProfile& p) {
     p.colorDepth = 16;
     p.builtin = true;
 
-    p.spiHost = DisplaySpiHost::SPI2;
+    p.spiHost = DisplaySpiHost::SPI3;
     p.spiMode = 0;
     p.freqWrite = 40000000UL;
     p.freqRead = 16000000UL;
@@ -731,11 +751,14 @@ void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     p.colorDepth = 16;
     p.builtin = false;
 
-    p.spiHost = DisplaySpiHost::SPI3;
+    // Cardputer ADV exposes the SD bus on the EXT connector. The external
+    // panel must therefore be a device on SPI2, while the built-in ST7789
+    // remains on SPI3.
+    p.spiHost = DisplaySpiHost::SPI2;
     p.spiMode = 0;
-    p.freqWrite = 20000000UL;
-    p.freqRead = 16000000UL;
-    p.spi3Wire = true;
+    p.freqWrite = 10000000UL;
+    p.freqRead = 0;
+    p.spi3Wire = false;
     p.dmaChannel = 0;
     p.busShared = true;
     p.useLock = true;
@@ -751,7 +774,9 @@ void DisplayProfileManager::populateExternalDefault(DisplayProfile& p) {
     p.pins.rst = 3;
     p.pins.mosi = 14;
     p.pins.sclk = 40;
-    p.pins.miso = -1;
+    // This is the bus MISO pin used by SD. ILI9488 SDO stays physically
+    // disconnected and the panel remains write-only.
+    p.pins.miso = 39;
     p.pins.bl = -1;
 }
 

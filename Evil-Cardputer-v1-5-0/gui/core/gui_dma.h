@@ -154,6 +154,13 @@ public:
                                   int16_t x, int16_t y,
                                   uint16_t width, uint16_t height);
 
+    // Transfer a rectangle directly from a strided framebuffer. Avoids a
+    // large temporary DMA allocation for partial updates.
+    void blockingStridedPartialTransfer(const uint16_t* framebuffer,
+                                         uint16_t stride,
+                                         int16_t x, int16_t y,
+                                         uint16_t width, uint16_t height);
+
     // ========================================================================
     // Configuration
     // ========================================================================

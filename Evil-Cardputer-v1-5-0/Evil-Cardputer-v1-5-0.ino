@@ -42,6 +42,8 @@ struct CleanStats;
 enum SearchKind { SK_All, SK_Root, SK_UUID, SK_DevType, SK_Other };
 
 #include <DNSServer.h>
+#include "input_compat.h"
+#include "environment_monitor.h"
 #include <M5Unified.h>
 #include <SD.h>
 #include <TinyGPSPlus.h>
@@ -88,6 +90,13 @@ enum SearchKind { SK_All, SK_Root, SK_UUID, SK_DevType, SK_Other };
 
 // Remote Desktop Module
 #include "remote_desktop.h"
+
+// Shared network services and live packet inspector
+#include "netcore.h"
+#include "runtime_memory.h"
+#include "network_inspector.h"
+#include "mail_app.h"
+#include "web_reader.h"
 
 // WiFi Credentials Manager
 #include "wifi_credentials.h"
@@ -288,6 +297,10 @@ static const char *const PROGMEM menuItems[] = {
     "File Editor",                // 83 (was 84)
     "Terminals",                  // 84 (was 85)
     "Settings",                   // 85 (was 86)
+    "Network Inspector",          // 86
+    "Mail",                       // 87
+    "Web Reader",                 // 88
+    "Environment",                // 89
 };
 
 const int menuSize = sizeof(menuItems) / sizeof(menuItems[0]);
@@ -1264,16 +1277,22 @@ void setup() {
     // Initialize configuration manager
     ConfigManager::init();
 
-    // Initialize SD logger (early — captures all subsequent boot log)
-    SdLogger::init();
-    ELOG_I("SD Logger started");
-
     // Apply active display profile before startup renders (boot image/status
     // UI).
     DisplayProfileManager::init();
-    if (!DisplayRuntime::applyActiveProfile(true)) {
+    const bool displayProfileApplied = DisplayRuntime::applyActiveProfile(true);
+    if (!displayProfileApplied) {
       Serial.printf("[DisplayRuntime] active profile apply failed: %s\n",
                     DisplayRuntime::getLastError());
+    } else {
+      Serial.println(F("[DisplayRuntime] display profile applied OK"));
+    }
+
+    // Start persistent SD logging only after display/SPI initialization can no
+    // longer reconfigure the shared bus under an open File handle.
+    SdLogger::init();
+    ELOG_I("SD Logger started");
+    if (!displayProfileApplied) {
       ELOG_E("Display profile apply failed: %s",
              DisplayRuntime::getLastError());
     } else {
@@ -1430,6 +1449,12 @@ void setup() {
       }
     }
   }
+
+  // Sensor sampling and display power policy run independently of menus.
+  EnvironmentMonitor::begin();
+
+  // Initialize shared network state without forcing a WiFi mode.
+  NetCore::begin();
 
   // Initialize menu engine
   MenuEngine::init(menuItems, menuSize, maxMenuDisplay);
@@ -1604,7 +1629,7 @@ void setup() {
           selectedNet = autoConnectNets[selection];
           selected = true;
         }
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
           selected = true; // Skip auto-connect
         }
         delay(50);
@@ -1724,16 +1749,51 @@ void setup() {
 
 // drawImage() is now defined in hardware.cpp
 
-void firstScanWifiNetworks() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  unsigned long startTime = millis();
-  int n = WIFI_SCAN_FAILED;
-  while (millis() - startTime < 2000) {
-    n = WiFi.scanNetworks();
-    if (n != WIFI_SCAN_RUNNING)
-      break;
+static void prepareWifiForScan(bool cycleRadio) {
+  const String owner = NetCore::promiscuousOwner();
+  if (owner.length())
+    NetCore::releasePromiscuous(owner.c_str());
+
+  // Recover from legacy capture paths which enabled promiscuous mode outside
+  // NetCore and left a callback installed.
+  esp_wifi_set_promiscuous(false);
+  esp_wifi_set_promiscuous_rx_cb(nullptr);
+  WiFi.scanDelete();
+
+  if (cycleRadio) {
+    WiFi.mode(WIFI_OFF);
+    delay(120);
   }
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false, false);
+  delay(120);
+}
+
+static int performWifiScan() {
+  prepareWifiForScan(false);
+  int result = WiFi.scanNetworks(false, true);
+  if (result == WIFI_SCAN_RUNNING) {
+    const uint32_t deadline = millis() + 8000;
+    do {
+      delay(25);
+      result = WiFi.scanComplete();
+    } while (result == WIFI_SCAN_RUNNING &&
+             static_cast<int32_t>(deadline - millis()) > 0);
+  }
+  if (result == WIFI_SCAN_FAILED || result == WIFI_SCAN_RUNNING) {
+    Serial.printf("[WiFi] scan retry; %s\n",
+                  RuntimeMemory::describe().c_str());
+    prepareWifiForScan(true);
+    result = WiFi.scanNetworks(false, true);
+  }
+  return result;
+}
+
+void firstScanWifiNetworks() {
+  numSsid = 0;
+  currentListIndex = 0;
+  std::vector<String>().swap(ssidList);
+  const int n = performWifiScan();
 
   if (n <= 0) {
     if (n == 0) {
@@ -1792,14 +1852,34 @@ int getCapturedPasswordsCount() {
   return passwordCount;
 }
 void initTaskBarSprite() {
+  const int16_t requiredWidth = LB::width();
+  if (requiredWidth <= 0)
+    return;
+
+  // A display profile can change the runtime width. Never retain a sprite
+  // created for the previous target.
+  if (taskBarSpriteReady && taskBarCanvas.width() != requiredWidth) {
+    taskBarCanvas.deleteSprite();
+    taskBarSpriteReady = false;
+  }
+
   if (!taskBarSpriteReady) {
-    taskBarCanvas.createSprite(LB::width(), 12);
-    taskBarSpriteReady = true;
+    // RGB332 is sufficient for this 12-pixel status strip and halves its
+    // footprint on a 480-pixel external display (11520 -> 5760 bytes).
+    taskBarCanvas.setColorDepth(8);
+    taskBarSpriteReady =
+        taskBarCanvas.createSprite(requiredWidth, 12) != nullptr;
+    if (!taskBarSpriteReady) {
+      Serial.printf("[TaskBar] Sprite allocation failed; %s\n",
+                    RuntimeMemory::describe().c_str());
+    }
   }
 }
 
 void drawTaskBar() {
-  initTaskBarSprite(); // plus de réallocation
+  initTaskBarSprite(); // plus de reallocation
+  if (!taskBarSpriteReady)
+    return;
   taskBarCanvas.fillRect(
       0, 0, taskBarCanvas.width(), 10,
       taskbarBackgroundColor); // Dessiner un rectangle bleu en haut de l'écran
@@ -1918,7 +1998,9 @@ void hopKarmaChannel() {
 
 void loop() {
   M5Cardputer.update();
+  EnvironmentMonitor::poll();
   handleDnsRequestSerial();
+  NetCore::poll();
   unsigned long currentMillis = millis();
 
   // One-shot boot launcher: allow a short countdown to cancel
@@ -1976,6 +2058,9 @@ void loop() {
   }
 
   if (inMenu) {
+    if (EnvironmentMonitor::consumeUiRefreshRequest()) {
+      lastIndex = -1;
+    }
     if (lastIndex != currentIndex) {
       drawMenu();
       lastIndex = currentIndex;
@@ -2081,7 +2166,12 @@ void executeMenuItem(int index) {
     remoteDesktop();
     break;
   case 4:
-    showWifiDetails(currentListIndex);
+    if (numSsid <= 0 || ssidList.empty() || currentListIndex < 0 ||
+        currentListIndex >= static_cast<int>(ssidList.size())) {
+      waitAndReturnToMenu("Scan and select a network first");
+    } else {
+      showWifiDetails(currentListIndex);
+    }
     break;
   case 5:
     setWifiSSID();
@@ -2326,15 +2416,36 @@ void executeMenuItem(int index) {
   case 85:
     showSettingsMenu();
     break;
+  case 86:
+    NetworkInspector::run();
+    break;
+  case 87:
+    MailApp::run();
+    break;
+  case 88:
+    WebReader::run();
+    break;
+  case 89:
+    EnvironmentMonitor::runMenu();
+    break;
   }
   isOperationInProgress = false;
+  if (inMenu) {
+    // Applications draw their own title bars. Restore both menu regions once
+    // here and mark the selected item as current so loop() does not immediately
+    // perform a second full menu redraw.
+    LB::fillRect(0, 0, LB::width(), 13, menuBackgroundColor);
+    drawMenu();
+    drawTaskBar();
+    lastIndex = currentIndex;
+  }
 }
 
 unsigned long buttonPressTime = 0;
 bool buttonPressed = false;
 
 void enterDebounce() {
-  while (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+  while (InputCompat::isEnterPressed()) {
     M5.update();
     M5Cardputer.update();
     delay(10); // Petit délai pour réduire la charge du processeur
@@ -2342,7 +2453,7 @@ void enterDebounce() {
 }
 
 void backDebounce() {
-  while (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  while (InputCompat::isBackPressed()) {
     M5Cardputer.update();
     delay(10); // Petit délai pour réduire la charge du processeur
   }
@@ -2353,10 +2464,30 @@ void handleMenuInput() {
   const unsigned long keyRepeatDelay = 150;
   static bool keyHandled = false;
   static int previousIndex = -1;
+  static bool enterWasDown = false;
 
-  enterDebounce();
   M5.update();
   M5Cardputer.update();
+
+  const bool enterDown = InputCompat::isEnterPressed();
+  const bool keyboardConfirmPressed = enterDown && !enterWasDown;
+  enterWasDown = enterDown;
+
+  int8_t scrollDirection = 0;
+  bool scrollConfirmPressed = false;
+  if (ScrollInput::isConnected()) {
+    ScrollInput::poll();
+    const ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
+    if (scrollEvt == ScrollEvent::ScrollUp) {
+      scrollDirection = -1;
+    } else if (scrollEvt == ScrollEvent::ScrollDown) {
+      scrollDirection = 1;
+    } else if (scrollEvt == ScrollEvent::ButtonClick) {
+      scrollConfirmPressed = true;
+    }
+  }
+  const bool confirmPressed =
+      keyboardConfirmPressed || scrollConfirmPressed;
 
   bool stateChanged = false;
 
@@ -2383,7 +2514,7 @@ void handleMenuInput() {
     }
 
     // BACKSPACE -> effacer 1 char (si vide, liste complète visible)
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       if (MenuEngine::checkSearchKeyRepeat()) {
         clearSearchBackspaceOne();
         currentIndex = 0;
@@ -2397,7 +2528,7 @@ void handleMenuInput() {
 
     // ENTER -> quitter recherche ; si query vide => menu complet, sinon vue
     // filtrée
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+    if (confirmPressed) {
       exitSearchModeAuto();
       return;
     }
@@ -2427,7 +2558,7 @@ void handleMenuInput() {
   int total = viewCount();
 
   if (M5Cardputer.Keyboard.isKeyPressed(KEY_LEFT_CTRL) &&
-      M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      InputCompat::isBackPressed()) {
     if (millis() - lastKeyPressTime > keyRepeatDelay) {
       doTheThing();
       lastKeyPressTime = millis();
@@ -2475,7 +2606,7 @@ void handleMenuInput() {
     }
     keyHandled = true;
 
-  } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+  } else if (confirmPressed) {
     int realIndex = mapViewToRealIndex(currentIndex);
     executeMenuItem(realIndex);
     stateChanged = true;
@@ -2491,25 +2622,18 @@ void handleMenuInput() {
     keyHandled = false;
   }
 
-  // Scroll Unit navigation in main menu (Intent 1)
-  if (ScrollInput::isConnected()) {
-    ScrollInput::poll();
-    ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
-    if (scrollEvt == ScrollEvent::ScrollUp) {
-      currentIndex--;
-      if (currentIndex < 0)
-        currentIndex = total - 1;
-      stateChanged = true;
-    } else if (scrollEvt == ScrollEvent::ScrollDown) {
-      currentIndex++;
-      if (currentIndex >= total)
-        currentIndex = 0;
-      stateChanged = true;
-    } else if (scrollEvt == ScrollEvent::ButtonClick) {
-      int realIndex = mapViewToRealIndex(currentIndex);
-      executeMenuItem(realIndex);
-      stateChanged = true;
-    }
+  // Keyboard Enter and wheel click share the confirm path above.  Rotation is
+  // kept independent so neither input source suppresses the other.
+  if (scrollDirection < 0) {
+    currentIndex--;
+    if (currentIndex < 0)
+      currentIndex = total - 1;
+    stateChanged = true;
+  } else if (scrollDirection > 0) {
+    currentIndex++;
+    if (currentIndex >= total)
+      currentIndex = 0;
+    stateChanged = true;
   }
 
   if (!keyHandled)
@@ -2917,22 +3041,18 @@ void selectNetwork(int index) {
 }
 
 void scanWifiNetworks() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  unsigned long startTime = millis();
-  int n = WIFI_SCAN_FAILED;
-  while (millis() - startTime < 5000) {
-    LB::clear();
-    LB::fillRect(0, LB::height() - 20, LB::width(), 20, TFT_BLACK);
-    LB::setCursor(12, LB::height() / 2);
-    LB::print("Scan in progress... ");
-    Serial.println(F("-------------------"));
-    Serial.println(F("WiFi Scan in progress... "));
-    LB::display();
-    n = WiFi.scanNetworks();
-    if (n != WIFI_SCAN_RUNNING)
-      break;
-  }
+  LB::clear();
+  LB::fillRect(0, LB::height() - 20, LB::width(), 20, TFT_BLACK);
+  LB::setCursor(12, LB::height() / 2);
+  LB::print("Scan in progress... ");
+  Serial.println(F("-------------------"));
+  Serial.println(F("WiFi Scan in progress... "));
+  LB::display();
+
+  numSsid = 0;
+  currentListIndex = 0;
+  std::vector<String>().swap(ssidList);
+  const int n = performWifiScan();
   Serial.println(F("-------------------"));
   if (n <= 0) {
     if (n == 0) {
@@ -3214,7 +3334,7 @@ void showWifiList() {
       keyHandledEnter = true;
     }
     // BACK
-    else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    else if (InputCompat::isBackPressed()) {
       inMenu = true;
       drawMenu();
       break;
@@ -3301,7 +3421,7 @@ void showWifiDetails(int networkIndex) {
         networkIndex = (networkIndex + 1) % numSsid;
         updateDisplay();
         lastKeyPressTime = millis();
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+      } else if (InputCompat::isBackPressed() &&
                  !keyHandled) {
         inMenu = true;
         drawMenu();
@@ -3313,7 +3433,7 @@ void showWifiDetails(int networkIndex) {
       }
 
       if (!M5Cardputer.Keyboard.isKeyPressed('/') &&
-          !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+          !InputCompat::isBackPressed() &&
           !M5Cardputer.Keyboard.isKeyPressed(',') &&
           !M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
         keyHandled = false;
@@ -5179,7 +5299,7 @@ void wpadAbuse() {
       handleNTLMClient(c);
 
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       proxy.stop();
       dnsServer.stop();
       WiFi.mode(WIFI_MODE_APSTA);
@@ -5805,7 +5925,7 @@ void changePortal() {
         Serial.println(F("-------------------"));
         waitAndReturnToMenu(selectedPortalFile.substring(12) + " selected");
         break; // Sortir de la boucle
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -5877,7 +5997,7 @@ void checkCredentials() {
         lastKeyPressTime = millis();
       } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
         break; // Exit the loop to return to the menu
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -6148,7 +6268,7 @@ void displayMonitorPage1() {
       } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
         displayMonitorPage2(); // Navigate to the next page
         break;
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -6363,7 +6483,7 @@ void displayMonitorPage2() {
       } else if (M5Cardputer.Keyboard.isKeyPressed('/')) { // page suivante
         displayMonitorPage3();
         break;
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -6478,7 +6598,7 @@ void displayMonitorPage3() {
       } else if (M5Cardputer.Keyboard.isKeyPressed('/')) {
         displayMonitorPage1(); // Go back to the first page
         break;
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -6597,6 +6717,7 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
   LB::setTextSize(1.5);
   LB::setTextFont(1);
   enterDebounce();
+  bool enterWasDown = false;
 
   for (int i = 0; i < maxVisibleLines; ++i) {
     int optionIndex = menuStartIndex + i;
@@ -6620,50 +6741,52 @@ void loopOptions(std::vector<std::pair<String, std::function<void()>>> &options,
     M5Cardputer.update();
 
     bool screenNeedsUpdate = false;
+    int8_t scrollDirection = 0;
+    bool scrollConfirmPressed = false;
 
-    if (M5Cardputer.Keyboard.isKeyPressed(';')) {
+    if (ScrollInput::isConnected()) {
+      ScrollInput::poll();
+      const ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
+      if (scrollEvt == ScrollEvent::ScrollUp) {
+        scrollDirection = -1;
+      } else if (scrollEvt == ScrollEvent::ScrollDown) {
+        scrollDirection = 1;
+      } else if (scrollEvt == ScrollEvent::ButtonClick) {
+        scrollConfirmPressed = true;
+      }
+    }
+
+    const bool enterDown = InputCompat::isEnterPressed();
+    const bool keyboardConfirmPressed = enterDown && !enterWasDown;
+    enterWasDown = enterDown;
+    const bool confirmPressed =
+        keyboardConfirmPressed || scrollConfirmPressed;
+
+    const bool keyboardUp = M5Cardputer.Keyboard.isKeyPressed(';');
+    const bool keyboardDown = M5Cardputer.Keyboard.isKeyPressed('.');
+    if (keyboardUp || scrollDirection < 0) {
       currentIndex = (currentIndex - 1 + options.size()) % options.size();
       menuStartIndex =
           max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
       screenNeedsUpdate = true;
-      delay(150); // anti-rebond
-    } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
+      if (keyboardUp)
+        delay(150); // anti-rebond
+    } else if (keyboardDown || scrollDirection > 0) {
       currentIndex = (currentIndex + 1) % options.size();
       menuStartIndex =
           max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
       screenNeedsUpdate = true;
-      delay(150); // anti-rebond
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+      if (keyboardDown)
+        delay(150); // anti-rebond
+    } else if (confirmPressed) {
       options[currentIndex].second();
       if (!loop) {
         selectionMade = true;
       }
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    } else if (InputCompat::isBackPressed()) {
       selectionMade = true;
       delay(150); // anti-rebond
       waitAndReturnToMenu("Back to menu");
-    }
-
-    // Scroll Unit input (Intent 1: menu navigation)
-    if (ScrollInput::isConnected()) {
-      ScrollInput::poll();
-      ScrollEvent scrollEvt = ScrollInput::getMenuEvent();
-      if (scrollEvt == ScrollEvent::ScrollUp) {
-        currentIndex = (currentIndex - 1 + options.size()) % options.size();
-        menuStartIndex =
-            max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
-        screenNeedsUpdate = true;
-      } else if (scrollEvt == ScrollEvent::ScrollDown) {
-        currentIndex = (currentIndex + 1) % options.size();
-        menuStartIndex =
-            max(0, min(currentIndex, (int)options.size() - maxVisibleLines));
-        screenNeedsUpdate = true;
-      } else if (scrollEvt == ScrollEvent::ButtonClick) {
-        options[currentIndex].second();
-        if (!loop) {
-          selectionMade = true;
-        }
-      }
     }
 
     if (screenNeedsUpdate) {
@@ -6811,7 +6934,7 @@ void showWifiPasswordsMenu() {
              LB::println(pw);
              LB::display();
              enterDebounce();
-             while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+             while (!InputCompat::isBackPressed() &&
                     !M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
                M5Cardputer.update();
                delay(50);
@@ -6823,7 +6946,7 @@ void showWifiPasswordsMenu() {
       // Reload in case networks changed
       continue;
     }
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       exitMenu = true;
     }
 
@@ -6913,7 +7036,7 @@ void showI2CDevices() {
   while (true) {
     M5.update();
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+    if (InputCompat::isBackPressed() ||
         M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
       break;
     }
@@ -6925,6 +7048,319 @@ void showI2CDevices() {
     }
     delay(50);
   }
+}
+
+static bool displayProfileUsesAdvGpio5(const DisplayProfile *profile) {
+  return profile && !profile->builtin &&
+         ((profile->pins.cs == 5) || (profile->pins.dc == 5) ||
+          (profile->pins.rst == 5) || (profile->pins.mosi == 5) ||
+          (profile->pins.sclk == 5) || (profile->pins.miso == 5) ||
+          (profile->pins.bl == 5));
+}
+
+static void prepareAdvGpio5ForDisplay(const DisplayProfile *profile) {
+  if (!hwIsCardputerADV() || !displayProfileUsesAdvGpio5(profile))
+    return;
+  pinMode(5, INPUT);
+  Serial.println(
+      F("[Display/GPS] Released GPIO5 before external display switch"));
+}
+
+static void syncAdvGpio5WithAppliedDisplay() {
+  if (!hwIsCardputerADV())
+    return;
+  const DisplayProfile *applied = DisplayRuntime::getAppliedProfile();
+  if (displayProfileUsesAdvGpio5(applied)) {
+    Serial.println(F("[Display/GPS] GPIO5 reserved by external profile "
+                     "(CS under LGFX control, no GPIO reconfigure)"));
+    return;
+  }
+  pinMode(5, OUTPUT);
+  digitalWrite(5, HIGH);
+  Serial.println(F("[Display/GPS] GPIO5 restored for ADV GPS power"));
+}
+
+static bool applyDisplayProfileSafely(uint8_t index, bool persist,
+                                      String &error) {
+  const DisplayProfile *target = DisplayProfileManager::getProfile(index);
+  if (!target) {
+    error = "Display profile no longer exists";
+    return false;
+  }
+
+  prepareAdvGpio5ForDisplay(target);
+  const bool applied =
+      DisplayRuntime::applyProfileIndex(index, persist, true);
+  syncAdvGpio5WithAppliedDisplay();
+  if (!applied) {
+    error = DisplayRuntime::getLastError();
+    return false;
+  }
+  return true;
+}
+
+bool fileEditorApplySystemConfig(const char *path, String &error) {
+  error = "";
+  if (!path || !String(path).equalsIgnoreCase(DISPLAY_CONFIG_PATH))
+    return true;
+
+  String previousProfileName;
+  const DisplayProfile *previous = DisplayRuntime::getAppliedProfile();
+  if (previous)
+    previousProfileName = previous->name;
+
+  if (!DisplayProfileManager::reload()) {
+    error = DisplayProfileManager::getLastError();
+    return false;
+  }
+
+  int8_t targetIndex = DisplayProfileManager::getActiveIndex();
+  if (previousProfileName.length() > 0) {
+    for (uint8_t i = 0; i < DisplayProfileManager::getProfileCount(); ++i) {
+      const DisplayProfile *candidate = DisplayProfileManager::getProfile(i);
+      if (candidate && previousProfileName.equals(candidate->name)) {
+        targetIndex = static_cast<int8_t>(i);
+        break;
+      }
+    }
+  }
+
+  if (targetIndex < 0 ||
+      !DisplayProfileManager::setActive(static_cast<uint8_t>(targetIndex),
+                                        false)) {
+    error = DisplayProfileManager::getLastError();
+    return false;
+  }
+  return applyDisplayProfileSafely(static_cast<uint8_t>(targetIndex), false,
+                                   error);
+}
+
+static String formatDisplaySpiFrequency(uint32_t frequencyHz) {
+  if ((frequencyHz % 1000000UL) == 0) {
+    return String(frequencyHz / 1000000UL) + " MHz";
+  }
+  return String(static_cast<float>(frequencyHz) / 1000000.0f, 1) + " MHz";
+}
+
+static int8_t preferredExternalDisplayIndex() {
+  const DisplayProfile *applied = DisplayRuntime::getAppliedProfile();
+  if (applied && !applied->builtin) {
+    for (uint8_t i = 0; i < DisplayProfileManager::getProfileCount(); ++i) {
+      const DisplayProfile *profile = DisplayProfileManager::getProfile(i);
+      if (profile && String(profile->name) == applied->name)
+        return static_cast<int8_t>(i);
+    }
+  }
+  for (uint8_t i = 0; i < DisplayProfileManager::getProfileCount(); ++i) {
+    const DisplayProfile *profile = DisplayProfileManager::getProfile(i);
+    if (profile && !profile->builtin)
+      return static_cast<int8_t>(i);
+  }
+  return -1;
+}
+
+static void showDisplayFrequencyResult(const String &message, uint16_t color,
+                                       int delayMs = 1300) {
+  LB::fillScreen(TFT_BLACK);
+  LB::setTextColor(color);
+  LB::setCursor(5, LB::height() / 2 - 5);
+  LB::print(message);
+  delay(delayMs);
+}
+
+static void setExternalDisplayFrequency(uint8_t profileIndex) {
+  const DisplayProfile *profile =
+      DisplayProfileManager::getProfile(profileIndex);
+  if (!profile || profile->builtin)
+    return;
+
+  const uint32_t frequencies[] = {8000000UL,  10000000UL, 16000000UL,
+                                  20000000UL, 26666667UL, 40000000UL,
+                                  80000000UL};
+  std::vector<std::pair<String, std::function<void()>>> options;
+  for (uint32_t frequency : frequencies) {
+    String label = formatDisplaySpiFrequency(frequency);
+    if (frequency == 40000000UL)
+      label += " (recommended)";
+    else if (frequency == 80000000UL)
+      label += " (experimental)";
+    if (frequency == profile->freqWrite)
+      label = "> " + label;
+
+    options.push_back(
+        {label, [profileIndex, frequency]() {
+           const DisplayProfile *before =
+               DisplayProfileManager::getProfile(profileIndex);
+           if (!before)
+             return;
+           const uint32_t previousFrequency = before->freqWrite;
+           const String profileName = before->name;
+           const DisplayProfile *applied =
+               DisplayRuntime::getAppliedProfile();
+           const bool isCurrentlyApplied =
+               applied && profileName.equals(applied->name);
+
+           if (frequency == 80000000UL &&
+               !confirmPopup("80 MHz is experimental. Apply?")) {
+             return;
+           }
+
+           if (!DisplayProfileManager::setProfileWriteFrequency(
+                   profileIndex, frequency, true)) {
+             showDisplayFrequencyResult(
+                 String("Save failed: ") +
+                     DisplayProfileManager::getLastError(),
+                 TFT_RED, 1800);
+             return;
+           }
+
+           if (isCurrentlyApplied) {
+             String applyError;
+             if (!applyDisplayProfileSafely(profileIndex, false, applyError)) {
+               DisplayProfileManager::setProfileWriteFrequency(
+                   profileIndex, previousFrequency, true);
+               String rollbackError;
+               applyDisplayProfileSafely(profileIndex, false, rollbackError);
+               String message = "Apply failed: " + applyError;
+               if (rollbackError.length() > 0)
+                 message += "; rollback: " + rollbackError;
+               showDisplayFrequencyResult(message, TFT_RED, 2200);
+               return;
+             }
+             showDisplayFrequencyResult(
+                 "Applied " + formatDisplaySpiFrequency(frequency),
+                 TFT_GREEN);
+           } else {
+             showDisplayFrequencyResult(
+                 "Saved " + formatDisplaySpiFrequency(frequency), TFT_GREEN);
+           }
+         }});
+  }
+  loopOptions(options, false, true, profile->name);
+}
+
+static void showExternalDisplayFrequencyMenu() {
+  std::vector<uint8_t> externalProfiles;
+  for (uint8_t i = 0; i < DisplayProfileManager::getProfileCount(); ++i) {
+    const DisplayProfile *profile = DisplayProfileManager::getProfile(i);
+    if (profile && !profile->builtin)
+      externalProfiles.push_back(i);
+  }
+  if (externalProfiles.empty()) {
+    showDisplayFrequencyResult("No external display profile", TFT_YELLOW);
+    return;
+  }
+  if (externalProfiles.size() == 1) {
+    setExternalDisplayFrequency(externalProfiles[0]);
+    return;
+  }
+
+  std::vector<std::pair<String, std::function<void()>>> options;
+  for (uint8_t index : externalProfiles) {
+    const DisplayProfile *profile = DisplayProfileManager::getProfile(index);
+    if (!profile)
+      continue;
+    const String label =
+        String(profile->name) + ": " +
+        formatDisplaySpiFrequency(profile->freqWrite);
+    options.push_back(
+        {label, [index]() { setExternalDisplayFrequency(index); }});
+  }
+  loopOptions(options, false, true, "External SPI");
+}
+
+static String displayRendererLabel(DisplayCompositorMode mode) {
+  switch (mode) {
+  case DisplayCompositorMode::DIRECT:
+    return "Direct";
+  case DisplayCompositorMode::SCALED_FULL:
+    return "Scaled Full";
+  case DisplayCompositorMode::SCALED_TILES:
+    return "Scaled Tiles";
+  case DisplayCompositorMode::AUTO:
+  default:
+    return "Auto";
+  }
+}
+
+static void applyExternalRendererSetting(uint8_t profileIndex,
+                                         DisplayCompositorMode mode) {
+  if (!DisplayProfileManager::setProfileCompositorMode(profileIndex, mode,
+                                                        true)) {
+    showDisplayFrequencyResult(DisplayProfileManager::getLastError(), TFT_RED);
+    return;
+  }
+  bool applied = true;
+  if (profileIndex == DisplayProfileManager::getActiveIndex() &&
+      DisplayRuntime::usingExternalDisplay())
+    applied = DisplayRuntime::applyActiveProfile(true);
+  showDisplayFrequencyResult(
+      applied ? String("Renderer: ") + displayRendererLabel(mode)
+              : String("Renderer apply failed: ") +
+                    DisplayRuntime::getLastError(),
+      applied ? TFT_GREEN : TFT_RED);
+}
+
+static void showExternalRendererMenu() {
+  const int8_t index = preferredExternalDisplayIndex();
+  if (index < 0) {
+    showDisplayFrequencyResult("No external display profile", TFT_YELLOW);
+    return;
+  }
+  const uint8_t profileIndex = static_cast<uint8_t>(index);
+  std::vector<std::pair<String, std::function<void()>>> options;
+  options.push_back({"Direct (legacy)", [profileIndex]() {
+                       applyExternalRendererSetting(
+                           profileIndex, DisplayCompositorMode::DIRECT);
+                     }});
+  options.push_back({"Scaled Full", [profileIndex]() {
+                       applyExternalRendererSetting(
+                           profileIndex, DisplayCompositorMode::SCALED_FULL);
+                     }});
+  options.push_back({"Scaled Tiles", [profileIndex]() {
+                       applyExternalRendererSetting(
+                           profileIndex, DisplayCompositorMode::SCALED_TILES);
+                     }});
+  options.push_back({"Auto Hybrid", [profileIndex]() {
+                       applyExternalRendererSetting(
+                           profileIndex, DisplayCompositorMode::AUTO);
+                     }});
+  loopOptions(options, false, true, "External Renderer");
+}
+
+static void applyExternalDirtyThreshold(uint8_t profileIndex,
+                                        uint8_t threshold) {
+  if (!DisplayProfileManager::setProfileFullFlushThreshold(
+          profileIndex, threshold, true)) {
+    showDisplayFrequencyResult(DisplayProfileManager::getLastError(), TFT_RED);
+    return;
+  }
+  bool applied = true;
+  if (profileIndex == DisplayProfileManager::getActiveIndex() &&
+      DisplayRuntime::usingExternalDisplay())
+    applied = DisplayRuntime::applyActiveProfile(true);
+  showDisplayFrequencyResult(
+      applied ? String("Full flush at ") + threshold + "%"
+              : String("Threshold apply failed: ") +
+                    DisplayRuntime::getLastError(),
+      applied ? TFT_GREEN : TFT_RED);
+}
+
+static void showExternalDirtyThresholdMenu() {
+  const int8_t index = preferredExternalDisplayIndex();
+  if (index < 0) {
+    showDisplayFrequencyResult("No external display profile", TFT_YELLOW);
+    return;
+  }
+  const uint8_t profileIndex = static_cast<uint8_t>(index);
+  std::vector<std::pair<String, std::function<void()>>> options;
+  for (const uint8_t threshold : {25, 38, 50, 65}) {
+    options.push_back(
+        {String(threshold) + "%", [profileIndex, threshold]() {
+           applyExternalDirtyThreshold(profileIndex, threshold);
+         }});
+  }
+  loopOptions(options, false, true, "Dirty Threshold");
 }
 
 void showDisplaySelection() {
@@ -6957,39 +7393,35 @@ void showDisplaySelection() {
            const DisplayProfile *targetProfile =
                DisplayProfileManager::getProfile(idx);
 
-           // If switching to external profile, proactively rebind GPS UART.
-           // This reproduces the "GPS pins toggle" side-effect automatically
-           // and avoids needing a manual menu workaround before display switch.
+           // If switching to external profile, release ADV GPIO5 first when
+           // that pin is used by the external panel wiring.
            if (targetProfile && !targetProfile->builtin) {
-             if (hwIsCardputerADV()) {
-               // ADV uses GPIO5 as GPS power in legacy flow.
-               // If display profile also needs GPIO5, release it first.
-               const bool profileUsesPin5 = (targetProfile->pins.cs == 5) ||
+              if (hwIsCardputerADV()) {
+                // ADV uses GPIO5 as GPS power in legacy flow.
+                // If display profile also needs GPIO5, release it first.
+                const bool profileUsesPin5 = (targetProfile->pins.cs == 5) ||
                                             (targetProfile->pins.dc == 5) ||
                                             (targetProfile->pins.rst == 5) ||
                                             (targetProfile->pins.mosi == 5) ||
                                             (targetProfile->pins.sclk == 5) ||
                                             (targetProfile->pins.miso == 5) ||
                                             (targetProfile->pins.bl == 5);
-               if (profileUsesPin5) {
-                 pinMode(5, INPUT);
-                 Serial.println(F("[Display/GPS] Released GPIO5 before "
-                                  "external display switch"));
-               }
-             }
-
-             cardgps.end();
-             delay(2);
-             cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
-             Serial.printf("[Display/GPS] UART2 rebound before external switch "
-                           "(rx=%d tx=%d baud=%d)\n",
-                           gpsRxPin, gpsTxPin, baudrate_gps);
-           }
+                if (profileUsesPin5) {
+                  pinMode(5, INPUT);
+                  Serial.println(F("[Display/GPS] Released GPIO5 before "
+                                   "external display switch"));
+                }
+              }
+            }
 
            LB::fillScreen(TFT_BLACK);
            LB::setCursor(5, LB::height() / 2 - 5);
-           if (DisplayRuntime::applyProfileIndex(idx, true, true)) {
+           const bool rememberDisplay =
+               DisplayProfileManager::isRememberActiveEnabled();
+           if (DisplayRuntime::applyProfileIndex(idx, rememberDisplay, true)) {
              // Keep ADV GPIO5 policy aligned with the newly applied profile.
+             // IMPORTANT: do not reconfigure GPIO5 after external CS is claimed
+             // by LGFX (it can break external panel CS control and black-screen).
              if (hwIsCardputerADV()) {
                const DisplayProfile *applied =
                    DisplayRuntime::getAppliedProfile();
@@ -7000,23 +7432,23 @@ void showDisplaySelection() {
                      (applied->pins.rst == 5) || (applied->pins.mosi == 5) ||
                      (applied->pins.sclk == 5) || (applied->pins.miso == 5) ||
                      (applied->pins.bl == 5);
-               }
-               if (profileUsesPin5) {
-                 pinMode(5, INPUT);
-                 Serial.println(F("[Display/GPS] GPIO5 kept released (external "
-                                  "profile uses pin 5)"));
-               } else {
-                 pinMode(5, OUTPUT);
-                 digitalWrite(5, HIGH);
-                 Serial.println(
-                     F("[Display/GPS] GPIO5 restored for ADV GPS power"));
+                }
+                if (profileUsesPin5) {
+                  Serial.println(
+                      F("[Display/GPS] GPIO5 reserved by external profile "
+                        "(CS under LGFX control, no GPIO reconfigure)"));
+                } else {
+                  pinMode(5, OUTPUT);
+                  digitalWrite(5, HIGH);
+                  Serial.println(
+                      F("[Display/GPS] GPIO5 restored for ADV GPS power"));
                }
              }
 
              LB::setTextColor(TFT_GREEN);
              const DisplayProfile *sel = DisplayProfileManager::getProfile(idx);
              if (sel) {
-               LB::print("Active: ");
+               LB::print(rememberDisplay ? "Saved: " : "Session: ");
                LB::print(sel->name);
              } else {
                LB::print("Display switched");
@@ -7036,6 +7468,23 @@ void showDisplaySelection() {
   loopOptions(dispOptions, false, true, "Display");
 }
 
+void toggleRememberDisplaySelection() {
+  const bool next = !DisplayProfileManager::isRememberActiveEnabled();
+  LB::fillScreen(TFT_BLACK);
+  LB::setCursor(5, LB::height() / 2 - 5);
+  if (DisplayProfileManager::setRememberActiveEnabled(next, true)) {
+    LB::setTextColor(TFT_GREEN);
+    LB::print(next ? "Remember Display: ON" : "Remember Display: OFF");
+  } else {
+    LB::setTextColor(TFT_RED);
+    LB::print("Display setting failed");
+    LB::setCursor(5, LB::height() / 2 + 10);
+    LB::setTextColor(TFT_YELLOW);
+    LB::print(DisplayProfileManager::getLastError());
+  }
+  delay(1000);
+}
+
 void showSettingsMenu() {
   std::vector<std::pair<String, std::function<void()>>> options;
 
@@ -7049,15 +7498,20 @@ void showSettingsMenu() {
         {soundOn ? "Disable Sound" : "Enable Sound", []() { toggleSound(); }});
     options.push_back(
         {ledOn ? "Disable LED" : "Enable LED", []() { toggleLED(); }});
-    options.push_back(
-        {String("Switch GPS Pins to: ") +
-             ((gpsPinsMode == 1 || (gpsRxPin == 15 && gpsTxPin == 13))
-                  ? "1/2"
-                  : ((gpsPinsMode == 0 ||
-                      (gpsRxPin == 1 && (gpsTxPin == 2 || gpsTxPin == -1)))
-                         ? "15/13"
-                         : "Auto")),
-         []() { toggleGpsPinsMode(); }});
+    String gpsPinsLabel;
+    if (hwIsCardputerADV()) {
+      gpsPinsLabel = "GPS Pins: ADV fixed 15/13";
+    } else {
+      gpsPinsLabel = String("Switch GPS Pins to: ") +
+                     ((gpsPinsMode == 1 || (gpsRxPin == 15 && gpsTxPin == 13))
+                          ? "1/2"
+                          : ((gpsPinsMode == 0 ||
+                              (gpsRxPin == 1 &&
+                               (gpsTxPin == 2 || gpsTxPin == -1)))
+                                 ? "15/13"
+                                 : "Auto"));
+    }
+    options.push_back({gpsPinsLabel, []() { toggleGpsPinsMode(); }});
     options.push_back({"Set GPS Baudrate", []() { setGPSBaudrate(); }});
     options.push_back({"Set Startup Image", setStartupImage});
     options.push_back({"Set Startup Volume", adjustVolume});
@@ -7080,11 +7534,43 @@ void showSettingsMenu() {
     options.push_back({I2CManager::isEnabled() ? "Disable I2C" : "Enable I2C",
                        []() { toggleI2C(); }});
     options.push_back({"I2C Devices", showI2CDevices});
+    options.push_back(
+        {DisplayProfileManager::isRememberActiveEnabled()
+             ? "Remember Display: ON"
+             : "Remember Display: OFF",
+         toggleRememberDisplaySelection});
     options.push_back({"Select Display", showDisplaySelection});
+    const int8_t externalDisplay = preferredExternalDisplayIndex();
+    String displayFrequencyLabel = "External SPI Frequency";
+    if (externalDisplay >= 0) {
+      const DisplayProfile *profile =
+          DisplayProfileManager::getProfile(
+              static_cast<uint8_t>(externalDisplay));
+      if (profile)
+        displayFrequencyLabel +=
+            ": " + formatDisplaySpiFrequency(profile->freqWrite);
+    }
+    options.push_back(
+        {displayFrequencyLabel, showExternalDisplayFrequencyMenu});
+    String rendererLabel = "External Renderer";
+    String dirtyThresholdLabel = "Full Flush Threshold";
+    if (externalDisplay >= 0) {
+      const DisplayProfile *profile = DisplayProfileManager::getProfile(
+          static_cast<uint8_t>(externalDisplay));
+      if (profile) {
+        rendererLabel += ": " +
+                         displayRendererLabel(profile->compositorMode);
+        dirtyThresholdLabel += ": " +
+                               String(profile->fullFlushThreshold) + "%";
+      }
+    }
+    options.push_back({rendererLabel, showExternalRendererMenu});
+    options.push_back(
+        {dirtyThresholdLabel, showExternalDirtyThresholdMenu});
 
     loopOptions(options, false, true, "Settings");
     // Vérifie si BACKSPACE a été pressé pour quitter le menu
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       continueSettingsMenu = false;
     }
   }
@@ -7145,7 +7631,7 @@ void setCPUFrequency() {
                      " MHz");
       delay(1000);
       freqSelected = true;
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    } else if (InputCompat::isBackPressed()) {
       freqSelected = true;
     }
 
@@ -7206,13 +7692,15 @@ void setGPSBaudrate() {
       LB::fillScreen(menuBackgroundColor);
       LB::setCursor(5, LB::height() / 2);
       LB::print("GPS Baudrate set to\n" + String(baudrate_gps));
-      cardgps.end();
-      cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
+      Serial.printf(
+          "[GPS] UART2 hot-rebind skipped after baud change "
+          "(rx=%d tx=%d baud=%d, apply on next reboot)\n",
+          gpsRxPin, gpsTxPin, baudrate_gps);
       delay(1000);
       baudrateSelected = true;
     }
     // Quitter sans sélectionner
-    else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    else if (InputCompat::isBackPressed()) {
       baudrateSelected = true;
     }
 
@@ -7440,7 +7928,7 @@ void setStartupSound() {
       LB::print("Startup sound set to\n" + selectedStartupSound);
       delay(1000);
       soundSelected = true;
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    } else if (InputCompat::isBackPressed()) {
       soundSelected = true;
     } else if (M5Cardputer.Keyboard.isKeyPressed('p')) {
       String soundPath = "/evil/audio/" + sounds[currentSoundIndex];
@@ -7773,7 +8261,7 @@ void setStartupImage() {
     }
 
     // Sortir du mode sélection avec la touche Retour
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       imageSelected = true;
     }
 
@@ -7830,7 +8318,7 @@ void brightness() {
       } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
         saveConfigParameter("brightness", currentBrightness);
         break;
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -7894,7 +8382,7 @@ void adjustVolume() {
       } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
         saveConfigParameter("volume", currentVolume);
         break;
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -7937,6 +8425,15 @@ void applyGpsPinsForMode(int mode) {
     gpsTxPin = 13;
 
   } else if (mode == 0) {
+    if (hwIsCardputerADV()) {
+      // Cardputer-ADV routes HY2.0 (external I2C) on GPIO2/GPIO1.
+      // Using UART2 on 1/2 breaks external I2C units (e.g. Scroll).
+      gpsPinsMode = 1;
+      gpsRxPin = 15;
+      gpsTxPin = 13;
+      Serial.println(F("[GPS] ADV guard: mode 1/2 disabled; keeping 15/13"));
+      return;
+    }
     gpsPinsMode = 0;
     gpsRxPin = 1;
     gpsTxPin = 2;
@@ -7945,6 +8442,12 @@ void applyGpsPinsForMode(int mode) {
 
 void toggleGpsPinsMode() {
   int newMode = (gpsPinsMode == 1) ? 0 : 1;
+  if (hwIsCardputerADV() && newMode == 0) {
+    // Prevent runtime and boot-time conflicts with HY2.0 I2C on ADV.
+    newMode = 1;
+    Serial.println(
+        F("[GPS] ADV guard: skipped switch to 1/2 (HY2.0 I2C conflict)"));
+  }
   applyGpsPinsForMode(newMode);
   saveConfigParameter("gps_pins_mode", gpsPinsMode);
 
@@ -7959,9 +8462,8 @@ void toggleGpsPinsMode() {
                         (applied->pins.miso == 5) || (applied->pins.bl == 5);
     }
     if (profileUsesPin5) {
-      pinMode(5, INPUT);
       Serial.println(
-          F("[GPS] GPIO5 released (active external display uses pin 5)"));
+          F("[GPS] GPIO5 reserved by active external display (no reconfigure)"));
     } else {
       pinMode(5, OUTPUT);
       digitalWrite(5, HIGH);
@@ -7972,12 +8474,12 @@ void toggleGpsPinsMode() {
   // I2C diagnostic scan BEFORE toggle
   I2CDiag::scanAndLog("pre-gps-toggle");
 
-  // Re-init GPS UART if possible
-  cardgps.end();
-  delay(2);
-  cardgps.begin(baudrate_gps, SERIAL_8N1, gpsRxPin, gpsTxPin);
+  // NOTE: Do not hot-rebind UART2 here.
+  // On some ADV units this can blank both internal/external display paths.
+  // Pins are persisted and applied on next boot (or controlled display switch).
   Serial.printf(
-      "[GPS] UART2 rebound after mode toggle (mode=%d rx=%d tx=%d baud=%d)\n",
+      "[GPS] UART2 hot-rebind skipped after mode toggle "
+      "(mode=%d rx=%d tx=%d baud=%d)\n",
       gpsPinsMode, gpsRxPin, gpsTxPin, baudrate_gps);
 
   // I2C diagnostic scan AFTER toggle
@@ -7987,7 +8489,9 @@ void toggleGpsPinsMode() {
          gpsTxPin);
   LB::fillScreen(menuBackgroundColor);
   LB::setCursor(5, LB::height() / 2);
-  if (gpsPinsMode == 1) {
+  if (hwIsCardputerADV()) {
+    LB::print("ADV: GPS pins fixed 15/13");
+  } else if (gpsPinsMode == 1) {
     LB::print("GPS Pins set to 15/13");
   } else {
     LB::print("GPS Pins set to 1/2");
@@ -8065,7 +8569,7 @@ void setCaptivePortalIP() {
       LB::println(kCaptiveIPStr[portalIpIndex]);
       delay(1000);
       selected = true;
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    } else if (InputCompat::isBackPressed()) {
       // retour sans changement
       inMenu = true;
       drawMenu();
@@ -8147,6 +8651,11 @@ void restoreConfigParameter(String key) {
           } else if (key == "gps_pins_mode") {
             intValue = stringValue.toInt();
             gpsPinsMode = (intValue == 0 || intValue == 1) ? intValue : -1;
+            if (hwIsCardputerADV() && gpsPinsMode == 0) {
+              gpsPinsMode = 1;
+              Serial.println(F("GPS pins mode 1/2 is unsafe on ADV; "
+                               "forcing 15/13"));
+            }
             if (gpsPinsMode == 1) {
               // ADV mapping 15/13 + power on
               gpsRxPin = 15;
@@ -8974,7 +9483,7 @@ void listProbes() {
         clonedSSID = probes[currentListIndex];
         waitAndReturnToMenu(probes[currentListIndex] + " selected");
         return; // Sortie de la fonction après sélection
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -9083,7 +9592,7 @@ void deleteProbe() {
           waitAndReturnToMenu("Return to menu");
           return;
         }
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -9152,7 +9661,7 @@ int showProbesAndSelect(String probes[], int numProbes) {
         selectedIndex = currentListIndex;
         keyHandled = true;
         lastKeyPressTime = millis();
-      } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      } else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         break;
@@ -10049,7 +10558,7 @@ void wardrivingMode() {
     }
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        InputCompat::isBackPressed()) {
       exitWardriving = true;
       delay(1000);
       LB::setTextSize(1.5);
@@ -10431,7 +10940,7 @@ void beaconAttack() {
       F("-------------------\nStarting Beacon Spam\n-------------------"));
 
   while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) &&
-         !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+         !InputCompat::isBackPressed()) {
     // cadence principale ~ sans délai -> dépend du hop
     if (useCustomBeacons && !customBeacons.empty()) {
       for (const auto &s : customBeacons) {
@@ -11343,7 +11852,7 @@ void deauthAttack(int networkIndex) {
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) &&
         currentMillis - lastDebounceTime > debounceDelay) {
       break; // Stop the attack
-    } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    } else if (InputCompat::isBackPressed()) {
       inMenu = true;
       drawMenu();
       break;
@@ -11914,7 +12423,7 @@ void deauthClients() {
     }
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+        InputCompat::isBackPressed() &&
             (currentPressTime - lastKeyPressTime > debounceDelay)) {
       esp_wifi_set_promiscuous(false);
       esp_wifi_set_promiscuous_rx_cb(NULL);
@@ -12062,7 +12571,19 @@ bool handlePcapSliding(const String &path, bool &hasBeacon, bool &has4Way,
   }
   const bool linkIsRadiotap = (gh.link == 127); // DLT_IEEE802_11_RADIO
 
-  static uint8_t buf[4096];
+  constexpr size_t pcapBufferSize = 4096;
+  struct PcapBufferGuard {
+    uint8_t *data;
+    ~PcapBufferGuard() { RuntimeMemory::release(data); }
+  } pcapBuffer{static_cast<uint8_t *>(RuntimeMemory::allocateInternal(
+      pcapBufferSize, false, 12U * 1024U))};
+  if (!pcapBuffer.data) {
+    Serial.println(String("[PCAP] buffer unavailable; ") +
+                   RuntimeMemory::describe());
+    f.close();
+    return false;
+  }
+  uint8_t *buf = pcapBuffer.data;
   bool m1 = false, m2 = false, m3 = false, m4 = false; // drapeaux 4-Way
   uint32_t idx = 0;
 
@@ -12079,7 +12600,7 @@ bool handlePcapSliding(const String &path, bool &hasBeacon, bool &has4Way,
     PHdr ph;
     if (f.read((uint8_t *)&ph, sizeof(ph)) != sizeof(ph))
       break;
-    if (ph.len == 0 || ph.len > sizeof(buf)) {
+    if (ph.len == 0 || ph.len > pcapBufferSize) {
       f.seek(f.position() + ph.len);
       continue;
     }
@@ -12242,8 +12763,8 @@ void viewPcapDetails() {
         last = now;
         break; // ↺ ré-affiche
       }
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
-        while (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
+        while (InputCompat::isBackPressed()) {
           M5Cardputer.update();
           delay(10);
         }
@@ -12372,7 +12893,7 @@ void checkHandshakes() {
     }
 
     /* retour Menu général */
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       waitAndReturnToMenu("Return to menu");
       return;
     }
@@ -12481,7 +13002,7 @@ String inputWifiPassword(const String &ssidName) {
     }
 
     // Check for ESC/back
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) &&
+    if (InputCompat::isBackPressed() &&
         typedPassword.length() == 0) {
       delay(200);
       return ""; // Cancelled
@@ -12503,6 +13024,16 @@ void connectWifi(int networkIndex) {
       waitAndReturnToMenu("Stay connected...");
       return;
     }
+  }
+
+  if (numSsid <= 0 || ssidList.empty() || networkIndex < 0 ||
+      networkIndex >= numSsid ||
+      networkIndex >= static_cast<int>(ssidList.size())) {
+    Serial.printf("[WiFi] invalid selected network index=%d count=%d size=%u\n",
+                  networkIndex, numSsid,
+                  static_cast<unsigned>(ssidList.size()));
+    waitAndReturnToMenu("Scan and select a network first");
+    return;
   }
 
   String nameSSID = ssidList[networkIndex];
@@ -13503,7 +14034,7 @@ void webCrawling(const String &urlOrIp) {
     } else if (M5Cardputer.Keyboard.isKeyPressed('.')) {
       scrollDown();
     } else if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-               M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+               InputCompat::isBackPressed()) {
       urlBase = "";
       LB::setTextSize(1.5);
       waitAndReturnToMenu("Returning to menu...");
@@ -13680,7 +14211,7 @@ void displayHostOptions(const std::vector<IPAddress> &hostslist) {
   int index = 0;
   int lineHeight = 12; // Hauteur de ligne pour chaque option
 
-  while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  while (!InputCompat::isBackPressed()) {
     M5.update();          // Mise à jour du clavier
     M5Cardputer.update(); // Mise à jour du clavier
 
@@ -13723,7 +14254,7 @@ void displayHostOptions(const std::vector<IPAddress> &hostslist) {
           .second(); // Execute the function associated with the option
       break;         // Exit loop after executing the selected option
     }
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       return; // Exit loop after executing the selected option
     }
 
@@ -13802,7 +14333,7 @@ void afterScanOptions(IPAddress ip, const std::vector<IPAddress> &hostslist) {
       option[index].second(); // Execute the function associated with the option
       break;                  // Exit loop after executing the selected option
     }
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       displayHostOptions(hostslist); // Return to host options
       return;
     }
@@ -14244,7 +14775,7 @@ void skimmerDetection() {
     M5Cardputer.update();
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        InputCompat::isBackPressed()) {
       if (pBLEScan != nullptr && isBLEScanning) {
         pBLEScan->stop();
         isBLEScanning = false;
@@ -14947,7 +15478,7 @@ void badUSB() {
 
   // Attendre que l'utilisateur appuie sur "Entrée" ou "Retour arrière"
   while (!M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) &&
-         !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+         !InputCompat::isBackPressed()) {
     // Boucle jusqu'à ce qu'une touche soit pressée
   }
 
@@ -15303,7 +15834,7 @@ void loopwardrivingmaster() {
   }
 
   // (5) Si BACKSPACE, on quitte
-  if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  if (InputCompat::isBackPressed()) {
     Serial.println(F("Exiting Wardriving Master mode..."));
     stopEspNow();
     waitAndReturnToMenu("Returning to menu...");
@@ -15352,7 +15883,7 @@ void startWardivingMaster() {
     M5Cardputer.update();
 
     // Si BACKSPACE => sortie
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       Serial.println(F("Exiting Wardriving Master mode..."));
       stopEspNow();
       waitAndReturnToMenu("Returning to menu...");
@@ -15402,7 +15933,7 @@ typedef struct {
 } frag_item_t;
 
 /* >>> le tableau n’est plus volatile <<< */
-static frag_item_t q[QUEUE_LEN];
+static frag_item_t *q = nullptr;
 
 /* seuls les index sont volatiles (partagés ISR / main) */
 volatile uint8_t qHead = 0, qTail = 0;
@@ -15411,7 +15942,7 @@ inline bool qFull() { return uint8_t(qHead + 1) % QUEUE_LEN == qTail; }
 inline bool qEmpty() { return qHead == qTail; }
 
 inline void qPush(const uint8_t *d, uint8_t l) {
-  if (qFull())
+  if (!q || qFull())
     return;                    // drop si pleine
   memcpy(q[qHead].data, d, l); // OK : plus de volatile
   q[qHead].len = l;
@@ -15419,7 +15950,7 @@ inline void qPush(const uint8_t *d, uint8_t l) {
 }
 
 inline bool qPop(uint8_t *dst, uint8_t *l) {
-  if (qEmpty())
+  if (!q || qEmpty())
     return false;
   *l = q[qTail].len;
   memcpy(dst, q[qTail].data, *l); // idem
@@ -15625,12 +16156,22 @@ void sniffMaster() {
   memset(received_len, 0, sizeof(received_len));
   memset(next_frag, 0, sizeof(next_frag));
   memset(received_frames, 0, sizeof(received_frames));
+  q = static_cast<frag_item_t *>(RuntimeMemory::allocateInternal(
+      sizeof(frag_item_t) * QUEUE_LEN, true, 20U * 1024U));
+  if (!q) {
+    Serial.println(String("[SniffMaster] queue unavailable; ") +
+                   RuntimeMemory::describe());
+    waitAndReturnToMenu("Sniffer memory unavailable");
+    return;
+  }
   qHead = qTail = 0;
 
   {
     DisplayRuntime::ScopedSdDisplayRelease sdGuard;
     if (!SD.begin()) {
       Serial.println(F("SD fail"));
+      RuntimeMemory::release(q);
+      q = nullptr;
       return;
     }
   }
@@ -15641,6 +16182,10 @@ void sniffMaster() {
   WiFi.disconnect();
   if (esp_now_init() != ESP_OK) {
     Serial.println(F("ESP-NOW fail"));
+    if (pcapFile)
+      pcapFile.close();
+    RuntimeMemory::release(q);
+    q = nullptr;
     return;
   }
   esp_now_register_recv_cb(onRecv);
@@ -15660,13 +16205,16 @@ void sniffMaster() {
     displayStatus();
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+        InputCompat::isBackPressed())
       exitSniffMaster = true;
   }
   esp_now_unregister_recv_cb();
   esp_now_deinit();
   if (pcapFile)
     pcapFile.close();
+  RuntimeMemory::release(q);
+  q = nullptr;
+  qHead = qTail = 0;
   waitAndReturnToMenu("Returning to menu...");
 }
 
@@ -16086,7 +16634,7 @@ void allTrafficSniffer() {
 
     // Exit key detection
     if ((M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-         M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) &&
+         InputCompat::isBackPressed()) &&
         currentPressTime - lastKeyPressTime > debounceDelay) {
       exitSniff = true;
       lastKeyPressTime = currentPressTime;
@@ -16272,7 +16820,7 @@ void sniffNetwork() {
     LB::printf(cursorVisible ? ">_" : "> ");
 
     if ((M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-         M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))) {
+         InputCompat::isBackPressed())) {
       exitSniff = true;
       lastKeyPressTime = currentPressTime;
       Serial.println(F("Exit key detected, stopping sniffer..."));
@@ -16991,7 +17539,7 @@ void ListNetworkAnalysis() {
 
 bool isBackspacePressed() {
   M5Cardputer.update();
-  if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  if (InputCompat::isBackPressed()) {
     Serial.println(F("Touche BACKSPACE détectée, retour au menu."));
     return true;
   }
@@ -17331,7 +17879,7 @@ void rogueDHCP(RogueDhcpMode mode) {
     M5Cardputer.update();
     handleDnsRequestSerial();
 
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       Serial.println(F("Returning to menu."));
       updateDisplay("Returning...");
       waitAndReturnToMenu("Return to menu.");
@@ -19228,7 +19776,7 @@ void startHoneypot() {
   while (true) {
     M5Cardputer.update();
     honeypotLoop();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       break;
     }
     delay(10);
@@ -19345,7 +19893,7 @@ void handleHoneypotClient(WiFiClient client) {
   String prompt = "pi@ubuntu:~$ ";
 
   while (client.connected() ||
-         !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+         !InputCompat::isBackPressed()) {
     M5Cardputer.update();
     client.print(prompt);
     String command =
@@ -20316,7 +20864,7 @@ void autoDeauther() {
     M5.update();
     M5Cardputer.update();
 
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       break;
     }
 
@@ -20478,7 +21026,7 @@ void runMouseJiggler() {
     M5Cardputer.update();
 
     // Stop
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       stop = true;
       break;
     }
@@ -20565,7 +21113,7 @@ void startEvilTwin(int index) {
     M5Cardputer.update();
     handleDnsRequestSerial();
     // Check si RETURN est pressé
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       break;
 
     // Rafraîchissement écran toutes les 200ms
@@ -21736,7 +22284,7 @@ void responder() {
   smbState.active = false;
 
   Serial.println(F("Responder ready - Waiting for NBNS/LLMNR request..."));
-  while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  while (!InputCompat::isBackPressed()) {
     M5Cardputer.update();
     unsigned long now = millis();
     if (now - lastAnim > 250) {
@@ -22534,7 +23082,7 @@ void fileManager() {
       }
       // ─── TOUCHE ESC : RETOUR AU MENU PRINCIPAL
       // ─────────────────────────────────
-      else if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      else if (InputCompat::isBackPressed()) {
         inMenu = true;
         drawMenu();
         return;
@@ -22925,7 +23473,7 @@ void startUARTShell() {
 
     /* ----- état clavier ----- */
     bool enterNow = M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER);
-    bool backNow = M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE);
+    bool backNow = InputCompat::isBackPressed();
     bool fnNow = M5Cardputer.Keyboard.isKeyPressed(KEY_FN);
     bool upNow = M5Cardputer.Keyboard.isKeyPressed(';');
     bool dnNow = M5Cardputer.Keyboard.isKeyPressed('.');
@@ -23472,7 +24020,7 @@ int chooseScanModeMenu() {
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
       return index;
     }
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       return -1;
     }
     delay(10);
@@ -23626,7 +24174,7 @@ std::vector<uint16_t> scanCameraPorts(IPAddress ip) {
 
     M5Cardputer.update();
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+        InputCompat::isBackPressed())
       break;
     delay(6);
   }
@@ -23712,7 +24260,7 @@ void findLoginPages(IPAddress ip, const std::vector<uint16_t> &ports) {
 
       M5Cardputer.update();
       if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-          M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+          InputCompat::isBackPressed()) {
         uiAppend("Login pages: " + String(found));
         return;
       }
@@ -23898,7 +24446,7 @@ void testDefaultCreds(IPAddress ip, const std::vector<uint16_t> &ports) {
 
         M5Cardputer.update();
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-            M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            InputCompat::isBackPressed()) {
           uiAppend("Default creds: aborted");
           f.close();
           return;
@@ -24003,7 +24551,7 @@ bool fingerprintAxis(IPAddress ip, uint16_t p) {
         break;
       start = nl + 1;
       M5Cardputer.update();
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         http.end();
         return true;
       }
@@ -24045,7 +24593,7 @@ bool fingerprintCPPlus(IPAddress ip, uint16_t p) {
     }
     http.end();
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       return false;
   }
   return false;
@@ -24113,7 +24661,7 @@ bool fingerprintGeneric(IPAddress ip, uint16_t p) {
     }
     http.end();
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       return false;
   }
   return false;
@@ -24148,7 +24696,7 @@ void fingerprintCamera(IPAddress ip, const std::vector<uint16_t> &ports,
     if (done)
       break;
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       break;
   }
 }
@@ -24490,7 +25038,7 @@ bool isCamera(IPAddress ip, const std::vector<uint16_t> &ports,
     }
 
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       return false;
   }
 
@@ -24735,14 +25283,14 @@ void detectStreams(IPAddress ip, const std::vector<uint16_t> &ports) {
 
         M5Cardputer.update();
         if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-            M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+            InputCompat::isBackPressed())
           return;
       }
     }
   AFTER_RTSP_PORT_SCAN:
     M5Cardputer.update();
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+        InputCompat::isBackPressed())
       return;
   }
 
@@ -24860,7 +25408,7 @@ void detectStreams(IPAddress ip, const std::vector<uint16_t> &ports) {
       http.end();
       M5Cardputer.update();
       if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-          M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+          InputCompat::isBackPressed())
         return;
     }
   }
@@ -24996,7 +25544,7 @@ void scanCCTVCamerasLocal() {
   for (const IPAddress &ip : hosts) {
     processCCTVHost(ip);
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       break; // retour menu
   }
   waitAndReturnToMenu("CCTV scan done");
@@ -25047,7 +25595,7 @@ bool loadIPsFromSD(const char *path, std::vector<IPAddress> &out) {
     }
     ++total;
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       break;
   }
   f.close();
@@ -25087,7 +25635,7 @@ void scanCCTVCamerasFromFile() {
     processCCTVHost(ip);
 
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       break;
   }
 
@@ -25098,7 +25646,6 @@ void scanCCTVCamerasFromFile() {
 }
 
 #include <M5GFX.h>
-#include <SPIFFS.h>
 #include <stdarg.h>
 
 // chemin du fichier liste
@@ -25127,8 +25674,6 @@ static const size_t IO_CHUNK = 3840;
 static const char *SD_TMP_DIR = "/evil/tmp";
 static const char *SD_FILE_A = "/evil/tmp/mjpeg_a.jpg";
 static const char *SD_FILE_B = "/evil/tmp/mjpeg_b.jpg";
-static const char *SPIFFS_FILE_A = "/a.jpg";
-static const char *SPIFFS_FILE_B = "/b.jpg";
 
 // écran Cardputer
 static const int SCREEN_W = 240;
@@ -25339,6 +25884,7 @@ void drawTopBar(const String &left, float fps) {
 }
 
 void drawScaledJpg(fs::FS &fs, const char *filepath) {
+  (void)fs;
   // Fenêtre utile
   const int viewX = 0;
   const int viewY = TOPBAR_H;
@@ -25369,7 +25915,7 @@ void drawScaledJpg(fs::FS &fs, const char *filepath) {
 
   // --- décodage à la taille EXACTE 160x120 (pas juste "bornes") ---
   g_spr.fillScreen(TFT_BLACK);
-  g_spr.drawJpgFile(fs, filepath, 0, 0, cw, ch, 0, 0, div);
+  g_spr.drawJpgFile(filepath, 0, 0, cw, ch, 0, 0, div);
 
   // --- pivot au centre du contenu ---
   g_spr.setPivot(cw * 0.5f, ch * 0.5f);
@@ -25523,7 +26069,7 @@ bool runMenu() {
     while (true) {
       M5.update();
       M5Cardputer.update();
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+      if (InputCompat::isBackPressed())
         return false;
       if (M5Cardputer.Keyboard.isKeyPressed('`'))
         return false;
@@ -25581,7 +26127,7 @@ bool runMenu() {
     // sorties
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER))
       return true; // lancer viewer
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       return false; // retour parent
     if (M5Cardputer.Keyboard.isKeyPressed('`'))
       return false; // retour parent
@@ -25646,7 +26192,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
       // clavier pendant attente
       M5.update();
       M5Cardputer.update();
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         client.stop();
         return true;
       }
@@ -25719,7 +26265,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
             // clavier pendant attente
             M5.update();
             M5Cardputer.update();
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            if (InputCompat::isBackPressed()) {
               client.stop();
               return true;
             }
@@ -25771,7 +26317,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
           // clavier pendant attente
           M5.update();
           M5Cardputer.update();
-          if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+          if (InputCompat::isBackPressed()) {
             client.stop();
             return true;
           }
@@ -25819,7 +26365,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
       bool leftKey = M5Cardputer.Keyboard.isKeyPressed(',');
       bool rightKey = M5Cardputer.Keyboard.isKeyPressed('/');
 
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         exitToMenu = true;
         break;
       }
@@ -25993,7 +26539,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
       // BACKSPACE pendant reconnexion
       M5.update();
       M5Cardputer.update();
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+      if (InputCompat::isBackPressed() ||
           M5Cardputer.Keyboard.isKeyPressed('`')) {
         return true;
       }
@@ -26004,7 +26550,7 @@ bool mjpegViewerFS(const char *url, fs::FS &fs, const char *pathA,
         delay(20);
         M5.update();
         M5Cardputer.update();
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE) ||
+        if (InputCompat::isBackPressed() ||
             M5Cardputer.Keyboard.isKeyPressed('`')) {
           return true;
         }
@@ -26031,12 +26577,9 @@ void runCCTV_MJPEGViewer() {
   enterDebounce();
   LB::setTextSize(1);
 
-  bool spiffs_ok = false;
   bool sd_ok = true;
-  if (!sd_ok)
-    spiffs_ok = SPIFFS.begin(true);
-  if (!sd_ok && !spiffs_ok) {
-    uiText(2, 2, "No SD/SPIFFS. Aborting.", TFT_RED);
+  if (!sd_ok) {
+    uiText(2, 2, "No SD. Aborting.", TFT_RED);
     while (1)
       delay(1000);
   }
@@ -26048,9 +26591,9 @@ void runCCTV_MJPEGViewer() {
     loadFallbackStreams();
   }
 
-  fs::FS *pfs = sd_ok ? (fs::FS *)&SD : (fs::FS *)&SPIFFS;
-  const char *fileA = sd_ok ? SD_FILE_A : SPIFFS_FILE_A;
-  const char *fileB = sd_ok ? SD_FILE_B : SPIFFS_FILE_B;
+  fs::FS *pfs = (fs::FS *)&SD;
+  const char *fileA = SD_FILE_A;
+  const char *fileB = SD_FILE_B;
 
   // Boucle globale : on reste ici tant que l'utilisateur ne remonte pas au menu
   // parent
@@ -26368,7 +26911,7 @@ void scanCCTV_SpyDectection() {
     M5Cardputer.update();
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
-        M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        InputCompat::isBackPressed()) {
       spycamScanningHC = false;
       break;
     }
@@ -26981,7 +27524,7 @@ bool cleanDuplicatesUserDomain_UI(const char *filePath, CleanStats &stats) {
     // Annulation utilisateur
     M5.update();
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       Serial.println("[INFO] Cleanup aborted by user (BACKSPACE).");
       f.close();
       nf.close();
@@ -27688,7 +28231,7 @@ void fakeSSDP() {
     };
 
     while (isFakeSSDPActive &&
-           !M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+           !InputCompat::isBackPressed()) {
       handleSock(udpSSDPmc); // multicast
       handleSock(udpSSDPuc); // unicast/broadcast
 
@@ -28589,7 +29132,7 @@ void WifiDeadDrop() {
   // --------- service loop (exit on BKSP) ----------
   while (ddActive) {
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       ddActive = false; // signal all loops/callbacks to wind down
       break;
     }
@@ -28658,9 +29201,20 @@ uint16_t upnpProxyPort = 0; // port source du proxy
 
 void upnpProxyTask(void *pv) {
   uint16_t proxyPort = (uint16_t)(uintptr_t)pv;
+  (void)proxyPort;
 
-  static uint8_t bufClient[4096];
-  static uint8_t bufTarget[4096];
+  constexpr size_t proxyBufferSize = 4096;
+  uint8_t *proxyBuffer = static_cast<uint8_t *>(
+      RuntimeMemory::allocateInternal(proxyBufferSize, false,
+                                      20U * 1024U));
+  if (!proxyBuffer) {
+    Serial.println(String("[PROXY] I/O buffer unavailable; ") +
+                   RuntimeMemory::describe());
+    upnpProxyStarted = false;
+    upnpProxyTaskHandle = NULL;
+    vTaskDelete(nullptr);
+    return;
+  }
 
   for (;;) {
     if (!upnpProxyServer) {
@@ -28688,21 +29242,21 @@ void upnpProxyTask(void *pv) {
 
       int n1 = client.available();
       if (n1 > 0) {
-        if (n1 > sizeof(bufClient))
-          n1 = sizeof(bufClient);
-        int r = client.read(bufClient, n1);
+        if (n1 > proxyBufferSize)
+          n1 = proxyBufferSize;
+        int r = client.read(proxyBuffer, n1);
         if (r > 0)
-          target.write(bufClient, r);
+          target.write(proxyBuffer, r);
         lastActive = millis();
       }
 
       int n2 = target.available();
       if (n2 > 0) {
-        if (n2 > sizeof(bufTarget))
-          n2 = sizeof(bufTarget);
-        int r = target.read(bufTarget, n2);
+        if (n2 > proxyBufferSize)
+          n2 = proxyBufferSize;
+        int r = target.read(proxyBuffer, n2);
         if (r > 0)
-          client.write(bufTarget, r);
+          client.write(proxyBuffer, r);
         lastActive = millis();
       }
 
@@ -28806,7 +29360,7 @@ int menuSelectList(const std::vector<String> &items, const char *title) {
 
     if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER))
       return index;
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE))
+    if (InputCompat::isBackPressed())
       return -1;
 
     delay(30);
@@ -29156,7 +29710,7 @@ void upnpAllHostsAllPorts(const std::vector<IPAddress> &hosts) {
         cursorY = 0;
       }
 
-      if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+      if (InputCompat::isBackPressed()) {
         waitAndReturnToMenu("Stopped by user");
         return;
       }
@@ -29512,7 +30066,7 @@ void listUPnPMappings() {
 
     index++;
 
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       waitAndReturnToMenu("Stopped");
       return;
     }
@@ -29521,7 +30075,7 @@ void listUPnPMappings() {
   LB::setCursor(5, cursorY);
   LB::println("- End -");
 
-  while (!M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+  while (!InputCompat::isBackPressed()) {
     M5Cardputer.update();
     delay(10);
   }
@@ -30112,7 +30666,7 @@ void imsiCatcher() {
     }
 
     // Exit
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       break;
     }
 
@@ -30371,7 +30925,7 @@ uint8_t ow_testOpenNetwork(const String &ssid) {
   while (WiFi.status() != WL_CONNECTED &&
          (millis() - start) < OW_WIFI_TIMEOUT) {
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       Serial.println(F("[OW] Abort by user"));
       WiFi.disconnect(true);
       return OW_WIFI_NO_INTERNET;
@@ -30819,7 +31373,7 @@ void openWifiDashboardLoop() {
     unsigned long now = millis();
 
     // exit
-    if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+    if (InputCompat::isBackPressed()) {
       Serial.println(F("[OW] Exit"));
       WiFi.scanDelete();
       WiFi.disconnect(true);

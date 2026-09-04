@@ -195,8 +195,18 @@ void DirtyRegionTracker::markDirty(const Rect& rect) {
             m_dirtyRects[m_dirtyRectCount].set(clipped);
             m_dirtyRectCount++;
         } else {
-            // List is full - merge all into first rect
+            // List is full - merge all into first rect and include the new
+            // region. The old implementation omitted this rect from the
+            // transfer list even though its tile bits were marked dirty.
             optimizeRects();
+            Rect& existing = m_dirtyRects[0].rect;
+            const int16_t x1 = std::min(existing.x, clipped.x);
+            const int16_t y1 = std::min(existing.y, clipped.y);
+            const int16_t x2 = std::max(existing.right(), clipped.right());
+            const int16_t y2 = std::max(existing.bottom(), clipped.bottom());
+            existing = Rect::make(x1, y1,
+                                  static_cast<uint16_t>(x2 - x1),
+                                  static_cast<uint16_t>(y2 - y1));
         }
     }
 }

@@ -1,10 +1,11 @@
 /*
- * file_editor.h - Enhanced File Manager and Text Editor
+ * file_editor.h - Enhanced File Manager and text/JSON editor
  *
  * Features:
  * - Browse SD card directories
- * - View/edit .txt files with scrolling
- * - Create files and folders
+ * - View/edit .txt and .json files with scrolling
+ * - Validate and pretty-format JSON
+ * - Create text/JSON files and folders
  * - Delete files/folders
  * - Cursor-based text editing
  */
@@ -23,6 +24,10 @@ extern void waitAndReturnToMenu(String message);
 extern bool confirmPopup(String message);
 extern String getUserInput(bool isPassword);
 extern bool inMenu;
+
+// Implemented by the main firmware. Known system JSON files are reloaded
+// after an atomic save. Returning false makes the editor restore the backup.
+extern bool fileEditorApplySystemConfig(const char* path, String& error);
 
 // ============================================================================
 // Constants
@@ -43,11 +48,11 @@ extern bool inMenu;
 // Main entry point - enhanced file manager
 void fileEditorMain();
 
-// Text editor for a specific file
+// Text/JSON editor for a specific file
 // Returns true if file was modified and saved
 bool textEditorOpen(const char* path);
 
-// Create new text file
+// Create a new .txt or .json file. Names without an extension become .txt.
 bool createNewFile(const char* dirPath);
 
 // Create new folder

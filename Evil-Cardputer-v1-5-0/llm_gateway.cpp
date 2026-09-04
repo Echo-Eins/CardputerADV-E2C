@@ -11,6 +11,7 @@
  */
 
 #include "llm_gateway.h"
+#include "input_compat.h"
 #include <M5Cardputer.h>
 #include "gui/gui.h"
 
@@ -657,7 +658,7 @@ static int llmGWSelectModel() {
             M5.update();
             M5Cardputer.update();
 
-            if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+            if (InputCompat::isBackPressed()) {
                 delay(200);
                 return -1;  // Cancel
             }
@@ -769,7 +770,7 @@ static void llmGWChatLoop() {
         M5.update();
         M5Cardputer.update();
 
-        if (M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE)) {
+        if (InputCompat::isBackPressed()) {
             delay(200);
             break;
         }

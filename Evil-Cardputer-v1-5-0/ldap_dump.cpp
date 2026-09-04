@@ -9,6 +9,8 @@
  */
 
 #include "ldap_dump.h"
+#include "runtime_memory.h"
+#include "input_compat.h"
 #include <M5Cardputer.h>
 #include "gui/gui.h"
 
@@ -49,7 +51,7 @@ String ldapUsername = "";
 String ldapPassword = "";
 
 static const int LDAP_BUF_SIZE = 8192;
-static uint8_t ldapRespBuf[LDAP_BUF_SIZE];
+static uint8_t* ldapRespBuf = nullptr;
 
 // ============================================================================
 // UI Functions
@@ -186,7 +188,7 @@ void ldapUiShowViewer()
 
     bool up   = M5Cardputer.Keyboard.isKeyPressed(';');
     bool down = M5Cardputer.Keyboard.isKeyPressed('.');
-    bool esc  = M5Cardputer.Keyboard.isKeyPressed(KEY_BACKSPACE);
+    bool esc  = InputCompat::isBackPressed();
 
     bool needRedraw = false;
 
@@ -1229,7 +1231,7 @@ void ldapSearchPagedLoop(const IPAddress &dcIP,
         cli.write(pkt, pktLen);
 
         int respLen = 0;
-        memset(ldapRespBuf, 0, sizeof(ldapRespBuf));
+        memset(ldapRespBuf, 0, LDAP_BUF_SIZE);
 
         uint32_t t0 = millis();
         while (millis() - t0 < 2000) {
@@ -1582,6 +1584,21 @@ void runLDAPDomainDump() {
         waitAndReturnToMenu("LDAP Bind failed");
         return;
     }
+
+    ldapRespBuf = static_cast<uint8_t*>(RuntimeMemory::allocateInternal(
+        LDAP_BUF_SIZE, true, 16U * 1024U));
+    if (!ldapRespBuf) {
+        Serial.println(String("[LDAP] Response buffer unavailable; ") +
+                       RuntimeMemory::describe());
+        waitAndReturnToMenu("LDAP memory unavailable");
+        return;
+    }
+    struct LdapResponseBufferGuard {
+        ~LdapResponseBufferGuard() {
+            RuntimeMemory::release(ldapRespBuf);
+            ldapRespBuf = nullptr;
+        }
+    } ldapResponseBufferGuard;
 
     SD.mkdir("/evil/LDAP");
     String folder = "/evil/LDAP/" + ldapDomainNetbios;

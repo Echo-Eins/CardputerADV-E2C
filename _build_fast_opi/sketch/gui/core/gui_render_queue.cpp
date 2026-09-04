@@ -266,13 +266,6 @@ bool RenderQueue::pop(RenderOp& op, uint32_t timeoutMs) {
     // Update tail with release semantics
     m_tail.store(nextTail, std::memory_order_release);
 
-    // Check if this was a sync command
-    if (op.type == RenderOpType::Sync && m_syncPending.load(std::memory_order_acquire)) {
-        // Signal sync completion
-        m_syncPending.store(false, std::memory_order_release);
-        xSemaphoreGive(m_syncComplete);
-    }
-
     return true;
 }
 
@@ -410,9 +403,12 @@ bool RenderQueue::sync(uint32_t timeoutMs) {
 }
 
 void RenderQueue::signalProcessed() {
-    // This method can be called by renderer after processing each command
-    // Currently used for sync operation detection in pop()
-    // Reserved for future use (e.g., back-pressure signaling)
+    // A Sync barrier completes only after the renderer has executed the Sync
+    // command and flushed/waited for the display, never when it is merely
+    // removed from the queue.
+    if (m_syncPending.exchange(false, std::memory_order_acq_rel)) {
+        xSemaphoreGive(m_syncComplete);
+    }
 }
 
 } // namespace GUI

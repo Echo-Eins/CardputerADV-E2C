@@ -16,6 +16,7 @@ bool I2CManager::_busActive = false;
 int I2CManager::_sdaPin = I2C_MGR_DEFAULT_SDA;
 int I2CManager::_sclPin = I2C_MGR_DEFAULT_SCL;
 uint32_t I2CManager::_freq = I2C_MGR_DEFAULT_FREQ;
+SemaphoreHandle_t I2CManager::_busMutex = nullptr;
 
 I2CDeviceInfo I2CManager::_devices[32];
 uint8_t I2CManager::_deviceCount = 0;
@@ -34,6 +35,8 @@ const char* i2cDeviceTypeName(I2CDeviceType type) {
         case I2CDeviceType::ExtDisplay: return "Display";
         case I2CDeviceType::IMU:        return "IMU";
         case I2CDeviceType::Power:      return "Power";
+        case I2CDeviceType::DLight:     return "DLight";
+        case I2CDeviceType::SCD4x:      return "SCD4x";
         case I2CDeviceType::Other:      return "Other";
         default:                        return "Unknown";
     }
@@ -64,6 +67,14 @@ String I2CDeviceInfo::toString() const {
 
 bool I2CManager::init(int sdaPin, int sclPin, uint32_t freq) {
     if (_initialized) return true;
+
+    if (_busMutex == nullptr) {
+        _busMutex = xSemaphoreCreateRecursiveMutex();
+        if (_busMutex == nullptr) {
+            Serial.println(F("[I2C] Failed to allocate bus mutex"));
+            return false;
+        }
+    }
 
     _sdaPin = sdaPin;
     _sclPin = sclPin;
@@ -135,6 +146,8 @@ void I2CManager::toggleEnabled() {
 // ============================================================================
 
 bool I2CManager::begin() {
+    I2CBusGuard guard;
+    if (!guard.locked()) return false;
     if (_busActive) return true;
     if (!Wire.begin(_sdaPin, _sclPin, _freq)) {
         Serial.println(F("[I2C] Wire.begin failed"));
@@ -145,9 +158,25 @@ bool I2CManager::begin() {
 }
 
 void I2CManager::end() {
+    I2CBusGuard guard;
+    if (!guard.locked()) return;
     if (!_busActive) return;
     Wire.end();
     _busActive = false;
+}
+
+bool I2CManager::lockBus(uint32_t timeoutMs) {
+    if (_busMutex == nullptr) {
+        _busMutex = xSemaphoreCreateRecursiveMutex();
+        if (_busMutex == nullptr) return false;
+    }
+    const TickType_t ticks = (timeoutMs == UINT32_MAX)
+        ? portMAX_DELAY : pdMS_TO_TICKS(timeoutMs);
+    return xSemaphoreTakeRecursive(_busMutex, ticks) == pdTRUE;
+}
+
+void I2CManager::unlockBus() {
+    if (_busMutex != nullptr) xSemaphoreGiveRecursive(_busMutex);
 }
 
 // ============================================================================
@@ -159,49 +188,46 @@ bool I2CManager::isPaHubAddress(uint8_t addr) {
 }
 
 bool I2CManager::selectPaHubChannel(uint8_t hubAddr, uint8_t channel) {
-    if (!_busActive || !isPaHubAddress(hubAddr)) return false;
     if (channel >= PAHUB_MAX_CHANNELS) return false;
-
-    Wire.beginTransmission(hubAddr);
-    Wire.write(1 << channel);
-    uint8_t err = Wire.endTransmission();
-
-    if (err == 0) {
-        // Update PaHub state
-        for (uint8_t i = 0; i < _paHubCount; i++) {
-            if (_paHubs[i].address == hubAddr) {
-                _paHubs[i].activeChannelMask = (1 << channel);
-                break;
-            }
-        }
-        return true;
-    }
-
-    Serial.printf("[I2C] PaHub 0x%02X channel %d select failed: %d\n",
-                  hubAddr, channel, err);
-    return false;
+    return setPaHubChannelMask(hubAddr, static_cast<uint8_t>(1U << channel));
 }
 
 bool I2CManager::deselectAllPaHubChannels(uint8_t hubAddr) {
-    if (!_busActive || !isPaHubAddress(hubAddr)) return false;
+    return setPaHubChannelMask(hubAddr, 0);
+}
 
+bool I2CManager::readPaHubChannelMask(uint8_t hubAddr, uint8_t& mask) {
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive || !isPaHubAddress(hubAddr)) return false;
+    if (Wire.requestFrom(hubAddr, static_cast<uint8_t>(1)) != 1) return false;
+    mask = static_cast<uint8_t>(Wire.read()) & 0x3F;
+    return true;
+}
+
+bool I2CManager::setPaHubChannelMask(uint8_t hubAddr, uint8_t mask) {
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive || !isPaHubAddress(hubAddr)) return false;
+    mask &= 0x3F;
     Wire.beginTransmission(hubAddr);
-    Wire.write(0x00);  // All channels off
+    Wire.write(mask);
     uint8_t err = Wire.endTransmission();
-
     if (err == 0) {
         for (uint8_t i = 0; i < _paHubCount; i++) {
             if (_paHubs[i].address == hubAddr) {
-                _paHubs[i].activeChannelMask = 0;
+                _paHubs[i].activeChannelMask = mask;
                 break;
             }
         }
         return true;
     }
+    Serial.printf("[I2C] PaHub 0x%02X mask 0x%02X failed: %d\n",
+                  hubAddr, mask, err);
     return false;
 }
 
 uint8_t I2CManager::getActivePaHubChannel(uint8_t hubAddr) {
+    I2CBusGuard guard;
+    if (!guard.locked()) return 0xFF;
     for (uint8_t i = 0; i < _paHubCount; i++) {
         if (_paHubs[i].address == hubAddr) {
             uint8_t mask = _paHubs[i].activeChannelMask;
@@ -219,7 +245,8 @@ uint8_t I2CManager::getActivePaHubChannel(uint8_t hubAddr) {
 // ============================================================================
 
 bool I2CManager::probeAddress(uint8_t address) {
-    if (!_busActive) return false;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive) return false;
     Wire.beginTransmission(address);
     return (Wire.endTransmission() == 0);
 }
@@ -253,6 +280,14 @@ I2CDeviceType I2CManager::identifyDevice(uint8_t address) {
         return I2CDeviceType::Power;
     }
 
+    if (address == 0x23) {
+        return I2CDeviceType::DLight;
+    }
+
+    if (address == 0x62) {
+        return I2CDeviceType::SCD4x;
+    }
+
     return I2CDeviceType::Unknown;
 }
 
@@ -265,7 +300,8 @@ uint8_t I2CManager::readFirmwareVersion(uint8_t address) {
 // ============================================================================
 
 uint8_t I2CManager::scanBus(I2CDeviceInfo* results, uint8_t maxResults) {
-    if (!_busActive || !results) return 0;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive || !results) return 0;
 
     uint8_t count = 0;
     for (uint8_t addr = I2C_SCAN_MIN_ADDR; addr <= I2C_SCAN_MAX_ADDR && count < maxResults; addr++) {
@@ -290,9 +326,12 @@ uint8_t I2CManager::scanBus(I2CDeviceInfo* results, uint8_t maxResults) {
 
 uint8_t I2CManager::scanPaHubChannels(uint8_t hubAddr, I2CDeviceInfo* results,
                                        uint8_t maxResults) {
-    if (!_busActive || !results) return 0;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive || !results) return 0;
 
     uint8_t count = 0;
+    uint8_t previousMask = 0;
+    const bool havePreviousMask = readPaHubChannelMask(hubAddr, previousMask);
 
     for (uint8_t ch = 0; ch < PAHUB_MAX_CHANNELS && count < maxResults; ch++) {
         if (!selectPaHubChannel(hubAddr, ch)) continue;
@@ -321,14 +360,15 @@ uint8_t I2CManager::scanPaHubChannels(uint8_t hubAddr, I2CDeviceInfo* results,
         }
     }
 
-    // Restore: deselect all channels
-    deselectAllPaHubChannels(hubAddr);
+    // Restore the caller's exact route instead of globally disconnecting it.
+    setPaHubChannelMask(hubAddr, havePreviousMask ? previousMask : 0);
 
     return count;
 }
 
 uint8_t I2CManager::fullScan(I2CDeviceInfo* results, uint8_t maxResults) {
-    if (!_busActive || !results) return 0;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive || !results) return 0;
 
     _paHubCount = 0;
     _deviceCount = 0;
@@ -420,7 +460,8 @@ String I2CManager::getDeviceListFormatted() {
 // ============================================================================
 
 bool I2CManager::writeByteToDevice(uint8_t addr, uint8_t reg, uint8_t value) {
-    if (!_busActive) return false;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive) return false;
     Wire.beginTransmission(addr);
     Wire.write(reg);
     Wire.write(value);
@@ -428,7 +469,8 @@ bool I2CManager::writeByteToDevice(uint8_t addr, uint8_t reg, uint8_t value) {
 }
 
 uint8_t I2CManager::readByteFromDevice(uint8_t addr, uint8_t reg) {
-    if (!_busActive) return 0;
+    I2CBusGuard guard;
+    if (!guard.locked() || !_busActive) return 0;
 
     Wire.beginTransmission(addr);
     Wire.write(reg);
@@ -449,4 +491,34 @@ void I2CManager::loadConfig() {
 
 void I2CManager::saveConfig() {
     ConfigManager::saveBool("i2c_enabled", _enabled);
+}
+
+I2CPaHubRouteGuard::I2CPaHubRouteGuard(uint8_t hubAddr, uint8_t channel,
+                                       uint32_t timeoutMs)
+    : _hubAddr(hubAddr), _previousMask(0), _locked(false), _routed(false),
+      _ready(false) {
+    _locked = I2CManager::lockBus(timeoutMs);
+    if (!_locked) return;
+
+    if (hubAddr == 0 || channel == 0xFF) {
+        _ready = true;
+        return;
+    }
+
+    if (channel >= PAHUB_MAX_CHANNELS ||
+        !I2CManager::readPaHubChannelMask(hubAddr, _previousMask) ||
+        !I2CManager::setPaHubChannelMask(
+            hubAddr, static_cast<uint8_t>(1U << channel))) {
+        I2CManager::unlockBus();
+        _locked = false;
+        return;
+    }
+    _routed = true;
+    _ready = true;
+}
+
+I2CPaHubRouteGuard::~I2CPaHubRouteGuard() {
+    if (!_locked) return;
+    if (_routed) I2CManager::setPaHubChannelMask(_hubAddr, _previousMask);
+    I2CManager::unlockBus();
 }

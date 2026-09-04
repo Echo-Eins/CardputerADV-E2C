@@ -359,20 +359,49 @@ void HardwareAudio::setEnabled(bool enabled) {
 int HardwarePower::getBatteryLevel() {
     // Use M5Unified power API only (ADC oneshot path) to avoid
     // ESP-IDF v5 conflict with deprecated ADC legacy driver.
+    static int cachedLevel = -1;
+    static uint32_t cachedAt = 0;
     int percent = M5.Power.getBatteryLevel();
-    if (percent >= 0 && percent <= 100) {
+    if (percent > 0 && percent <= 100) {
+        cachedLevel = percent;
+        cachedAt = millis();
         return percent;
     }
 
-    // Fallback: estimate from battery voltage if percentage is unavailable.
-    const int mv = M5.Power.getBatteryVoltage();
-    if (mv > 0) {
-        percent = static_cast<int>((mv - 3350) * 100.0f / (4150.0f - 3350.0f));
+    // M5Unified derives the percentage from the same ADC used by
+    // getBatteryVoltage(). A single transient ADC read can therefore return
+    // 0% even though the following voltage reads are valid. Sample the
+    // voltage independently and use the median before accepting zero.
+    int samples[5];
+    size_t sampleCount = 0;
+    for (size_t i = 0; i < 5; ++i) {
+        const int mv = M5.Power.getBatteryVoltage();
+        if (mv >= 2500 && mv <= 5000) samples[sampleCount++] = mv;
+        if (i != 4) delayMicroseconds(200);
+    }
+    for (size_t i = 1; i < sampleCount; ++i) {
+        const int value = samples[i];
+        size_t position = i;
+        while (position && samples[position - 1] > value) {
+            samples[position] = samples[position - 1];
+            --position;
+        }
+        samples[position] = value;
+    }
+
+    if (sampleCount) {
+        const int mv = samples[sampleCount / 2];
+        percent = static_cast<int>((mv - 3300) * 100.0f /
+                                   (4150.0f - 3350.0f));
         if (percent < 0) percent = 0;
         if (percent > 100) percent = 100;
+        cachedLevel = percent;
+        cachedAt = millis();
         return percent;
     }
 
+    // Do not replace a brief ADC failure with a false 0% indication.
+    if (cachedLevel >= 0 && millis() - cachedAt < 30000U) return cachedLevel;
     return -1;
 }
 
